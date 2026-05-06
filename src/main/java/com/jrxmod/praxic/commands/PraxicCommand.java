@@ -26,6 +26,14 @@ public class PraxicCommand {
                             .executes(ctx -> {
                                 CommandSourceStack source = ctx.getSource();
                                 PraxicConfig cfg = Praxic.getConfig();
+
+                                // Log clean version to console
+                                Praxic.LOGGER.info("[PRAXIC] Status: FlyCheck={} SpeedCheck={} Logging={}",
+                                        cfg.flyCheckEnabled ? "ON" : "OFF",
+                                        cfg.speedCheckEnabled ? "ON" : "OFF",
+                                        cfg.enableLogging ? "ON" : "OFF");
+
+                                // Colored version for in-game
                                 source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fStatus:"), false);
                                 source.sendSuccess(() -> Component.literal("§7FlyCheck: " + (cfg.flyCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
                                 source.sendSuccess(() -> Component.literal("§7SpeedCheck: " + (cfg.speedCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
@@ -43,7 +51,7 @@ public class PraxicCommand {
                                                 .getPlayerList().getPlayerByName(name);
 
                                         if (target == null) {
-                                            source.sendFailure(Component.literal("§c[PRAXIC] Player not found: " + name));
+                                            source.sendFailure(Component.literal("[PRAXIC] Player not found: " + name));
                                             return 0;
                                         }
 
@@ -51,9 +59,11 @@ public class PraxicCommand {
                                                 .getPlayerData(target.getUUID());
 
                                         if (data == null) {
-                                            source.sendFailure(Component.literal("§c[PRAXIC] No data for: " + name));
+                                            source.sendFailure(Component.literal("[PRAXIC] No data for: " + name));
                                             return 0;
                                         }
+
+                                        Praxic.LOGGER.info("[PRAXIC] Violations for {}: {}", name, data.violations);
 
                                         source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fViolations for §e" + name + "§f:"), false);
                                         if (data.violations.isEmpty()) {
@@ -77,6 +87,7 @@ public class PraxicCommand {
                                     if (!pData.violations.isEmpty()) {
                                         ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
                                         String playerName = p != null ? p.getName().getString() : uuid.toString();
+                                        Praxic.LOGGER.info("[PRAXIC] {} -> {}", playerName, pData.violations);
                                         source.sendSuccess(() -> Component.literal("§e" + playerName + "§7: " + pData.violations), false);
                                         any[0] = true;
                                     }

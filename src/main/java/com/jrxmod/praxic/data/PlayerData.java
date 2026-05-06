@@ -5,18 +5,20 @@ import java.util.Map;
 
 public class PlayerData {
 
-    // Позиция на прошлом тике
     public double prevX;
     public double prevY;
     public double prevZ;
 
-    // Сколько тиков игрок в воздухе без причины
+    // Timestamp of last position update (ms)
+    public long lastPositionUpdate = System.currentTimeMillis();
+
+    // FlyCheck air tick counter
     public int airTicks = 0;
 
-    // Количество нарушений по каждому чеку
-    public Map<String, Integer> violations = new HashMap<>();
+    // SpeedCheck consecutive exceed counter
+    public int speedConsecutive = 0;
 
-    // Время последнего предупреждения по чеку (в мс), чтобы не спамить
+    public Map<String, Integer> violations = new HashMap<>();
     public Map<String, Long> lastFlagTime = new HashMap<>();
 
     public PlayerData(double x, double y, double z) {
@@ -47,5 +49,6 @@ public class PlayerData {
         this.prevX = x;
         this.prevY = y;
         this.prevZ = z;
+        this.lastPositionUpdate = System.currentTimeMillis();
     }
 }

@@ -12,20 +12,21 @@ public class PraxicConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = Paths.get("config", "praxic.json");
 
-    // --- FlyCheck ---
+    // FlyCheck settings
     public boolean flyCheckEnabled = true;
-    public int flyMaxAirTicks = 80;        // Сколько тиков в воздухе до флага (80 = ~4 секунды)
-    public int flyMaxViolations = 5;       // Нарушений до действия
-    public String flyAction = "kick";      // warn | kick
+    public int flyMaxAirTicks = 80;
+    public int flyMaxViolations = 5;
+    public String flyAction = "kick";
 
-    // --- SpeedCheck ---
+    // SpeedCheck settings
     public boolean speedCheckEnabled = true;
-    public double speedMaxBlocksPerTick = 0.7; // Максимум блоков в тик (норма ~0.29 спринт)
+    // Vanilla sprint jump peaks at ~0.85 blocks/tick, threshold set above that
+    public double speedMaxBlocksPerTick = 1.1;
     public int speedMaxViolations = 8;
-    public String speedAction = "warn";    // warn | kick
+    public String speedAction = "warn";
 
-    // --- Общее ---
-    public boolean enableLogging = true;   // Логировать нарушения в консоль
+    // General settings
+    public boolean enableLogging = true;
 
     public static PraxicConfig load() {
         try {
