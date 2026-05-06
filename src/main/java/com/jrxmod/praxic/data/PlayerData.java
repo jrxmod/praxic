@@ -30,6 +30,15 @@ public class PlayerData {
     // Fall distance pending verification
     public double pendingFallDistance = 0;
 
+    // Timestamp of last attack for KillAuraCheck
+    public long lastAttackTime = 0;
+
+    // Counter for rapid attacks within time window
+    public int rapidAttackCount = 0;
+
+    // Timestamp of rapid attack window start
+    public long rapidAttackWindowStart = 0;
+
     public Map<String, Integer> violations = new HashMap<>();
     public Map<String, Long> lastFlagTime = new HashMap<>();
 

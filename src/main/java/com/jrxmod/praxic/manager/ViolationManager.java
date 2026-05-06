@@ -52,6 +52,7 @@ public class ViolationManager {
             case "SpeedCheck" -> Praxic.getConfig().speedAction;
             case "NoFallCheck" -> Praxic.getConfig().noFallAction;
             case "ReachCheck" -> Praxic.getConfig().reachAction;
+            case "KillAuraCheck" -> Praxic.getConfig().killAuraAction;
             default -> "warn";
         };
     }
@@ -62,6 +63,7 @@ public class ViolationManager {
             case "SpeedCheck" -> Praxic.getConfig().speedMaxViolations;
             case "NoFallCheck" -> Praxic.getConfig().noFallMaxViolations;
             case "ReachCheck" -> Praxic.getConfig().reachMaxViolations;
+            case "KillAuraCheck" -> Praxic.getConfig().killAuraMaxViolations;
             default -> 10;
         };
     }

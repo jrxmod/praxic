@@ -2,6 +2,7 @@ package com.jrxmod.praxic.manager;
 
 import com.jrxmod.praxic.checks.AbstractCheck;
 import com.jrxmod.praxic.checks.FlyCheck;
+import com.jrxmod.praxic.checks.KillAuraCheck;
 import com.jrxmod.praxic.checks.NoFallCheck;
 import com.jrxmod.praxic.checks.ReachCheck;
 import com.jrxmod.praxic.checks.SpeedCheck;
@@ -18,11 +19,11 @@ public class CheckManager {
     private final Map<UUID, PlayerData> playerDataMap = new HashMap<>();
 
     public CheckManager() {
-        // Register all checks
         checks.add(new FlyCheck());
         checks.add(new SpeedCheck());
         checks.add(new NoFallCheck());
         checks.add(new ReachCheck());
+        checks.add(new KillAuraCheck());
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             // Copy list to avoid ConcurrentModificationException if player is kicked during iteration

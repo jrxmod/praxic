@@ -1,6 +1,7 @@
 package com.jrxmod.praxic.mixin;
 
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.checks.KillAuraCheck;
 import com.jrxmod.praxic.checks.ReachCheck;
 import com.jrxmod.praxic.data.PlayerData;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
@@ -26,11 +27,9 @@ public class ServerGamePacketListenerMixin {
     @Inject(method = "handleInteract", at = @At("HEAD"))
     private void onHandleInteract(ServerboundInteractPacket packet, CallbackInfo ci) {
 
-        // Resolve target entity from packet
         Entity target = packet.getTarget(player.serverLevel());
         if (target == null) return;
 
-        // Use visitor pattern to detect attack action
         AtomicBoolean isAttack = new AtomicBoolean(false);
         packet.dispatch(new ServerboundInteractPacket.Handler() {
             @Override
@@ -50,11 +49,20 @@ public class ServerGamePacketListenerMixin {
         PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
         if (data == null) return;
 
-        // Find ReachCheck instance and trigger attack check
-        Praxic.getCheckManager().getChecks().stream()
-                .filter(c -> c instanceof ReachCheck)
-                .map(c -> (ReachCheck) c)
-                .findFirst()
-                .ifPresent(check -> check.checkAttack(player, target, data));
+        // Schedule checks on the server thread to avoid duplicate execution
+        // and thread-safety issues from Netty IO thread
+        player.getServer().execute(() -> {
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof ReachCheck)
+                    .map(c -> (ReachCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.checkAttack(player, target, data));
+
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof KillAuraCheck)
+                    .map(c -> (KillAuraCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.checkAttack(player, target, data));
+        });
     }
 }

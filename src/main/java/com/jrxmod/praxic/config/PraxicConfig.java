@@ -20,7 +20,6 @@ public class PraxicConfig {
 
     // SpeedCheck settings
     public boolean speedCheckEnabled = true;
-    // Vanilla sprint jump peaks at ~0.85 blocks/tick, threshold set above that
     public double speedMaxBlocksPerTick = 1.1;
     public int speedMaxViolations = 8;
     public String speedAction = "warn";
@@ -34,6 +33,11 @@ public class PraxicConfig {
     public boolean reachCheckEnabled = true;
     public int reachMaxViolations = 5;
     public String reachAction = "kick";
+
+    // KillAuraCheck settings
+    public boolean killAuraCheckEnabled = true;
+    public int killAuraMaxViolations = 5;
+    public String killAuraAction = "kick";
 
     // General settings
     public boolean enableLogging = true;
