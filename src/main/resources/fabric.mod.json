@@ -11,7 +11,7 @@
     "homepage": "https://modrinth.com/user/jrxmod",
     "sources": "https://github.com/jrxmod/praxic"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "icon": "assets/praxic/icon.png",
   "environment": "server",
   "entrypoints": {
