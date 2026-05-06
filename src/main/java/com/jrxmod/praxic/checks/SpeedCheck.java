@@ -10,10 +10,10 @@ import net.minecraft.world.level.GameType;
 public class SpeedCheck extends AbstractCheck {
 
     // Skip check if tick took longer than this (server lag protection)
-    private static final long MAX_TICK_DELTA_MS = 150;
+    private static final long MAX_TICK_DELTA_MS = 100;
 
-    // Skip check if distance is impossibly large — likely a teleport
-    private static final double TELEPORT_THRESHOLD = 8.0;
+    // Skip if distance suggests teleport or severe lag
+    private static final double TELEPORT_THRESHOLD = 6.0;
 
     @Override
     public String getName() {
@@ -32,6 +32,9 @@ public class SpeedCheck extends AbstractCheck {
         if (player.isInWater() || player.isInLava()) return;
         if (player.isFallFlying()) return;
 
+        // Skip if player was recently hit — knockback causes false positives
+        if (player.hurtTime > 0) return;
+
         // Skip on server lag
         long now = System.currentTimeMillis();
         long delta = now - data.lastPositionUpdate;
@@ -41,15 +44,16 @@ public class SpeedCheck extends AbstractCheck {
         double dz = player.getZ() - data.prevZ;
         double distancePerTick = Math.sqrt(dx * dx + dz * dz);
 
-        // Skip teleports — not a cheat, just a position reset
+        // Skip teleports and severe lag jumps
         if (distancePerTick > TELEPORT_THRESHOLD) return;
 
+        // Base threshold from config
         double maxSpeed = Praxic.getConfig().speedMaxBlocksPerTick;
 
-        // Adjust threshold for speed effect
+        // Scale threshold with speed effect
         if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
             int amplifier = player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
-            maxSpeed += (amplifier + 1) * 0.2;
+            maxSpeed *= (1.0 + 0.2 * (amplifier + 1));
         }
 
         if (distancePerTick > maxSpeed && data.canFlag(getName(), 2000)) {

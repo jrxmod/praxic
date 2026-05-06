@@ -18,9 +18,10 @@ public class PraxicConfig {
     public int flyMaxViolations = 5;
     public String flyAction = "kick";
 
-    // SpeedCheck settings
+    // SpeedCheck settings — real speed hacks give 2.0+ blocks/tick
+    // Threshold 1.3 safely covers vanilla sprint jump peak with buffer
     public boolean speedCheckEnabled = true;
-    public double speedMaxBlocksPerTick = 1.1;
+    public double speedMaxBlocksPerTick = 1.3;
     public int speedMaxViolations = 8;
     public String speedAction = "warn";
 

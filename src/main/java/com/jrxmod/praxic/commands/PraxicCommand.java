@@ -16,6 +16,13 @@ import java.util.UUID;
 
 public class PraxicCommand {
 
+    // Reusable UI elements
+    private static final String LINE = "§8§m──────────────────────────§r";
+    private static final String HEADER = "§8§m────§r §6§lPRAXIC§r §8§m────§r";
+    private static final String ENABLED = "§a✔ Enabled";
+    private static final String DISABLED = "§c✘ Disabled";
+    private static final String BULLET = " §8» §r";
+
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
 
@@ -36,13 +43,14 @@ public class PraxicCommand {
                                         cfg.killAuraCheckEnabled ? "ON" : "OFF",
                                         cfg.enableLogging ? "ON" : "OFF");
 
-                                source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fStatus:"), false);
-                                source.sendSuccess(() -> Component.literal("§7FlyCheck: " + (cfg.flyCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
-                                source.sendSuccess(() -> Component.literal("§7SpeedCheck: " + (cfg.speedCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
-                                source.sendSuccess(() -> Component.literal("§7NoFallCheck: " + (cfg.noFallCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
-                                source.sendSuccess(() -> Component.literal("§7ReachCheck: " + (cfg.reachCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
-                                source.sendSuccess(() -> Component.literal("§7KillAuraCheck: " + (cfg.killAuraCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
-                                source.sendSuccess(() -> Component.literal("§7Logging: " + (cfg.enableLogging ? "§aEnabled" : "§cDisabled")), false);
+                                source.sendSuccess(() -> Component.literal(HEADER), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7FlyCheck        " + (cfg.flyCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7SpeedCheck      " + (cfg.speedCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7NoFallCheck     " + (cfg.noFallCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7ReachCheck      " + (cfg.reachCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7KillAuraCheck   " + (cfg.killAuraCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7Logging         " + (cfg.enableLogging ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(LINE), false);
                                 return 1;
                             }))
 
@@ -56,7 +64,7 @@ public class PraxicCommand {
                                                 .getPlayerList().getPlayerByName(name);
 
                                         if (target == null) {
-                                            source.sendFailure(Component.literal("[PRAXIC] Player not found: " + name));
+                                            source.sendFailure(Component.literal("§c[PRAXIC] §fPlayer not found: §e" + name));
                                             return 0;
                                         }
 
@@ -64,19 +72,26 @@ public class PraxicCommand {
                                                 .getPlayerData(target.getUUID());
 
                                         if (data == null) {
-                                            source.sendFailure(Component.literal("[PRAXIC] No data for: " + name));
+                                            source.sendFailure(Component.literal("§c[PRAXIC] §fNo data for: §e" + name));
                                             return 0;
                                         }
 
                                         Praxic.LOGGER.info("[PRAXIC] Violations for {}: {}", name, data.violations);
 
-                                        source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fViolations for §e" + name + "§f:"), false);
+                                        source.sendSuccess(() -> Component.literal(HEADER), false);
+                                        source.sendSuccess(() -> Component.literal(" §7Violations for §e§l" + name + "§r§7:"), false);
+                                        source.sendSuccess(() -> Component.literal(LINE), false);
+
                                         if (data.violations.isEmpty()) {
-                                            source.sendSuccess(() -> Component.literal("§7  No violations recorded."), false);
+                                            source.sendSuccess(() -> Component.literal(BULLET + "§aNo violations recorded."), false);
                                         } else {
-                                            data.violations.forEach((check, count) ->
-                                                    source.sendSuccess(() -> Component.literal("§7  " + check + ": §c" + count), false));
+                                            data.violations.forEach((check, count) -> {
+                                                String color = count >= 5 ? "§c" : count >= 3 ? "§e" : "§a";
+                                                source.sendSuccess(() -> Component.literal(
+                                                        BULLET + "§7" + check + " §8— " + color + count + " VL"), false);
+                                            });
                                         }
+                                        source.sendSuccess(() -> Component.literal(LINE), false);
                                         return 1;
                                     })))
 
@@ -86,18 +101,26 @@ public class PraxicCommand {
                                 CommandSourceStack source = ctx.getSource();
                                 Map<UUID, PlayerData> allData = Praxic.getCheckManager().getAllData();
 
-                                source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fAll violations:"), false);
+                                source.sendSuccess(() -> Component.literal(HEADER), false);
+                                source.sendSuccess(() -> Component.literal(" §7All player violations:"), false);
+                                source.sendSuccess(() -> Component.literal(LINE), false);
+
                                 boolean[] any = {false};
                                 allData.forEach((uuid, pData) -> {
                                     if (!pData.violations.isEmpty()) {
                                         ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
                                         String playerName = p != null ? p.getName().getString() : uuid.toString();
                                         Praxic.LOGGER.info("[PRAXIC] {} -> {}", playerName, pData.violations);
-                                        source.sendSuccess(() -> Component.literal("§e" + playerName + "§7: " + pData.violations), false);
+                                        source.sendSuccess(() -> Component.literal(
+                                                BULLET + "§e" + playerName + " §8— §7" + pData.violations), false);
                                         any[0] = true;
                                     }
                                 });
-                                if (!any[0]) source.sendSuccess(() -> Component.literal("§7  No violations recorded."), false);
+
+                                if (!any[0]) {
+                                    source.sendSuccess(() -> Component.literal(BULLET + "§aNo violations recorded."), false);
+                                }
+                                source.sendSuccess(() -> Component.literal(LINE), false);
                                 return 1;
                             }))
 
@@ -111,7 +134,7 @@ public class PraxicCommand {
                                                 .getPlayerList().getPlayerByName(name);
 
                                         if (target == null) {
-                                            source.sendFailure(Component.literal("[PRAXIC] Player not found: " + name));
+                                            source.sendFailure(Component.literal("§c[PRAXIC] §fPlayer not found: §e" + name));
                                             return 0;
                                         }
 
@@ -119,14 +142,15 @@ public class PraxicCommand {
                                                 .getPlayerData(target.getUUID());
 
                                         if (data == null) {
-                                            source.sendFailure(Component.literal("[PRAXIC] No data for: " + name));
+                                            source.sendFailure(Component.literal("§c[PRAXIC] §fNo data for: §e" + name));
                                             return 0;
                                         }
 
                                         data.violations.clear();
                                         data.lastFlagTime.clear();
 
-                                        source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fViolations reset for §e" + name + "§f."), false);
+                                        source.sendSuccess(() -> Component.literal(
+                                                "§6[PRAXIC] §fViolations for §e" + name + " §fhave been §acleared§f."), false);
                                         Praxic.LOGGER.info("[PRAXIC] Violations reset for {} by {}", name, source.getTextName());
                                         PraxicLogger.logInfo("Violations reset for " + name + " by " + source.getTextName());
                                         return 1;
@@ -137,7 +161,8 @@ public class PraxicCommand {
                             .executes(ctx -> {
                                 CommandSourceStack source = ctx.getSource();
                                 Praxic.reloadConfig();
-                                source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fConfig reloaded successfully!"), false);
+                                source.sendSuccess(() -> Component.literal(
+                                        "§6[PRAXIC] §fConfig §areloaded §fsuccessfully!"), false);
                                 Praxic.LOGGER.info("[PRAXIC] Config reloaded by {}", source.getTextName());
                                 return 1;
                             }))

@@ -19,8 +19,6 @@ public class ViolationManager {
                     player.getName().getString(),
                     violations,
                     details);
-
-            // Write violation to log file
             PraxicLogger.logViolation(check.getName(), player.getName().getString(), violations, details);
         }
 
@@ -34,7 +32,14 @@ public class ViolationManager {
         switch (action.toLowerCase()) {
             case "kick" -> {
                 player.connection.disconnect(
-                        Component.literal("§c[PRAXIC] You have been kicked.\n§7Reason: §f" + check.getName())
+                    Component.literal(
+                        "§6§lPRAXIC §8§m──────────────§r\n\n" +
+                        "§cYou have been §l§ckicked§r§c.\n\n" +
+                        "§7Reason: §f" + check.getName() + "\n" +
+                        "§7Violations: §c" + violations + "\n\n" +
+                        "§8If you think this is a mistake,\n" +
+                        "§8contact server administration."
+                    )
                 );
                 data.resetViolations(check.getName());
                 Praxic.LOGGER.warn("[PRAXIC] Player {} was KICKED by {}.",
@@ -43,7 +48,10 @@ public class ViolationManager {
             }
             case "warn" -> {
                 player.sendSystemMessage(
-                        Component.literal("§e[PRAXIC] Warning: suspicious behavior detected. (" + check.getName() + ")")
+                    Component.literal(
+                        "§6[PRAXIC] §eWarning! §7Suspicious behavior detected.\n" +
+                        "§8» §7Check: §f" + check.getName() + " §8| §7VL: §e" + violations
+                    )
                 );
                 data.resetViolations(check.getName());
             }
