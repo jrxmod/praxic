@@ -9,14 +9,26 @@ public class PlayerData {
     public double prevY;
     public double prevZ;
 
-    // Timestamp of last position update (ms)
+    // Timestamp of last position update in ms
     public long lastPositionUpdate = System.currentTimeMillis();
 
-    // FlyCheck air tick counter
+    // Air ticks counter for FlyCheck
     public int airTicks = 0;
 
-    // SpeedCheck consecutive exceed counter
-    public int speedConsecutive = 0;
+    // Maximum fall distance tracked for NoFallCheck
+    public double maxFallDistance = 0;
+
+    // Health snapshot taken while player is still in air
+    public float healthBeforeLanding = -1;
+
+    // True if player was in air last tick
+    public boolean wasInAir = false;
+
+    // True if we need to verify fall damage on next tick
+    public boolean pendingFallCheck = false;
+
+    // Fall distance pending verification
+    public double pendingFallDistance = 0;
 
     public Map<String, Integer> violations = new HashMap<>();
     public Map<String, Long> lastFlagTime = new HashMap<>();

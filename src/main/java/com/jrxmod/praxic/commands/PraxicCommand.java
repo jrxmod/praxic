@@ -27,16 +27,16 @@ public class PraxicCommand {
                                 CommandSourceStack source = ctx.getSource();
                                 PraxicConfig cfg = Praxic.getConfig();
 
-                                // Log clean version to console
-                                Praxic.LOGGER.info("[PRAXIC] Status: FlyCheck={} SpeedCheck={} Logging={}",
+                                Praxic.LOGGER.info("[PRAXIC] Status: FlyCheck={} SpeedCheck={} NoFallCheck={} Logging={}",
                                         cfg.flyCheckEnabled ? "ON" : "OFF",
                                         cfg.speedCheckEnabled ? "ON" : "OFF",
+                                        cfg.noFallCheckEnabled ? "ON" : "OFF",
                                         cfg.enableLogging ? "ON" : "OFF");
 
-                                // Colored version for in-game
                                 source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fStatus:"), false);
                                 source.sendSuccess(() -> Component.literal("§7FlyCheck: " + (cfg.flyCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
                                 source.sendSuccess(() -> Component.literal("§7SpeedCheck: " + (cfg.speedCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
+                                source.sendSuccess(() -> Component.literal("§7NoFallCheck: " + (cfg.noFallCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
                                 source.sendSuccess(() -> Component.literal("§7Logging: " + (cfg.enableLogging ? "§aEnabled" : "§cDisabled")), false);
                                 return 1;
                             }))

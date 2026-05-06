@@ -25,6 +25,11 @@ public class PraxicConfig {
     public int speedMaxViolations = 8;
     public String speedAction = "warn";
 
+    // NoFallCheck settings
+    public boolean noFallCheckEnabled = true;
+    public int noFallMaxViolations = 3;
+    public String noFallAction = "kick";
+
     // General settings
     public boolean enableLogging = true;
 

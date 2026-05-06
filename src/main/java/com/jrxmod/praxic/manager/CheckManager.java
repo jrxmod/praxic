@@ -2,6 +2,7 @@ package com.jrxmod.praxic.manager;
 
 import com.jrxmod.praxic.checks.AbstractCheck;
 import com.jrxmod.praxic.checks.FlyCheck;
+import com.jrxmod.praxic.checks.NoFallCheck;
 import com.jrxmod.praxic.checks.SpeedCheck;
 import com.jrxmod.praxic.data.PlayerData;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -18,9 +19,12 @@ public class CheckManager {
     public CheckManager() {
         checks.add(new FlyCheck());
         checks.add(new SpeedCheck());
+        checks.add(new NoFallCheck());
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            // Copy list to avoid ConcurrentModificationException if player is kicked during iteration
+            List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
+            for (ServerPlayer player : players) {
                 PlayerData data = getOrCreateData(player);
                 runChecks(player, data);
                 data.updatePosition(player.getX(), player.getY(), player.getZ());

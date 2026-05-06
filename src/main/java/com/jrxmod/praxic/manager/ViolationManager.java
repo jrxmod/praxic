@@ -50,6 +50,7 @@ public class ViolationManager {
         return switch (checkName) {
             case "FlyCheck" -> Praxic.getConfig().flyAction;
             case "SpeedCheck" -> Praxic.getConfig().speedAction;
+            case "NoFallCheck" -> Praxic.getConfig().noFallAction;
             default -> "warn";
         };
     }
@@ -58,6 +59,7 @@ public class ViolationManager {
         return switch (checkName) {
             case "FlyCheck" -> Praxic.getConfig().flyMaxViolations;
             case "SpeedCheck" -> Praxic.getConfig().speedMaxViolations;
+            case "NoFallCheck" -> Praxic.getConfig().noFallMaxViolations;
             default -> 10;
         };
     }

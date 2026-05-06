@@ -10,13 +10,10 @@ import net.minecraft.world.level.GameType;
 public class SpeedCheck extends AbstractCheck {
 
     // Skip check if tick took longer than this (server lag protection)
-    private static final long MAX_TICK_DELTA_MS = 100;
+    private static final long MAX_TICK_DELTA_MS = 150;
 
     // Skip check if distance is impossibly large — likely a teleport
     private static final double TELEPORT_THRESHOLD = 8.0;
-
-    // Number of consecutive ticks exceeding speed before flagging
-    private static final int CONSECUTIVE_REQUIRED = 3;
 
     @Override
     public String getName() {
@@ -38,20 +35,14 @@ public class SpeedCheck extends AbstractCheck {
         // Skip on server lag
         long now = System.currentTimeMillis();
         long delta = now - data.lastPositionUpdate;
-        if (delta > MAX_TICK_DELTA_MS) {
-            data.speedConsecutive = 0;
-            return;
-        }
+        if (delta > MAX_TICK_DELTA_MS) return;
 
         double dx = player.getX() - data.prevX;
         double dz = player.getZ() - data.prevZ;
         double distancePerTick = Math.sqrt(dx * dx + dz * dz);
 
-        // Skip teleports
-        if (distancePerTick > TELEPORT_THRESHOLD) {
-            data.speedConsecutive = 0;
-            return;
-        }
+        // Skip teleports — not a cheat, just a position reset
+        if (distancePerTick > TELEPORT_THRESHOLD) return;
 
         double maxSpeed = Praxic.getConfig().speedMaxBlocksPerTick;
 
@@ -61,17 +52,9 @@ public class SpeedCheck extends AbstractCheck {
             maxSpeed += (amplifier + 1) * 0.2;
         }
 
-        if (distancePerTick > maxSpeed) {
-            data.speedConsecutive++;
-            // Only flag after N consecutive ticks exceeding speed
-            if (data.speedConsecutive >= CONSECUTIVE_REQUIRED && data.canFlag(getName(), 2000)) {
-                ViolationManager.flag(player, data, this,
-                        String.format("Speed: %.3f blocks/tick (max: %.3f) [%d consecutive]",
-                                distancePerTick, maxSpeed, data.speedConsecutive));
-            }
-        } else {
-            // Reset consecutive counter when speed is normal
-            data.speedConsecutive = 0;
+        if (distancePerTick > maxSpeed && data.canFlag(getName(), 2000)) {
+            ViolationManager.flag(player, data, this,
+                    String.format("Speed: %.3f blocks/tick (max: %.3f)", distancePerTick, maxSpeed));
         }
     }
 }
