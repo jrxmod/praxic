@@ -3,6 +3,7 @@ package com.jrxmod.praxic.manager;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.checks.AbstractCheck;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.logger.PraxicLogger;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -18,6 +19,9 @@ public class ViolationManager {
                     player.getName().getString(),
                     violations,
                     details);
+
+            // Write violation to log file
+            PraxicLogger.logViolation(check.getName(), player.getName().getString(), violations, details);
         }
 
         String action = getAction(check.getName());
@@ -35,6 +39,7 @@ public class ViolationManager {
                 data.resetViolations(check.getName());
                 Praxic.LOGGER.warn("[PRAXIC] Player {} was KICKED by {}.",
                         player.getName().getString(), check.getName());
+                PraxicLogger.logKick(player.getName().getString(), check.getName());
             }
             case "warn" -> {
                 player.sendSystemMessage(

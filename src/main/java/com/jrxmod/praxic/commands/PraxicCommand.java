@@ -3,6 +3,7 @@ package com.jrxmod.praxic.commands;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.logger.PraxicLogger;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
@@ -100,13 +101,44 @@ public class PraxicCommand {
                                 return 1;
                             }))
 
+                    // /praxic reset <player>
+                    .then(Commands.literal("reset")
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .executes(ctx -> {
+                                        String name = StringArgumentType.getString(ctx, "player");
+                                        CommandSourceStack source = ctx.getSource();
+                                        ServerPlayer target = source.getServer()
+                                                .getPlayerList().getPlayerByName(name);
+
+                                        if (target == null) {
+                                            source.sendFailure(Component.literal("[PRAXIC] Player not found: " + name));
+                                            return 0;
+                                        }
+
+                                        PlayerData data = Praxic.getCheckManager()
+                                                .getPlayerData(target.getUUID());
+
+                                        if (data == null) {
+                                            source.sendFailure(Component.literal("[PRAXIC] No data for: " + name));
+                                            return 0;
+                                        }
+
+                                        data.violations.clear();
+                                        data.lastFlagTime.clear();
+
+                                        source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fViolations reset for §e" + name + "§f."), false);
+                                        Praxic.LOGGER.info("[PRAXIC] Violations reset for {} by {}", name, source.getTextName());
+                                        PraxicLogger.logInfo("Violations reset for " + name + " by " + source.getTextName());
+                                        return 1;
+                                    })))
+
                     // /praxic reload
                     .then(Commands.literal("reload")
                             .executes(ctx -> {
                                 CommandSourceStack source = ctx.getSource();
-                                PraxicConfig.load();
-                                source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fConfig reloaded! Restart server to apply all changes."), false);
-                                Praxic.LOGGER.info("[PRAXIC] Config reload requested by {}", source.getTextName());
+                                Praxic.reloadConfig();
+                                source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fConfig reloaded successfully!"), false);
+                                Praxic.LOGGER.info("[PRAXIC] Config reloaded by {}", source.getTextName());
                                 return 1;
                             }))
             );
