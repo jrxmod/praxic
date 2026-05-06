@@ -1,38 +1,31 @@
 {
-	"schemaVersion": 1,
-	"id": "praxic",
-	"version": "${version}",
-	"name": "Praxic",
-	"description": "This is an example description! Tell everyone what your mod is about!",
-	"authors": [
-		"Me!"
-	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
-	"license": "CC0-1.0",
-	"icon": "assets/praxic/icon.png",
-	"environment": "*",
-	"entrypoints": {
-		"main": [
-			"com.jrxmod.praxic.Praxic"
-		],
-		"client": [
-			"com.jrxmod.praxic.client.PraxicClient"
-		]
-	},
-	"mixins": [
-		"praxic.mixins.json",
-		{
-			"config": "praxic.client.mixins.json",
-			"environment": "client"
-		}
-	],
-	"depends": {
-		"fabricloader": ">=0.19.2",
-		"minecraft": "~1.21.1",
-		"java": ">=21",
-		"fabric-api": "*"
-	}
+  "schemaVersion": 1,
+  "id": "praxic",
+  "version": "${version}",
+  "name": "PRAXIC",
+  "description": "Server-side AntiCheat for Fabric 1.21.1",
+  "authors": [
+    "jrxmod"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/user/jrxmod",
+    "sources": "https://github.com/jrxmod/praxic"
+  },
+  "license": "MIT",
+  "icon": "assets/praxic/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.jrxmod.praxic.Praxic"
+    ]
+  },
+  "mixins": [
+    "praxic.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
 }
