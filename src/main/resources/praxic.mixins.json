@@ -2,7 +2,9 @@
   "required": true,
   "package": "com.jrxmod.praxic.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [],
+  "mixins": [
+    "ServerGamePacketListenerMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

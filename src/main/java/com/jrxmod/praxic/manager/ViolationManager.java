@@ -51,6 +51,7 @@ public class ViolationManager {
             case "FlyCheck" -> Praxic.getConfig().flyAction;
             case "SpeedCheck" -> Praxic.getConfig().speedAction;
             case "NoFallCheck" -> Praxic.getConfig().noFallAction;
+            case "ReachCheck" -> Praxic.getConfig().reachAction;
             default -> "warn";
         };
     }
@@ -60,6 +61,7 @@ public class ViolationManager {
             case "FlyCheck" -> Praxic.getConfig().flyMaxViolations;
             case "SpeedCheck" -> Praxic.getConfig().speedMaxViolations;
             case "NoFallCheck" -> Praxic.getConfig().noFallMaxViolations;
+            case "ReachCheck" -> Praxic.getConfig().reachMaxViolations;
             default -> 10;
         };
     }

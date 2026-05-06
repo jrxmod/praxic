@@ -27,16 +27,18 @@ public class PraxicCommand {
                                 CommandSourceStack source = ctx.getSource();
                                 PraxicConfig cfg = Praxic.getConfig();
 
-                                Praxic.LOGGER.info("[PRAXIC] Status: FlyCheck={} SpeedCheck={} NoFallCheck={} Logging={}",
+                                Praxic.LOGGER.info("[PRAXIC] Status: FlyCheck={} SpeedCheck={} NoFallCheck={} ReachCheck={} Logging={}",
                                         cfg.flyCheckEnabled ? "ON" : "OFF",
                                         cfg.speedCheckEnabled ? "ON" : "OFF",
                                         cfg.noFallCheckEnabled ? "ON" : "OFF",
+                                        cfg.reachCheckEnabled ? "ON" : "OFF",
                                         cfg.enableLogging ? "ON" : "OFF");
 
                                 source.sendSuccess(() -> Component.literal("§6[PRAXIC] §fStatus:"), false);
                                 source.sendSuccess(() -> Component.literal("§7FlyCheck: " + (cfg.flyCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
                                 source.sendSuccess(() -> Component.literal("§7SpeedCheck: " + (cfg.speedCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
                                 source.sendSuccess(() -> Component.literal("§7NoFallCheck: " + (cfg.noFallCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
+                                source.sendSuccess(() -> Component.literal("§7ReachCheck: " + (cfg.reachCheckEnabled ? "§aEnabled" : "§cDisabled")), false);
                                 source.sendSuccess(() -> Component.literal("§7Logging: " + (cfg.enableLogging ? "§aEnabled" : "§cDisabled")), false);
                                 return 1;
                             }))

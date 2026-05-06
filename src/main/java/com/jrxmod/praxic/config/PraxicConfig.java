@@ -30,6 +30,11 @@ public class PraxicConfig {
     public int noFallMaxViolations = 3;
     public String noFallAction = "kick";
 
+    // ReachCheck settings
+    public boolean reachCheckEnabled = true;
+    public int reachMaxViolations = 5;
+    public String reachAction = "kick";
+
     // General settings
     public boolean enableLogging = true;
 
