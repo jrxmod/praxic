@@ -18,8 +18,7 @@ public class PraxicConfig {
     public int flyMaxViolations = 5;
     public String flyAction = "kick";
 
-    // SpeedCheck settings — real speed hacks give 2.0+ blocks/tick
-    // Threshold 1.3 safely covers vanilla sprint jump peak with buffer
+    // SpeedCheck settings
     public boolean speedCheckEnabled = true;
     public double speedMaxBlocksPerTick = 1.3;
     public int speedMaxViolations = 8;
@@ -37,11 +36,29 @@ public class PraxicConfig {
 
     // KillAuraCheck settings
     public boolean killAuraCheckEnabled = true;
-    public int killAuraMaxViolations = 5;
-    public String killAuraAction = "kick";
+    public int killAuraCheckMaxViolations = 5;
+    public String killAuraCheckAction = "kick";
+
+    // ScaffoldCheck settings
+    public boolean scaffoldCheckEnabled = true;
+    public int scaffoldMaxBlocksPerSecond = 8;
+    public int scaffoldMaxViolations = 5;
+    public String scaffoldAction = "kick";
+
+    // AutoTotemCheck settings
+    public boolean autoTotemCheckEnabled = true;
+    public int autoTotemMaxViolations = 3;
+    public String autoTotemAction = "kick";
+
+    // InventoryCheck settings
+    public boolean inventoryCheckEnabled = true;
+    public int inventoryMaxClicksPerSecond = 20;
+    public int inventoryMaxViolations = 5;
+    public String inventoryAction = "kick";
 
     // General settings
     public boolean enableLogging = true;
+    public boolean enableStaffAlerts = true;
 
     public static PraxicConfig load() {
         try {

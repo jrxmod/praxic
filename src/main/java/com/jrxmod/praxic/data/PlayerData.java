@@ -12,14 +12,23 @@ public class PlayerData {
     // Timestamp of last position update in ms
     public long lastPositionUpdate = System.currentTimeMillis();
 
+    // Track ground state from previous tick
+    public boolean wasOnGround = true;
+
+    // Track water state to avoid false positives on water->land transitions
+    public boolean wasInWater = false;
+
+    // Grace period after leaving water (ticks)
+    public int waterExitTicks = 0;
+
     // Air ticks counter for FlyCheck
     public int airTicks = 0;
 
     // Maximum fall distance tracked for NoFallCheck
     public double maxFallDistance = 0;
 
-    // Health snapshot taken while player is still in air
-    public float healthBeforeLanding = -1;
+    // Total health (health + absorption) snapshot
+    public float totalHealthBeforeLanding = -1;
 
     // True if player was in air last tick
     public boolean wasInAir = false;
@@ -38,6 +47,27 @@ public class PlayerData {
 
     // Timestamp of rapid attack window start
     public long rapidAttackWindowStart = 0;
+
+    // Counter for blocks placed under feet within window for ScaffoldCheck
+    public int scaffoldBlocksPlaced = 0;
+
+    // Timestamp of scaffold detection window start
+    public long scaffoldWindowStart = 0;
+
+    // True if player had totem in hand last tick for AutoTotemCheck
+    public boolean hadTotemInHand = false;
+
+    // Timestamp when totem was consumed for AutoTotemCheck
+    public long lastTotemUseTime = 0;
+
+    // Counter for inventory clicks within window for InventoryCheck
+    public int inventoryClickCount = 0;
+
+    // Timestamp of inventory click detection window start
+    public long inventoryWindowStart = 0;
+
+    // Buffer for SpeedCheck to avoid flagging single-tick spikes
+    public int speedBuffer = 0;
 
     public Map<String, Integer> violations = new HashMap<>();
     public Map<String, Long> lastFlagTime = new HashMap<>();

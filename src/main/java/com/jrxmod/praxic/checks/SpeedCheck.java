@@ -3,9 +3,11 @@ package com.jrxmod.praxic.checks;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
 
 public class SpeedCheck extends AbstractCheck {
 
@@ -14,6 +16,12 @@ public class SpeedCheck extends AbstractCheck {
 
     // Skip if distance suggests teleport or severe lag
     private static final double TELEPORT_THRESHOLD = 6.0;
+
+    // Flag only after this many consecutive suspicious ticks
+    private static final int REQUIRED_BUFFER = 2;
+
+    // Decrease buffer by this amount on normal movement
+    private static final int BUFFER_DECAY = 1;
 
     @Override
     public String getName() {
@@ -40,6 +48,14 @@ public class SpeedCheck extends AbstractCheck {
         long delta = now - data.lastPositionUpdate;
         if (delta > MAX_TICK_DELTA_MS) return;
 
+        // Skip on ice — high slipperiness causes natural speed buildup beyond threshold
+        BlockPos below = player.blockPosition().below();
+        var blockBelow = player.level().getBlockState(below).getBlock();
+        if (blockBelow == Blocks.ICE
+                || blockBelow == Blocks.PACKED_ICE
+                || blockBelow == Blocks.BLUE_ICE
+                || blockBelow == Blocks.FROSTED_ICE) return;
+
         double dx = player.getX() - data.prevX;
         double dz = player.getZ() - data.prevZ;
         double distancePerTick = Math.sqrt(dx * dx + dz * dz);
@@ -56,9 +72,17 @@ public class SpeedCheck extends AbstractCheck {
             maxSpeed *= (1.0 + 0.2 * (amplifier + 1));
         }
 
-        if (distancePerTick > maxSpeed && data.canFlag(getName(), 2000)) {
-            ViolationManager.flag(player, data, this,
-                    String.format("Speed: %.3f blocks/tick (max: %.3f)", distancePerTick, maxSpeed));
+        if (distancePerTick > maxSpeed) {
+            data.speedBuffer++;
+
+            boolean canFlag = data.speedBuffer >= REQUIRED_BUFFER;
+            if (canFlag && data.canFlag(getName(), 2000)) {
+                ViolationManager.flag(player, data, this,
+                        String.format("Speed: %.3f blocks/tick (max: %.3f)", distancePerTick, maxSpeed));
+                data.speedBuffer = 0;
+            }
+        } else {
+            data.speedBuffer = Math.max(0, data.speedBuffer - BUFFER_DECAY);
         }
     }
 }

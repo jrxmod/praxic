@@ -4,16 +4,28 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.level.GameType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.block.Block;
 
 public class NoFallCheck extends AbstractCheck {
 
-    // Minimum fall distance to expect damage
     private static final double MIN_FALL_DISTANCE = 3.5;
+    private static final double FEATHER_FALLING_BUFFER_PER_LEVEL = 1.0;
+
+    private static final ResourceKey<Enchantment> FEATHER_FALLING_KEY = ResourceKey.create(
+            Registries.ENCHANTMENT,
+            ResourceLocation.withDefaultNamespace("feather_falling")
+    );
 
     @Override
     public String getName() {
@@ -22,71 +34,64 @@ public class NoFallCheck extends AbstractCheck {
 
     @Override
     public void check(ServerPlayer player, PlayerData data) {
-
         if (!Praxic.getConfig().noFallCheckEnabled) return;
 
-        if (player.isSpectator()) return;
-        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.isDeadOrDying()) return;
-        if (player.isPassenger()) return;
-        if (player.isInWater() || player.isInLava()) return;
-        if (player.hasEffect(MobEffects.SLOW_FALLING)) return;
-        if (player.hasEffect(MobEffects.JUMP)) return;
-        if (player.isFallFlying()) return;
-        if (player.getAbilities().flying) return;
-
-        // Tick N+1: verify fall damage was actually taken
-        if (data.pendingFallCheck) {
-            data.pendingFallCheck = false;
-
-            float healthNow = player.getHealth();
-            float healthBefore = data.healthBeforeLanding;
-
-            if (healthBefore > 0 && healthNow >= healthBefore && data.canFlag(getName(), 3000)) {
-                if (!isOnSafeLandingBlock(player)) {
-                    ViolationManager.flag(player, data, this,
-                            String.format("No fall damage taken, fall: %.2f blocks, health: %.1f -> %.1f",
-                                    data.pendingFallDistance, healthBefore, healthNow));
-                }
-            }
-
+        if (player.isSpectator() || player.isCreative() || player.isDeadOrDying() || 
+            player.isPassenger() || player.isInWater() || player.isInLava() ||
+            player.hasEffect(MobEffects.SLOW_FALLING) || player.hasEffect(MobEffects.JUMP) ||
+            player.isFallFlying() || player.getAbilities().flying || player.onClimbable()) {
             resetFallData(data);
             return;
         }
 
-        boolean onGround = player.onGround();
+        if (data.pendingFallCheck) {
+            data.pendingFallCheck = false;
+            float healthNow = player.getHealth() + player.getAbsorptionAmount();
+            float healthBefore = data.totalHealthBeforeLanding;
 
-        if (!onGround) {
-            // Track max fall distance while in air
-            float fallDistance = player.fallDistance;
-            if (fallDistance > data.maxFallDistance) {
-                data.maxFallDistance = fallDistance;
+            if (healthBefore > 0 && healthNow >= healthBefore && data.canFlag(getName(), 3000)) {
+                if (!isOnSafeLandingBlock(player)) {
+                    ViolationManager.flag(player, data, this,
+                            String.format("No fall damage taken, fall: %.2f blocks, total health: %.1f -> %.1f",
+                                    data.pendingFallDistance, healthBefore, healthNow));
+                }
             }
-
-            // Snapshot health before expected landing
-            if (data.maxFallDistance >= MIN_FALL_DISTANCE) {
-                data.healthBeforeLanding = player.getHealth();
-            }
-
-            data.wasInAir = true;
+            resetFallData(data);
             return;
         }
 
-        // Player just landed — schedule check for next tick so damage can be applied
-        if (data.wasInAir && data.maxFallDistance >= MIN_FALL_DISTANCE) {
-            data.pendingFallCheck = true;
-            data.pendingFallDistance = data.maxFallDistance;
+        if (!player.onGround()) {
+            float fallDistance = player.fallDistance;
+            if (fallDistance > data.maxFallDistance) data.maxFallDistance = fallDistance;
+
+            double effectiveMinFall = MIN_FALL_DISTANCE + getFeatherFallingLevel(player) * FEATHER_FALLING_BUFFER_PER_LEVEL;
+            if (data.maxFallDistance >= effectiveMinFall) {
+                data.totalHealthBeforeLanding = player.getHealth() + player.getAbsorptionAmount();
+            }
+            data.wasInAir = true;
+        } else if (data.wasInAir) {
+            double effectiveMinFall = MIN_FALL_DISTANCE + getFeatherFallingLevel(player) * FEATHER_FALLING_BUFFER_PER_LEVEL;
+            if (data.maxFallDistance >= effectiveMinFall) {
+                data.pendingFallCheck = true;
+                data.pendingFallDistance = data.maxFallDistance;
+            }
             data.wasInAir = false;
             data.maxFallDistance = 0;
-            return;
         }
+    }
 
-        resetFallData(data);
+    private int getFeatherFallingLevel(ServerPlayer player) {
+        ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
+        if (boots.isEmpty()) return 0;
+        ItemEnchantments enchantments = boots.get(DataComponents.ENCHANTMENTS);
+        if (enchantments == null) return 0;
+        var registry = player.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+        return registry.get(FEATHER_FALLING_KEY).map(enchantments::getLevel).orElse(0);
     }
 
     private void resetFallData(PlayerData data) {
         data.maxFallDistance = 0;
-        data.healthBeforeLanding = -1;
+        data.totalHealthBeforeLanding = -1;
         data.wasInAir = false;
         data.pendingFallCheck = false;
         data.pendingFallDistance = 0;
@@ -96,12 +101,7 @@ public class NoFallCheck extends AbstractCheck {
         BlockPos pos = player.blockPosition().below();
         Block block = player.level().getBlockState(pos).getBlock();
         String blockId = BuiltInRegistries.BLOCK.getKey(block).getPath();
-
-        return blockId.contains("hay") ||
-               blockId.contains("slime") ||
-               blockId.contains("bed") ||
-               blockId.contains("powder_snow") ||
-               blockId.contains("honeycomb") ||
-               blockId.contains("web");
+        return blockId.contains("hay") || blockId.contains("slime") || blockId.contains("bed") ||
+               blockId.contains("powder_snow") || blockId.contains("honeycomb") || blockId.contains("web");
     }
 }

@@ -10,9 +10,10 @@ import net.minecraft.world.level.GameType;
 public class ReachCheck extends AbstractCheck {
 
     // Vanilla reach: 3.0 survival, 4.5 creative
-    // Buffer accounts for mob movement, network latency and server tick delay
-    private static final double MAX_REACH_SURVIVAL = 4.2;
-    private static final double MAX_REACH_CREATIVE = 5.5;
+    // 4.5 accounts for mob hitbox size, network latency and server tick delay
+    // Real reach cheats start at 5.0+
+    private static final double MAX_REACH_SURVIVAL = 4.5;
+    private static final double MAX_REACH_CREATIVE = 6.0;
 
     @Override
     public String getName() {
