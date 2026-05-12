@@ -1,13 +1,18 @@
 package com.jrxmod.praxic.mixin;
 
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.checks.AutoClickerCheck;
+import com.jrxmod.praxic.checks.FastBreakCheck;
 import com.jrxmod.praxic.checks.InventoryCheck;
 import com.jrxmod.praxic.checks.KillAuraCheck;
 import com.jrxmod.praxic.checks.ReachCheck;
 import com.jrxmod.praxic.checks.ScaffoldCheck;
+import com.jrxmod.praxic.checks.TimerCheck;
 import com.jrxmod.praxic.data.PlayerData;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
@@ -28,6 +33,49 @@ public class ServerGamePacketListenerMixin {
 
     @Shadow
     public ServerPlayer player;
+
+    @Inject(method = "handleMovePlayer", at = @At("HEAD"))
+    private void onHandleMovePlayer(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+
+        // Only count packets that carry position data — ignore rotation-only and status-only
+        if (!packet.hasPosition()) return;
+
+        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+        if (data == null) return;
+
+        // Schedule on server thread — packet arrives on Netty IO thread
+        player.getServer().execute(() -> {
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof TimerCheck)
+                    .map(c -> (TimerCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.onMovePacket(player, data));
+        });
+    }
+
+    @Inject(method = "handlePlayerAction", at = @At("HEAD"))
+    private void onHandlePlayerAction(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
+
+        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+        if (data == null) return;
+
+        ServerboundPlayerActionPacket.Action action = packet.getAction();
+
+        // Schedule on server thread — packet arrives on Netty IO thread
+        player.getServer().execute(() -> {
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof FastBreakCheck)
+                    .map(c -> (FastBreakCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> {
+                        if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
+                            check.onStartBreak(player, packet.getPos(), data);
+                        } else if (action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) {
+                            check.onStopBreak(player, packet.getPos(), data);
+                        }
+                    });
+        });
+    }
 
     @Inject(method = "handleInteract", at = @At("HEAD"))
     private void onHandleInteract(ServerboundInteractPacket packet, CallbackInfo ci) {
@@ -68,6 +116,12 @@ public class ServerGamePacketListenerMixin {
                     .map(c -> (KillAuraCheck) c)
                     .findFirst()
                     .ifPresent(check -> check.checkAttack(player, target, data));
+
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof AutoClickerCheck)
+                    .map(c -> (AutoClickerCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.onAttack(player, data));
         });
     }
 

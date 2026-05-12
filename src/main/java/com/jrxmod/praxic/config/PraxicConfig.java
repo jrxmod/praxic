@@ -56,6 +56,24 @@ public class PraxicConfig {
     public int inventoryMaxViolations = 5;
     public String inventoryAction = "kick";
 
+    // AutoClickerCheck settings
+    public boolean autoClickerCheckEnabled = true;
+    public int autoClickerMaxCps = 20;
+    public int autoClickerMaxViolations = 5;
+    public String autoClickerAction = "kick";
+
+    // TimerCheck settings — counts position-only packets (~20/sec normal)
+    public boolean timerCheckEnabled = true;
+    public int timerMaxPacketsPerSecond = 24;
+    public int timerMaxViolations = 5;
+    public String timerAction = "kick";
+
+    // FastBreakCheck settings
+    public boolean fastBreakCheckEnabled = true;
+    public double fastBreakSpeedMultiplier = 0.4;
+    public int fastBreakMaxViolations = 5;
+    public String fastBreakAction = "kick";
+
     // General settings
     public boolean enableLogging = true;
     public boolean enableStaffAlerts = true;

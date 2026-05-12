@@ -22,6 +22,9 @@ public class CheckManager {
         checks.add(new ScaffoldCheck());
         checks.add(new AutoTotemCheck());
         checks.add(new InventoryCheck());
+        checks.add(new AutoClickerCheck());
+        checks.add(new TimerCheck());
+        checks.add(new FastBreakCheck());
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());

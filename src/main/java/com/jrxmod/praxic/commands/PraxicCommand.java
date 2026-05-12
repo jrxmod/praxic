@@ -35,7 +35,7 @@ public class PraxicCommand {
                                 CommandSourceStack source = ctx.getSource();
                                 PraxicConfig cfg = Praxic.getConfig();
 
-                                Praxic.LOGGER.info("[PRAXIC] Status: Fly={} Speed={} NoFall={} Reach={} KillAura={} Scaffold={} AutoTotem={} Inventory={} Logging={}",
+                                Praxic.LOGGER.info("[PRAXIC] Status: Fly={} Speed={} NoFall={} Reach={} KillAura={} Scaffold={} AutoTotem={} Inventory={} AutoClicker={} Timer={} FastBreak={} Logging={}",
                                         cfg.flyCheckEnabled ? "ON" : "OFF",
                                         cfg.speedCheckEnabled ? "ON" : "OFF",
                                         cfg.noFallCheckEnabled ? "ON" : "OFF",
@@ -44,18 +44,24 @@ public class PraxicCommand {
                                         cfg.scaffoldCheckEnabled ? "ON" : "OFF",
                                         cfg.autoTotemCheckEnabled ? "ON" : "OFF",
                                         cfg.inventoryCheckEnabled ? "ON" : "OFF",
+                                        cfg.autoClickerCheckEnabled ? "ON" : "OFF",
+                                        cfg.timerCheckEnabled ? "ON" : "OFF",
+                                        cfg.fastBreakCheckEnabled ? "ON" : "OFF",
                                         cfg.enableLogging ? "ON" : "OFF");
 
                                 source.sendSuccess(() -> Component.literal(HEADER), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7FlyCheck        " + (cfg.flyCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7SpeedCheck      " + (cfg.speedCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7NoFallCheck     " + (cfg.noFallCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7ReachCheck      " + (cfg.reachCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7KillAuraCheck   " + (cfg.killAuraCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7ScaffoldCheck   " + (cfg.scaffoldCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7AutoTotemCheck  " + (cfg.autoTotemCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7InventoryCheck  " + (cfg.inventoryCheckEnabled ? ENABLED : DISABLED)), false);
-                                source.sendSuccess(() -> Component.literal(BULLET + "§7Logging         " + (cfg.enableLogging ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7FlyCheck          " + (cfg.flyCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7SpeedCheck        " + (cfg.speedCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7NoFallCheck       " + (cfg.noFallCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7ReachCheck        " + (cfg.reachCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7KillAuraCheck     " + (cfg.killAuraCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7ScaffoldCheck     " + (cfg.scaffoldCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7AutoTotemCheck    " + (cfg.autoTotemCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7InventoryCheck    " + (cfg.inventoryCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7AutoClickerCheck  " + (cfg.autoClickerCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7TimerCheck        " + (cfg.timerCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7FastBreakCheck    " + (cfg.fastBreakCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7Logging           " + (cfg.enableLogging ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(LINE), false);
                                 return 1;
                             }))

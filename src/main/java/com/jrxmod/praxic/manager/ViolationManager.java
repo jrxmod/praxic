@@ -98,28 +98,34 @@ public class ViolationManager {
 
     private static String getAction(String checkName) {
         return switch (checkName) {
-            case "FlyCheck"        -> Praxic.getConfig().flyAction;
-            case "SpeedCheck"      -> Praxic.getConfig().speedAction;
-            case "NoFallCheck"     -> Praxic.getConfig().noFallAction;
-            case "ReachCheck"      -> Praxic.getConfig().reachAction;
-            case "KillAuraCheck"   -> Praxic.getConfig().killAuraCheckAction;
-            case "ScaffoldCheck"   -> Praxic.getConfig().scaffoldAction;
-            case "AutoTotemCheck"  -> Praxic.getConfig().autoTotemAction;
-            case "InventoryCheck"  -> Praxic.getConfig().inventoryAction;
+            case "FlyCheck"          -> Praxic.getConfig().flyAction;
+            case "SpeedCheck"        -> Praxic.getConfig().speedAction;
+            case "NoFallCheck"       -> Praxic.getConfig().noFallAction;
+            case "ReachCheck"        -> Praxic.getConfig().reachAction;
+            case "KillAuraCheck"     -> Praxic.getConfig().killAuraCheckAction;
+            case "ScaffoldCheck"     -> Praxic.getConfig().scaffoldAction;
+            case "AutoTotemCheck"    -> Praxic.getConfig().autoTotemAction;
+            case "InventoryCheck"    -> Praxic.getConfig().inventoryAction;
+            case "AutoClickerCheck"  -> Praxic.getConfig().autoClickerAction;
+            case "TimerCheck"        -> Praxic.getConfig().timerAction;
+            case "FastBreakCheck"    -> Praxic.getConfig().fastBreakAction;
             default -> "warn";
         };
     }
 
     private static int getMaxViolations(String checkName) {
         return switch (checkName) {
-            case "FlyCheck"        -> Praxic.getConfig().flyMaxViolations;
-            case "SpeedCheck"      -> Praxic.getConfig().speedMaxViolations;
-            case "NoFallCheck"     -> Praxic.getConfig().noFallMaxViolations;
-            case "ReachCheck"      -> Praxic.getConfig().reachMaxViolations;
-            case "KillAuraCheck"   -> Praxic.getConfig().killAuraCheckMaxViolations;
-            case "ScaffoldCheck"   -> Praxic.getConfig().scaffoldMaxViolations;
-            case "AutoTotemCheck"  -> Praxic.getConfig().autoTotemMaxViolations;
-            case "InventoryCheck"  -> Praxic.getConfig().inventoryMaxViolations;
+            case "FlyCheck"          -> Praxic.getConfig().flyMaxViolations;
+            case "SpeedCheck"        -> Praxic.getConfig().speedMaxViolations;
+            case "NoFallCheck"       -> Praxic.getConfig().noFallMaxViolations;
+            case "ReachCheck"        -> Praxic.getConfig().reachMaxViolations;
+            case "KillAuraCheck"     -> Praxic.getConfig().killAuraCheckMaxViolations;
+            case "ScaffoldCheck"     -> Praxic.getConfig().scaffoldMaxViolations;
+            case "AutoTotemCheck"    -> Praxic.getConfig().autoTotemMaxViolations;
+            case "InventoryCheck"    -> Praxic.getConfig().inventoryMaxViolations;
+            case "AutoClickerCheck"  -> Praxic.getConfig().autoClickerMaxViolations;
+            case "TimerCheck"        -> Praxic.getConfig().timerMaxViolations;
+            case "FastBreakCheck"    -> Praxic.getConfig().fastBreakMaxViolations;
             default -> 10;
         };
     }

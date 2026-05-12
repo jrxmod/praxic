@@ -1,7 +1,11 @@
 package com.jrxmod.praxic.data;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
+
+import net.minecraft.core.BlockPos;
 
 public class PlayerData {
 
@@ -68,6 +72,18 @@ public class PlayerData {
 
     // Buffer for SpeedCheck to avoid flagging single-tick spikes
     public int speedBuffer = 0;
+
+    // Sliding window of attack timestamps (ms) for AutoClickerCheck CPS calculation
+    public final Deque<Long> attackTimestamps = new ArrayDeque<>();
+
+    // Sliding window of movement packet timestamps (ms) for TimerCheck
+    public final Deque<Long> movePacketTimestamps = new ArrayDeque<>();
+
+    // Timestamp when player started breaking a block for FastBreakCheck
+    public long breakStartTime = 0;
+
+    // Position of block being broken for FastBreakCheck
+    public BlockPos breakingBlockPos = null;
 
     public Map<String, Integer> violations = new HashMap<>();
     public Map<String, Long> lastFlagTime = new HashMap<>();
