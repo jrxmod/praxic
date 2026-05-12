@@ -2,6 +2,14 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.2.0 — New Detection Modules
+### Added
+- AutoClickerCheck: detects abnormal CPS (>20) during combat using a 1-second sliding window.
+- TimerCheck: detects client-side game speed manipulation using a 5-second sliding window.
+- FastBreakCheck: detects breaking blocks faster than physically possible.
+  Accounts for block hardness, tool speed, Haste and Mining Fatigue effects.
+- GitHub Issue templates: Bug Report and Feature Request.
+
 ## 0.1.2 — Stability & Staff Alerts
 ### Added
 - Staff Alerts: notify online operators (OP level 2+) when a player is flagged.
