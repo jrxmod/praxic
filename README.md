@@ -2,7 +2,7 @@
 
 > **Protection Runtime Analysis & eXploit Interception Core**
 
-![Version](https://img.shields.io/badge/version-0.1.1-orange) ![Loader](https://img.shields.io/badge/loader-fabric-blue) ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen) ![License](https://img.shields.io/badge/license-Apache--2.0-red)
+![Version](https://img.shields.io/badge/version-0.2.0-orange) ![Loader](https://img.shields.io/badge/loader-fabric-blue) ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen) ![License](https://img.shields.io/badge/license-Apache--2.0-red)
 
 Keep your server clean. **PRAXIC** is a lightweight server-side anticheat that silently watches every player. No config bloat, no false flags — just clean, fast detection.
 
