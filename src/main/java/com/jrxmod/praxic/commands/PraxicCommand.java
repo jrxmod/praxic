@@ -1,6 +1,7 @@
 package com.jrxmod.praxic.commands;
 
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.api.PraxicStats;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.logger.PraxicLogger;
@@ -11,6 +12,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -62,6 +65,69 @@ public class PraxicCommand {
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7TimerCheck        " + (cfg.timerCheckEnabled ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7FastBreakCheck    " + (cfg.fastBreakCheckEnabled ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7Logging           " + (cfg.enableLogging ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(LINE), false);
+                                return 1;
+                            }))
+
+                    // /praxic stats
+                    .then(Commands.literal("stats")
+                            .executes(ctx -> {
+                                CommandSourceStack source = ctx.getSource();
+                                Map<UUID, PlayerData> allData = Praxic.getCheckManager().getAllData();
+
+                                // Total flags this session
+                                int totalFlags = PraxicStats.getTotalFlags();
+
+                                // Top 3 checks by flag count
+                                Map<String, Integer> topChecks = PraxicStats.getTopChecks(3);
+
+                                // Top 3 players by total violations (all loaded data)
+                                List<Map.Entry<String, Integer>> topPlayers = allData.entrySet().stream()
+                                        .filter(e -> !e.getValue().violations.isEmpty())
+                                        .map(e -> {
+                                            ServerPlayer p = source.getServer().getPlayerList().getPlayer(e.getKey());
+                                            String name = p != null ? p.getName().getString() : e.getKey().toString();
+                                            int total = e.getValue().violations.values().stream()
+                                                    .mapToInt(Integer::intValue).sum();
+                                            return Map.entry(name, total);
+                                        })
+                                        .sorted(Comparator.<Map.Entry<String, Integer>, Integer>
+                                                comparing(Map.Entry::getValue).reversed())
+                                        .limit(3)
+                                        .toList();
+
+                                source.sendSuccess(() -> Component.literal(HEADER), false);
+                                source.sendSuccess(() -> Component.literal(" §7Server stats §8(this session)§7:"), false);
+                                source.sendSuccess(() -> Component.literal(LINE), false);
+
+                                // Total flags
+                                source.sendSuccess(() -> Component.literal(
+                                        BULLET + "§7Total flags: §e" + totalFlags), false);
+
+                                // Top checks
+                                source.sendSuccess(() -> Component.literal(
+                                        BULLET + "§7Top checks:"), false);
+                                if (topChecks.isEmpty()) {
+                                    source.sendSuccess(() -> Component.literal(
+                                            "   §8No data yet."), false);
+                                } else {
+                                    topChecks.forEach((check, count) ->
+                                        source.sendSuccess(() -> Component.literal(
+                                                "   §8— §b" + check + " §7(" + count + " flags)"), false));
+                                }
+
+                                // Top players
+                                source.sendSuccess(() -> Component.literal(
+                                        BULLET + "§7Top players:"), false);
+                                if (topPlayers.isEmpty()) {
+                                    source.sendSuccess(() -> Component.literal(
+                                            "   §8No data yet."), false);
+                                } else {
+                                    topPlayers.forEach(entry ->
+                                        source.sendSuccess(() -> Component.literal(
+                                                "   §8— §e" + entry.getKey() + " §7(" + entry.getValue() + " VL total)"), false));
+                                }
+
                                 source.sendSuccess(() -> Component.literal(LINE), false);
                                 return 1;
                             }))

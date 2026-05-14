@@ -2,6 +2,13 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.3.0 — Integrations & API
+### Added
+- Update Checker: notifies OP2+ players on join if a newer version is available on Modrinth.
+- Discord Webhook: sends violation alerts to a Discord channel (configurable, disabled by default).
+- OnViolation API: Fabric event for other mods to listen to PRAXIC violation events.
+- Stats: /praxic stats command showing total flags, top checks and top players this session.
+
 ## 0.2.0 — New Detection Modules
 ### Added
 - AutoClickerCheck: detects abnormal CPS (>20) during combat using a 1-second sliding window.

@@ -1,9 +1,11 @@
 package com.jrxmod.praxic.manager;
 
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.api.PraxicViolationEvent;
 import com.jrxmod.praxic.checks.AbstractCheck;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.logger.PraxicLogger;
+import com.jrxmod.praxic.util.DiscordWebhook;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.UserBanListEntry;
@@ -13,6 +15,10 @@ public class ViolationManager {
     public static void flag(ServerPlayer player, PlayerData data, AbstractCheck check, String details) {
         data.addViolation(check.getName());
         int violations = data.getViolations(check.getName());
+
+        String action = getAction(check.getName());
+        int maxViolations = getMaxViolations(check.getName());
+        String resolvedAction = violations >= maxViolations ? action : "flag";
 
         // Standard logging
         if (Praxic.getConfig().enableLogging) {
@@ -35,8 +41,23 @@ public class ViolationManager {
                     .forEach(p -> p.sendSystemMessage(alert));
         }
 
-        String action = getAction(check.getName());
-        int maxViolations = getMaxViolations(check.getName());
+        // Discord Webhook
+        DiscordWebhook.send(
+                player.getName().getString(),
+                check.getName(),
+                violations,
+                details,
+                resolvedAction
+        );
+
+        // OnViolation API — notify other mods listening to this event
+        PraxicViolationEvent.EVENT.invoker().onViolation(
+                player,
+                check.getName(),
+                violations,
+                details,
+                resolvedAction
+        );
 
         if (violations < maxViolations) {
             return;

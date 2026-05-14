@@ -74,6 +74,13 @@ public class PraxicConfig {
     public int fastBreakMaxViolations = 5;
     public String fastBreakAction = "kick";
 
+    // UpdateChecker settings
+    public boolean enableUpdateChecker = true;
+
+    // Discord Webhook settings
+    public boolean enableDiscordWebhook = false;
+    public String discordWebhookUrl = "YOUR_WEBHOOK_URL_HERE";
+
     // General settings
     public boolean enableLogging = true;
     public boolean enableStaffAlerts = true;

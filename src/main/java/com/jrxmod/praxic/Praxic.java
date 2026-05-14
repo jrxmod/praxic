@@ -1,9 +1,11 @@
 package com.jrxmod.praxic;
 
+import com.jrxmod.praxic.api.PraxicStats;
 import com.jrxmod.praxic.commands.PraxicCommand;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import com.jrxmod.praxic.manager.CheckManager;
+import com.jrxmod.praxic.util.UpdateChecker;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,8 @@ public class Praxic implements ModInitializer {
         checkManager = new CheckManager();
 
         PraxicCommand.register();
+        UpdateChecker.init();
+        PraxicStats.init();
 
         LOGGER.info("[PRAXIC] AntiCheat initialized successfully!");
         PraxicLogger.logInfo("PRAXIC initialized successfully.");
