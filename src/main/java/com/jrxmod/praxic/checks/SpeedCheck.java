@@ -3,6 +3,7 @@ package com.jrxmod.praxic.checks;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
+import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
@@ -63,8 +64,11 @@ public class SpeedCheck extends AbstractCheck {
         // Skip teleports and severe lag jumps
         if (distancePerTick > TELEPORT_THRESHOLD) return;
 
-        // Base threshold from config
-        double maxSpeed = Praxic.getConfig().speedMaxBlocksPerTick;
+        int ping = player.connection.latency();
+
+        // Base threshold from config, scaled with latency
+        double maxSpeed = Praxic.getConfig().speedMaxBlocksPerTick
+                + LagCompensation.extraSpeed(ping);
 
         // Scale threshold with speed effect
         if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
@@ -75,10 +79,10 @@ public class SpeedCheck extends AbstractCheck {
         if (distancePerTick > maxSpeed) {
             data.speedBuffer++;
 
-            boolean canFlag = data.speedBuffer >= REQUIRED_BUFFER;
-            if (canFlag && data.canFlag(getName(), 2000)) {
+            if (data.speedBuffer >= REQUIRED_BUFFER && data.canFlag(getName(), 2000)) {
                 ViolationManager.flag(player, data, this,
-                        String.format("Speed: %.3f blocks/tick (max: %.3f)", distancePerTick, maxSpeed));
+                        String.format("Speed: %.3f blocks/tick (max: %.3f, ping: %dms)",
+                                distancePerTick, maxSpeed, ping));
                 data.speedBuffer = 0;
             }
         } else {

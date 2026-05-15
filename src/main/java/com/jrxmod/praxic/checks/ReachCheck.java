@@ -3,6 +3,7 @@ package com.jrxmod.praxic.checks;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
+import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.GameType;
@@ -35,12 +36,18 @@ public class ReachCheck extends AbstractCheck {
         boolean isCreative = attacker.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
         double maxReach = isCreative ? MAX_REACH_CREATIVE : MAX_REACH_SURVIVAL;
 
+        int ping = attacker.connection.latency();
+
+        // Expand reach threshold based on player latency
+        maxReach += LagCompensation.extraReach(ping);
+
         // Distance from attacker eye position to target center
         double distance = attacker.getEyePosition().distanceTo(target.position());
 
         if (distance > maxReach && data.canFlag(getName(), 1500)) {
             ViolationManager.flag(attacker, data, this,
-                    String.format("Attack distance: %.2f blocks (max: %.2f)", distance, maxReach));
+                    String.format("Attack distance: %.2f blocks (max: %.2f, ping: %dms)",
+                            distance, maxReach, ping));
         }
     }
 }

@@ -10,6 +10,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.UserBanListEntry;
 
+import java.util.Set;
+
 public class ViolationManager {
 
     public static void flag(ServerPlayer player, PlayerData data, AbstractCheck check, String details) {
@@ -19,6 +21,15 @@ public class ViolationManager {
         String action = getAction(check.getName());
         int maxViolations = getMaxViolations(check.getName());
         String resolvedAction = violations >= maxViolations ? action : "flag";
+
+        // Record to persistent history
+        Praxic.getHistoryManager().record(
+                player.getUUID(),
+                check.getName(),
+                violations,
+                details,
+                resolvedAction
+        );
 
         // Standard logging
         if (Praxic.getConfig().enableLogging) {
@@ -104,6 +115,23 @@ public class ViolationManager {
                         player.getName().getString(), check.getName());
                 PraxicLogger.logKick(player.getName().getString(), check.getName());
             }
+            case "setback" -> {
+                // Teleport player back to last known safe ground position
+                player.connection.teleport(
+                        data.lastSafeX,
+                        data.lastSafeY,
+                        data.lastSafeZ,
+                        player.getYRot(),
+                        player.getXRot(),
+                        Set.of()
+                );
+                data.resetViolations(check.getName());
+                Praxic.LOGGER.warn("[PRAXIC] Player {} was SET BACK by {}.",
+                        player.getName().getString(), check.getName());
+                PraxicLogger.logViolation(check.getName(), player.getName().getString(), violations,
+                        "setback to " + String.format("%.1f %.1f %.1f",
+                                data.lastSafeX, data.lastSafeY, data.lastSafeZ));
+            }
             case "warn" -> {
                 player.sendSystemMessage(
                     Component.literal(
@@ -130,6 +158,8 @@ public class ViolationManager {
             case "AutoClickerCheck"  -> Praxic.getConfig().autoClickerAction;
             case "TimerCheck"        -> Praxic.getConfig().timerAction;
             case "FastBreakCheck"    -> Praxic.getConfig().fastBreakAction;
+            case "JesusCheck"        -> Praxic.getConfig().jesusAction;
+            case "VelocityCheck"     -> Praxic.getConfig().velocityAction;
             default -> "warn";
         };
     }
@@ -147,6 +177,8 @@ public class ViolationManager {
             case "AutoClickerCheck"  -> Praxic.getConfig().autoClickerMaxViolations;
             case "TimerCheck"        -> Praxic.getConfig().timerMaxViolations;
             case "FastBreakCheck"    -> Praxic.getConfig().fastBreakMaxViolations;
+            case "JesusCheck"        -> Praxic.getConfig().jesusMaxViolations;
+            case "VelocityCheck"     -> Praxic.getConfig().velocityMaxViolations;
             default -> 10;
         };
     }

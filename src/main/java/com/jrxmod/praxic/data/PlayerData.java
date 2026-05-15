@@ -13,6 +13,11 @@ public class PlayerData {
     public double prevY;
     public double prevZ;
 
+    // Last known safe position (on ground, not dead) for setback action
+    public double lastSafeX;
+    public double lastSafeY;
+    public double lastSafeZ;
+
     // Timestamp of last position update in ms
     public long lastPositionUpdate = System.currentTimeMillis();
 
@@ -85,6 +90,19 @@ public class PlayerData {
     // Position of block being broken for FastBreakCheck
     public BlockPos breakingBlockPos = null;
 
+    // hurtTime value from previous tick for VelocityCheck hit detection
+    public int prevHurtTime = 0;
+
+    // True if waiting to evaluate knockback displacement
+    public boolean knockbackPending = false;
+
+    // Player position at the moment of hit for VelocityCheck
+    public double knockbackStartX;
+    public double knockbackStartZ;
+
+    // Ticks elapsed since knockback was registered
+    public int knockbackTicksWaited = 0;
+
     public Map<String, Integer> violations = new HashMap<>();
     public Map<String, Long> lastFlagTime = new HashMap<>();
 
@@ -92,6 +110,9 @@ public class PlayerData {
         this.prevX = x;
         this.prevY = y;
         this.prevZ = z;
+        this.lastSafeX = x;
+        this.lastSafeY = y;
+        this.lastSafeZ = z;
     }
 
     public int getViolations(String checkName) {
@@ -117,5 +138,18 @@ public class PlayerData {
         this.prevY = y;
         this.prevZ = z;
         this.lastPositionUpdate = System.currentTimeMillis();
+    }
+
+    // Decay all violations: -1 VL per check if no flag for decayIntervalMs
+    public void decayViolations(long decayIntervalMs) {
+        long now = System.currentTimeMillis();
+        for (String checkName : violations.keySet()) {
+            int vl = violations.get(checkName);
+            if (vl <= 0) continue;
+            long last = lastFlagTime.getOrDefault(checkName, 0L);
+            if (now - last >= decayIntervalMs) {
+                violations.put(checkName, vl - 1);
+            }
+        }
     }
 }

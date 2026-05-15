@@ -5,6 +5,8 @@ import com.jrxmod.praxic.api.PraxicStats;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.logger.PraxicLogger;
+import com.jrxmod.praxic.manager.HistoryManager;
+import com.jrxmod.praxic.manager.WhitelistManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
@@ -15,6 +17,7 @@ import net.minecraft.server.level.ServerPlayer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class PraxicCommand {
@@ -38,7 +41,7 @@ public class PraxicCommand {
                                 CommandSourceStack source = ctx.getSource();
                                 PraxicConfig cfg = Praxic.getConfig();
 
-                                Praxic.LOGGER.info("[PRAXIC] Status: Fly={} Speed={} NoFall={} Reach={} KillAura={} Scaffold={} AutoTotem={} Inventory={} AutoClicker={} Timer={} FastBreak={} Logging={}",
+                                Praxic.LOGGER.info("[PRAXIC] Status: Fly={} Speed={} NoFall={} Reach={} KillAura={} Scaffold={} AutoTotem={} Inventory={} AutoClicker={} Timer={} FastBreak={} Jesus={} Velocity={} Logging={}",
                                         cfg.flyCheckEnabled ? "ON" : "OFF",
                                         cfg.speedCheckEnabled ? "ON" : "OFF",
                                         cfg.noFallCheckEnabled ? "ON" : "OFF",
@@ -50,6 +53,8 @@ public class PraxicCommand {
                                         cfg.autoClickerCheckEnabled ? "ON" : "OFF",
                                         cfg.timerCheckEnabled ? "ON" : "OFF",
                                         cfg.fastBreakCheckEnabled ? "ON" : "OFF",
+                                        cfg.jesusCheckEnabled ? "ON" : "OFF",
+                                        cfg.velocityCheckEnabled ? "ON" : "OFF",
                                         cfg.enableLogging ? "ON" : "OFF");
 
                                 source.sendSuccess(() -> Component.literal(HEADER), false);
@@ -64,6 +69,8 @@ public class PraxicCommand {
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7AutoClickerCheck  " + (cfg.autoClickerCheckEnabled ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7TimerCheck        " + (cfg.timerCheckEnabled ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7FastBreakCheck    " + (cfg.fastBreakCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7JesusCheck        " + (cfg.jesusCheckEnabled ? ENABLED : DISABLED)), false);
+                                source.sendSuccess(() -> Component.literal(BULLET + "§7VelocityCheck     " + (cfg.velocityCheckEnabled ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(BULLET + "§7Logging           " + (cfg.enableLogging ? ENABLED : DISABLED)), false);
                                 source.sendSuccess(() -> Component.literal(LINE), false);
                                 return 1;
@@ -75,13 +82,9 @@ public class PraxicCommand {
                                 CommandSourceStack source = ctx.getSource();
                                 Map<UUID, PlayerData> allData = Praxic.getCheckManager().getAllData();
 
-                                // Total flags this session
                                 int totalFlags = PraxicStats.getTotalFlags();
-
-                                // Top 3 checks by flag count
                                 Map<String, Integer> topChecks = PraxicStats.getTopChecks(3);
 
-                                // Top 3 players by total violations (all loaded data)
                                 List<Map.Entry<String, Integer>> topPlayers = allData.entrySet().stream()
                                         .filter(e -> !e.getValue().violations.isEmpty())
                                         .map(e -> {
@@ -100,28 +103,23 @@ public class PraxicCommand {
                                 source.sendSuccess(() -> Component.literal(" §7Server stats §8(this session)§7:"), false);
                                 source.sendSuccess(() -> Component.literal(LINE), false);
 
-                                // Total flags
                                 source.sendSuccess(() -> Component.literal(
                                         BULLET + "§7Total flags: §e" + totalFlags), false);
 
-                                // Top checks
                                 source.sendSuccess(() -> Component.literal(
                                         BULLET + "§7Top checks:"), false);
                                 if (topChecks.isEmpty()) {
-                                    source.sendSuccess(() -> Component.literal(
-                                            "   §8No data yet."), false);
+                                    source.sendSuccess(() -> Component.literal("   §8No data yet."), false);
                                 } else {
                                     topChecks.forEach((check, count) ->
                                         source.sendSuccess(() -> Component.literal(
                                                 "   §8— §b" + check + " §7(" + count + " flags)"), false));
                                 }
 
-                                // Top players
                                 source.sendSuccess(() -> Component.literal(
                                         BULLET + "§7Top players:"), false);
                                 if (topPlayers.isEmpty()) {
-                                    source.sendSuccess(() -> Component.literal(
-                                            "   §8No data yet."), false);
+                                    source.sendSuccess(() -> Component.literal("   §8No data yet."), false);
                                 } else {
                                     topPlayers.forEach(entry ->
                                         source.sendSuccess(() -> Component.literal(
@@ -244,6 +242,150 @@ public class PraxicCommand {
                                 Praxic.LOGGER.info("[PRAXIC] Config reloaded by {}", source.getTextName());
                                 return 1;
                             }))
+
+                    // /praxic whitelist <add|remove|list> [player]
+                    .then(Commands.literal("whitelist")
+                            .then(Commands.literal("add")
+                                    .then(Commands.argument("player", StringArgumentType.word())
+                                            .executes(ctx -> {
+                                                String name = StringArgumentType.getString(ctx, "player");
+                                                CommandSourceStack source = ctx.getSource();
+                                                ServerPlayer target = source.getServer()
+                                                        .getPlayerList().getPlayerByName(name);
+
+                                                if (target == null) {
+                                                    source.sendFailure(Component.literal("§c[PRAXIC] §fPlayer not found: §e" + name));
+                                                    return 0;
+                                                }
+
+                                                WhitelistManager wl = Praxic.getWhitelistManager();
+                                                boolean added = wl.add(target.getUUID());
+
+                                                if (added) {
+                                                    source.sendSuccess(() -> Component.literal(
+                                                            "§6[PRAXIC] §e" + name + " §fadded to whitelist."), false);
+                                                    Praxic.LOGGER.info("[PRAXIC] {} added to whitelist by {}.", name, source.getTextName());
+                                                    PraxicLogger.logInfo(name + " added to whitelist by " + source.getTextName());
+                                                } else {
+                                                    source.sendFailure(Component.literal("§c[PRAXIC] §e" + name + " §fis already whitelisted."));
+                                                }
+                                                return 1;
+                                            })))
+                            .then(Commands.literal("remove")
+                                    .then(Commands.argument("player", StringArgumentType.word())
+                                            .executes(ctx -> {
+                                                String name = StringArgumentType.getString(ctx, "player");
+                                                CommandSourceStack source = ctx.getSource();
+                                                ServerPlayer target = source.getServer()
+                                                        .getPlayerList().getPlayerByName(name);
+
+                                                if (target == null) {
+                                                    source.sendFailure(Component.literal("§c[PRAXIC] §fPlayer not found: §e" + name));
+                                                    return 0;
+                                                }
+
+                                                WhitelistManager wl = Praxic.getWhitelistManager();
+                                                boolean removed = wl.remove(target.getUUID());
+
+                                                if (removed) {
+                                                    source.sendSuccess(() -> Component.literal(
+                                                            "§6[PRAXIC] §e" + name + " §fremoved from whitelist."), false);
+                                                    Praxic.LOGGER.info("[PRAXIC] {} removed from whitelist by {}.", name, source.getTextName());
+                                                    PraxicLogger.logInfo(name + " removed from whitelist by " + source.getTextName());
+                                                } else {
+                                                    source.sendFailure(Component.literal("§c[PRAXIC] §e" + name + " §fis not whitelisted."));
+                                                }
+                                                return 1;
+                                            })))
+                            .then(Commands.literal("list")
+                                    .executes(ctx -> {
+                                        CommandSourceStack source = ctx.getSource();
+                                        WhitelistManager wl = Praxic.getWhitelistManager();
+                                        Set<UUID> all = wl.getAll();
+
+                                        source.sendSuccess(() -> Component.literal(HEADER), false);
+                                        source.sendSuccess(() -> Component.literal(" §7PRAXIC Whitelist §8(" + all.size() + " entries)§7:"), false);
+                                        source.sendSuccess(() -> Component.literal(LINE), false);
+
+                                        if (all.isEmpty()) {
+                                            source.sendSuccess(() -> Component.literal(BULLET + "§aNo players whitelisted."), false);
+                                        } else {
+                                            all.forEach(uuid -> {
+                                                ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
+                                                String displayName = p != null ? p.getName().getString() : uuid.toString();
+                                                String online = p != null ? "§a● " : "§8○ ";
+                                                source.sendSuccess(() -> Component.literal(
+                                                        BULLET + online + "§f" + displayName), false);
+                                            });
+                                        }
+                                        source.sendSuccess(() -> Component.literal(LINE), false);
+                                        return 1;
+                                    })))
+
+                    // /praxic history <player>
+                    .then(Commands.literal("history")
+                            .then(Commands.argument("player", StringArgumentType.word())
+                                    .executes(ctx -> {
+                                        String name = StringArgumentType.getString(ctx, "player");
+                                        CommandSourceStack source = ctx.getSource();
+
+                                        // Resolve UUID — player can be offline
+                                        ServerPlayer target = source.getServer()
+                                                .getPlayerList().getPlayerByName(name);
+
+                                        UUID uuid = null;
+                                        if (target != null) {
+                                            uuid = target.getUUID();
+                                        } else {
+                                            // Try to resolve offline player UUID from server cache
+                                            com.mojang.authlib.GameProfile profile = source.getServer()
+                                                    .getProfileCache() != null
+                                                    ? source.getServer().getProfileCache()
+                                                            .get(name).map(p -> p).orElse(null)
+                                                    : null;
+                                            if (profile != null) uuid = profile.getId();
+                                        }
+
+                                        if (uuid == null) {
+                                            source.sendFailure(Component.literal("§c[PRAXIC] §fPlayer not found: §e" + name));
+                                            return 0;
+                                        }
+
+                                        final UUID finalUuid = uuid;
+                                        List<HistoryManager.ViolationEntry> entries =
+                                                Praxic.getHistoryManager().getHistory(finalUuid);
+
+                                        source.sendSuccess(() -> Component.literal(HEADER), false);
+                                        source.sendSuccess(() -> Component.literal(
+                                                " §7History for §e§l" + name + " §r§8(" + entries.size() + " entries)§7:"), false);
+                                        source.sendSuccess(() -> Component.literal(LINE), false);
+
+                                        if (entries.isEmpty()) {
+                                            source.sendSuccess(() -> Component.literal(BULLET + "§aNo history recorded."), false);
+                                        } else {
+                                            // Show last 10 entries most recent first
+                                            int start = Math.max(0, entries.size() - 10);
+                                            List<HistoryManager.ViolationEntry> recent =
+                                                    entries.subList(start, entries.size());
+                                            for (int i = recent.size() - 1; i >= 0; i--) {
+                                                HistoryManager.ViolationEntry e = recent.get(i);
+                                                String actionColor = switch (e.action) {
+                                                    case "ban"      -> "§c";
+                                                    case "kick"     -> "§e";
+                                                    case "setback"  -> "§b";
+                                                    case "warn"     -> "§6";
+                                                    default         -> "§7";
+                                                };
+                                                source.sendSuccess(() -> Component.literal(
+                                                        BULLET + "§8[§7" + e.timestamp + "§8] " +
+                                                        "§b" + e.check + " §8VL:" + e.vl +
+                                                        " " + actionColor + e.action +
+                                                        " §8— §7" + e.details), false);
+                                            }
+                                        }
+                                        source.sendSuccess(() -> Component.literal(LINE), false);
+                                        return 1;
+                                    })))
             );
         });
     }

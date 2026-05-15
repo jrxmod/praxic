@@ -74,6 +74,16 @@ public class PraxicConfig {
     public int fastBreakMaxViolations = 5;
     public String fastBreakAction = "kick";
 
+    // JesusCheck settings
+    public boolean jesusCheckEnabled = true;
+    public int jesusMaxViolations = 5;
+    public String jesusAction = "kick";
+
+    // VelocityCheck settings
+    public boolean velocityCheckEnabled = true;
+    public int velocityMaxViolations = 5;
+    public String velocityAction = "kick";
+
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;
 

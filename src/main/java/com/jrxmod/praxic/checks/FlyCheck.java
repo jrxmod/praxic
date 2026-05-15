@@ -3,6 +3,7 @@ package com.jrxmod.praxic.checks;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
+import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.GameType;
@@ -46,7 +47,7 @@ public class FlyCheck extends AbstractCheck {
         }
 
         if (player.hasEffect(MobEffects.LEVITATION)) return;
-        if (player.isFallFlying()) return; // Elytra
+        if (player.isFallFlying()) return;
         if (player.getAbilities().mayfly) return;
 
         if (player.onClimbable()) {
@@ -58,20 +59,25 @@ public class FlyCheck extends AbstractCheck {
         boolean onGround = player.onGround();
         double dy = player.getY() - data.prevY;
 
-        // Hover / air time detection
         if (!onGround) {
             data.airTicks++;
         } else {
             data.airTicks = 0;
         }
 
-        if (data.airTicks > Praxic.getConfig().flyMaxAirTicks && data.canFlag(getName(), 2000)) {
+        int ping = player.connection.latency();
+
+        // Scale air tick threshold with player latency
+        int maxAirTicks = Praxic.getConfig().flyMaxAirTicks
+                + LagCompensation.extraAirTicks(ping);
+
+        if (data.airTicks > maxAirTicks && data.canFlag(getName(), 2000)) {
             ViolationManager.flag(player, data, this,
-                    String.format("Suspended in air for %d ticks", data.airTicks));
+                    String.format("Suspended in air for %d ticks (max: %d, ping: %dms)",
+                            data.airTicks, maxAirTicks, ping));
         }
 
-        // Vertical ascent detection
-        // Ignore shortly after leaving water to avoid false positives on water->land collision boosts
+        // Vertical ascent detection — unaffected by latency (physics-based, not packet-based)
         if (data.waterExitTicks == 0) {
             if (!onGround && !data.wasOnGround && dy > 0 && player.hurtTime == 0) {
                 if (data.airTicks > 15 && dy > 0.15 && data.canFlag(getName(), 2000)) {
