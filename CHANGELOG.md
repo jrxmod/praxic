@@ -2,6 +2,19 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.4.0 — Engine Update
+### Added
+- VL Decay: violation levels decrease by 1 every 5 seconds without new flags.
+- Setback: new action type — teleports player back to last safe ground position instead of kicking.
+- Lag Compensation: dynamic check thresholds based on player ping, capped at 500ms to prevent spoofing.
+- JesusCheck: detects walking on water surface. Accounts for Frost Walker, lily pads, water exit grace period and knockback.
+- VelocityCheck: detects knockback cancellation by measuring horizontal displacement after taking damage.
+- /praxic whitelist add/remove/list — exclude players from all checks. Persistent across restarts.
+- /praxic history <player> — view last 10 violation entries per player. Persistent, works for offline players.
+
+### Fixed
+- player.latency replaced with player.connection.latency() — correct Fabric API method.
+
 ## 0.3.0 — Integrations & API
 ### Added
 - Update Checker: notifies OP2+ players on join if a newer version is available on Modrinth.
