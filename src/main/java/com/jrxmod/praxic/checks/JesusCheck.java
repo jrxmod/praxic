@@ -14,6 +14,9 @@ public class JesusCheck extends AbstractCheck {
     // Minimum horizontal movement to consider player is actively walking on water
     private static final double MIN_HORIZONTAL_SPEED = 0.05;
 
+    // Grace ticks after leaving water — independent from FlyCheck waterExitTicks
+    private static final int WATER_GRACE_TICKS = 15;
+
     @Override
     public String getName() {
         return "JesusCheck";
@@ -34,11 +37,28 @@ public class JesusCheck extends AbstractCheck {
         // Skip recent knockback — can push player over water edge
         if (player.hurtTime > 0) return;
 
-        // Skip water exit grace — normal jump out of water looks like Jesus
-        if (data.waterExitTicks > 0) return;
+        boolean inWater = player.isInWater();
+
+        // Update independent jesus grace timer
+        if (data.wasInWater && !inWater) {
+            data.jesusWaterGraceTicks = WATER_GRACE_TICKS;
+        }
+        if (data.jesusWaterGraceTicks > 0) {
+            data.jesusWaterGraceTicks--;
+        }
 
         // Player is already legitimately in water — not Jesus
-        if (player.isInWater()) return;
+        if (inWater) return;
+
+        // Was in water last tick — transition frame, skip
+        if (data.wasInWater) return;
+
+        // Still in grace period after leaving water
+        if (data.jesusWaterGraceTicks > 0) return;
+
+        // Player is falling down — not walking on water
+        double dy = player.getY() - data.prevY;
+        if (dy < -0.01) return;
 
         BlockPos footPos = player.blockPosition();
 

@@ -27,8 +27,11 @@ public class PlayerData {
     // Track water state to avoid false positives on water->land transitions
     public boolean wasInWater = false;
 
-    // Grace period after leaving water (ticks)
+    // Grace period after leaving water (ticks) — used by FlyCheck
     public int waterExitTicks = 0;
+
+    // Independent grace period after leaving water for JesusCheck
+    public int jesusWaterGraceTicks = 0;
 
     // Air ticks counter for FlyCheck
     public int airTicks = 0;

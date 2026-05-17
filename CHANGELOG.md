@@ -2,6 +2,12 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.4.1 — Patch
+### Fixed
+- JesusCheck: false positives when falling into water or exiting water.
+  Added independent grace timer (15 ticks), wasInWater transition guard,
+  and downward movement check (dy < -0.01).
+
 ## 0.4.0 — Engine Update
 ### Added
 - VL Decay: violation levels decrease by 1 every 5 seconds without new flags.
