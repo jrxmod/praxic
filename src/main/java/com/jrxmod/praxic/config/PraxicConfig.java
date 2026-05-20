@@ -84,6 +84,11 @@ public class PraxicConfig {
     public int velocityMaxViolations = 5;
     public String velocityAction = "kick";
 
+    // YPredictionCheck settings — physics-based vertical fly/hover detection
+    public boolean yPredictionCheckEnabled = true;
+    public int yPredictionMaxViolations = 5;
+    public String yPredictionAction = "setback";
+
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;
 

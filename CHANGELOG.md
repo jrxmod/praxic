@@ -2,6 +2,28 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.5.0 - Engine Update II
+### Added
+- **Movement State Machine** — centralized movement state (GROUND / JUMP / AIR / FALLING / WATER / CLIMB)
+  All checks now read a single shared state instead of maintaining their own booleans
+- **Y-Prediction Engine** — physics-based vertical movement check (`YPredictionCheck`)
+  Simulates vanilla gravity (`vy = (vy - 0.08) * 0.98`) and compares predicted Y to actual Y
+  Flags only when player is *above* prediction — catches fly and hover cheats
+  Lag-compensated tolerance, resync on flag to prevent VL cascades
+  Default action: `setback`
+- `lastYaw` / `lastPitch` fields added to `PlayerData` (groundwork for RotationCheck in next release)
+
+### Changed
+- `/praxic status` now shows checks grouped by category: Movement / Combat / World / Client / System
+- `/praxic status` now also shows `StaffAlerts` and `Discord` state
+- Kick / ban / warn messages now show human-readable reasons instead of internal check names
+  (e.g. "Flying is not allowed on this server." instead of "FlyCheck")
+- `waterExitTicks` and `jesusWaterGraceTicks` are now managed centrally by `CheckManager`
+  instead of being updated inside individual checks — order of execution no longer matters
+
+### Fixed
+- `airTicks` could increment while in water or on a climbable in edge cases — now strictly tied to airborne states
+
 ## 0.4.1 — Patch
 ### Fixed
 - JesusCheck: false positives when falling into water or exiting water.

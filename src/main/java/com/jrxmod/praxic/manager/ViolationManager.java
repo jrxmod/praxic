@@ -74,6 +74,9 @@ public class ViolationManager {
             return;
         }
 
+        // Human-readable reason shown to the player
+        String reason = getHumanReason(check.getName());
+
         switch (action.toLowerCase()) {
             case "ban" -> {
                 UserBanListEntry ban = new UserBanListEntry(
@@ -81,15 +84,14 @@ public class ViolationManager {
                         null,
                         "PRAXIC",
                         null,
-                        check.getName()
+                        reason
                 );
                 player.getServer().getPlayerList().getBans().add(ban);
                 player.connection.disconnect(
                     Component.literal(
                         "§6§lPRAXIC §8§m──────────────§r\n\n" +
                         "§cYou have been §l§cpermanently banned§r§c.\n\n" +
-                        "§7Reason: §f" + check.getName() + "\n" +
-                        "§7Violations: §c" + violations + "\n\n" +
+                        "§7Reason: §f" + reason + "\n\n" +
                         "§8If you think this is a mistake,\n" +
                         "§8contact server administration."
                     )
@@ -104,8 +106,7 @@ public class ViolationManager {
                     Component.literal(
                         "§6§lPRAXIC §8§m──────────────§r\n\n" +
                         "§cYou have been §l§ckicked§r§c.\n\n" +
-                        "§7Reason: §f" + check.getName() + "\n" +
-                        "§7Violations: §c" + violations + "\n\n" +
+                        "§7Reason: §f" + reason + "\n\n" +
                         "§8If you think this is a mistake,\n" +
                         "§8contact server administration."
                     )
@@ -116,7 +117,6 @@ public class ViolationManager {
                 PraxicLogger.logKick(player.getName().getString(), check.getName());
             }
             case "setback" -> {
-                // Teleport player back to last known safe ground position
                 player.connection.teleport(
                         data.lastSafeX,
                         data.lastSafeY,
@@ -135,8 +135,8 @@ public class ViolationManager {
             case "warn" -> {
                 player.sendSystemMessage(
                     Component.literal(
-                        "§6[PRAXIC] §eWarning! §7Suspicious behavior detected.\n" +
-                        "§8» §7Check: §f" + check.getName() + " §8| §7VL: §e" + violations
+                        "§6[PRAXIC] §eWarning! §7Suspicious activity detected.\n" +
+                        "§8» §7" + reason
                     )
                 );
                 data.resetViolations(check.getName());
@@ -144,6 +144,34 @@ public class ViolationManager {
             default -> Praxic.LOGGER.warn("[PRAXIC] Unknown action '{}' for check {}", action, check.getName());
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Human-readable reason shown to the player on kick/ban/warn
+    // -------------------------------------------------------------------------
+
+    private static String getHumanReason(String checkName) {
+        return switch (checkName) {
+            case "FlyCheck"          -> "Flying is not allowed on this server.";
+            case "YPredictionCheck"  -> "Flying is not allowed on this server.";
+            case "SpeedCheck"        -> "Movement speed limit exceeded.";
+            case "NoFallCheck"       -> "Fall damage manipulation is not allowed.";
+            case "ReachCheck"        -> "Attack reach limit exceeded.";
+            case "KillAuraCheck"     -> "Automated combat is not allowed.";
+            case "ScaffoldCheck"     -> "Automated block placement is not allowed.";
+            case "AutoTotemCheck"    -> "Automated item usage is not allowed.";
+            case "InventoryCheck"    -> "Automated inventory manipulation is not allowed.";
+            case "AutoClickerCheck"  -> "Automated clicking is not allowed.";
+            case "TimerCheck"        -> "Game speed manipulation is not allowed.";
+            case "FastBreakCheck"    -> "Block breaking speed limit exceeded.";
+            case "JesusCheck"        -> "Walking on liquids is not allowed.";
+            case "VelocityCheck"     -> "Knockback manipulation is not allowed.";
+            default                  -> "Suspicious behaviour detected.";
+        };
+    }
+
+    // -------------------------------------------------------------------------
+    // Config lookups
+    // -------------------------------------------------------------------------
 
     private static String getAction(String checkName) {
         return switch (checkName) {
@@ -160,6 +188,7 @@ public class ViolationManager {
             case "FastBreakCheck"    -> Praxic.getConfig().fastBreakAction;
             case "JesusCheck"        -> Praxic.getConfig().jesusAction;
             case "VelocityCheck"     -> Praxic.getConfig().velocityAction;
+            case "YPredictionCheck"  -> Praxic.getConfig().yPredictionAction;
             default -> "warn";
         };
     }
@@ -179,6 +208,7 @@ public class ViolationManager {
             case "FastBreakCheck"    -> Praxic.getConfig().fastBreakMaxViolations;
             case "JesusCheck"        -> Praxic.getConfig().jesusMaxViolations;
             case "VelocityCheck"     -> Praxic.getConfig().velocityMaxViolations;
+            case "YPredictionCheck"  -> Praxic.getConfig().yPredictionMaxViolations;
             default -> 10;
         };
     }
