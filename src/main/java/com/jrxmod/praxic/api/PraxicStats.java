@@ -22,6 +22,8 @@ public final class PraxicStats {
             totalFlags.incrementAndGet();
             flagsByCheck.computeIfAbsent(checkName, k -> new AtomicInteger(0))
                     .incrementAndGet();
+            // Stats listener never cancels PRAXIC's action
+            return false;
         });
     }
 

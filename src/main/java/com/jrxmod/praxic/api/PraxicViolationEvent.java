@@ -6,13 +6,17 @@ import net.minecraft.server.level.ServerPlayer;
 
 public final class PraxicViolationEvent {
 
-    // Other mods listen to this event to react to PRAXIC violations
+    // Returns true if the action should be cancelled (e.g. REVEX handles punishment instead)
     public static final Event<Listener> EVENT = EventFactory.createArrayBacked(
             Listener.class,
             listeners -> (player, checkName, violations, details, action) -> {
+                boolean cancelled = false;
                 for (Listener listener : listeners) {
-                    listener.onViolation(player, checkName, violations, details, action);
+                    if (listener.onViolation(player, checkName, violations, details, action)) {
+                        cancelled = true;
+                    }
                 }
+                return cancelled;
             }
     );
 
@@ -20,14 +24,17 @@ public final class PraxicViolationEvent {
     public interface Listener {
         /**
          * Called when a player is flagged by PRAXIC.
+         * Return true to cancel PRAXIC's built-in action (kick/ban/setback/warn).
+         * PRAXIC will still log and send staff alerts — only the punishment is skipped.
          *
          * @param player     the flagged player
          * @param checkName  name of the check that flagged (e.g. "FlyCheck")
          * @param violations current violation count for this check
          * @param details    human-readable details of the violation
-         * @param action     action taken: "flag", "warn", "kick", or "ban"
+         * @param action     action that would be taken: "flag", "warn", "kick", "ban", "setback"
+         * @return true to cancel PRAXIC's action, false to let PRAXIC handle it normally
          */
-        void onViolation(ServerPlayer player, String checkName, int violations, String details, String action);
+        boolean onViolation(ServerPlayer player, String checkName, int violations, String details, String action);
     }
 
     private PraxicViolationEvent() {}

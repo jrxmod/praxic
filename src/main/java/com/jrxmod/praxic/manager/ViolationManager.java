@@ -31,7 +31,7 @@ public class ViolationManager {
                 resolvedAction
         );
 
-        // Standard logging
+        // Standard logging — always runs regardless of cancellation
         if (Praxic.getConfig().enableLogging) {
             Praxic.LOGGER.warn("[PRAXIC] {} | Player: {} | VL: {} | {}",
                     check.getName(),
@@ -41,7 +41,7 @@ public class ViolationManager {
             PraxicLogger.logViolation(check.getName(), player.getName().getString(), violations, details);
         }
 
-        // Staff Alerts
+        // Staff Alerts — always runs regardless of cancellation
         if (Praxic.getConfig().enableStaffAlerts) {
             Component alert = Component.literal(
                 "§6[PRAXIC] §bStaff Alert §8» §fPlayer §e" + player.getName().getString() +
@@ -52,7 +52,7 @@ public class ViolationManager {
                     .forEach(p -> p.sendSystemMessage(alert));
         }
 
-        // Discord Webhook
+        // Discord Webhook — always runs regardless of cancellation
         DiscordWebhook.send(
                 player.getName().getString(),
                 check.getName(),
@@ -61,14 +61,21 @@ public class ViolationManager {
                 resolvedAction
         );
 
-        // OnViolation API — notify other mods listening to this event
-        PraxicViolationEvent.EVENT.invoker().onViolation(
+        // Fire event — if any listener returns true, skip PRAXIC's built-in action
+        // REVEX (or any other addon) returning true means it handles punishment itself
+        boolean cancelled = PraxicViolationEvent.EVENT.invoker().onViolation(
                 player,
                 check.getName(),
                 violations,
                 details,
                 resolvedAction
         );
+
+        if (cancelled) {
+            Praxic.LOGGER.info("[PRAXIC] Action for {} cancelled by event listener (addon handling punishment).",
+                    player.getName().getString());
+            return;
+        }
 
         if (violations < maxViolations) {
             return;
