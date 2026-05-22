@@ -21,32 +21,15 @@ public class FlyCheck extends AbstractCheck {
 
         if (player.isSpectator()) return;
         if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.isDeadOrDying()) return;
-        if (player.isPassenger()) return;
-
-        if (player.isInWater() || player.isInLava()) {
-            data.airTicks    = 0;
-            data.wasOnGround = true;
-            return;
-        }
-
-        if (player.hasEffect(MobEffects.LEVITATION)) return;
-        if (player.isFallFlying()) return;
         if (player.getAbilities().mayfly) return;
+        if (player.isPassenger()) return;
+        if (player.isFallFlying()) return;
+        if (player.hasEffect(MobEffects.LEVITATION)) return;
+        if (player.hasEffect(MobEffects.SLOW_FALLING)) return;
 
-        if (player.onClimbable()) {
-            data.airTicks    = 0;
-            data.wasOnGround = true;
-            return;
-        }
-
-        if (!player.onGround()) {
-            data.airTicks++;
-        } else {
-            data.airTicks    = 0;
-            data.wasOnGround = true;
-            return;
-        }
+        // Grace period after leaving water — state machine already counted airTicks,
+        // but the transition can look like hovering for a few ticks
+        if (data.waterExitTicks > 0) return;
 
         int ping = player.connection.latency();
 
@@ -60,7 +43,5 @@ public class FlyCheck extends AbstractCheck {
                     String.format("Suspended in air for %d ticks (max: %d, ping: %dms)",
                             data.airTicks, maxAirTicks, ping));
         }
-
-        data.wasOnGround = false;
     }
 }

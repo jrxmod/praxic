@@ -38,6 +38,9 @@ public class CheckManager {
         checks.add(new FastBreakCheck());
         checks.add(new JesusCheck());
         checks.add(new VelocityCheck());
+        checks.add(new RotationCheck());
+        checks.add(new SprintCheck());
+        checks.add(new BoatFlyCheck());
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             decayTickCounter++;
@@ -57,10 +60,10 @@ public class CheckManager {
                 //    health <= 0 is more reliable than isDeadOrDying() which can return
                 //    false after the death animation completes but before respawn
                 if (player.getHealth() <= 0) {
-                    // Reset prediction state so it reseeds cleanly on respawn
                     data.yPredictionActive     = false;
                     data.yPredictionGraceTicks = 0;
                     data.airTicks              = 0;
+                    data.boatAirTicks          = 0;
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
                     continue;
                 }
@@ -146,6 +149,9 @@ public class CheckManager {
     private void syncDerivedFields(ServerPlayer player, PlayerData data) {
         MovementState prev = data.prevMovementState;
         MovementState curr = data.movementState;
+
+        // Decrement join grace each tick until expired
+        if (data.joinGraceTicks > 0) data.joinGraceTicks--;
 
         data.wasOnGround = (prev == MovementState.GROUND);
         data.wasInWater  = (prev == MovementState.WATER);

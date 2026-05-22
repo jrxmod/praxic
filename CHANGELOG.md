@@ -2,6 +2,18 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.6.0 - New Checks
+### Added
+- RotationCheck: detects AimAssist via suspicious rotation snaps during combat
+- SprintCheck: detects sprinting under conditions vanilla prohibits (low hunger, Blindness)
+- BoatFlyCheck: detects flying while riding a boat
+
+### Changed
+- FlyCheck: removed deprecated state mutation code (now fully managed by CheckManager)
+- PlayerData: added joinGraceTicks — all checks skip the first 2 seconds after join
+- PraxicViolationEvent: now cancellable (listeners return boolean)
+  true = listener handles punishment, PRAXIC skips its own action
+
 ## 0.5.0 - Engine Update II
 ### Added
 - **Movement State Machine** — centralized movement state (GROUND / JUMP / AIR / FALLING / WATER / CLIMB)

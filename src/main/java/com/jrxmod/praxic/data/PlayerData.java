@@ -88,6 +88,17 @@ public class PlayerData {
     public int airTicks = 0;
 
     // -------------------------------------------------------------------------
+    // Join grace
+    // -------------------------------------------------------------------------
+
+    /**
+     * Grace ticks after joining the server.
+     * Set to 40 on join, decremented each tick by CheckManager.
+     * Checks that are sensitive to the first-tick state should skip while > 0.
+     */
+    public int joinGraceTicks = 40;
+
+    // -------------------------------------------------------------------------
     // Fall tracking
     // -------------------------------------------------------------------------
 
@@ -110,7 +121,7 @@ public class PlayerData {
     // Combat
     // -------------------------------------------------------------------------
 
-    /** Timestamp of last attack for KillAuraCheck. */
+    /** Timestamp of last attack for KillAuraCheck and RotationCheck. */
     public long lastAttackTime = 0;
 
     /** Counter for rapid attacks within time window. */
@@ -176,6 +187,26 @@ public class PlayerData {
 
     /** Ticks elapsed since knockback was registered. */
     public int knockbackTicksWaited = 0;
+
+    // -------------------------------------------------------------------------
+    // RotationCheck
+    // -------------------------------------------------------------------------
+
+    /**
+     * Consecutive ticks where a suspicious snap angle was detected during combat.
+     * Incremented on snap, decremented when clean — flags at threshold.
+     */
+    public int rotationSnapBuffer = 0;
+
+    // -------------------------------------------------------------------------
+    // BoatFlyCheck
+    // -------------------------------------------------------------------------
+
+    /**
+     * Consecutive ticks the player's boat vehicle has been hovering airborne
+     * (not falling naturally, not on ground, not in water).
+     */
+    public int boatAirTicks = 0;
 
     // -------------------------------------------------------------------------
     // Violations

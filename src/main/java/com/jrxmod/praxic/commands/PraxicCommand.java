@@ -47,7 +47,8 @@ public class PraxicCommand {
 
                                 Praxic.LOGGER.info("[PRAXIC] Status: Fly={} Speed={} NoFall={} Reach={} " +
                                         "KillAura={} Scaffold={} AutoTotem={} Inventory={} AutoClicker={} " +
-                                        "Timer={} FastBreak={} Jesus={} Velocity={} YPrediction={} Logging={}",
+                                        "Timer={} FastBreak={} Jesus={} Velocity={} YPrediction={} " +
+                                        "Rotation={} Sprint={} BoatFly={} Logging={}",
                                         cfg.flyCheckEnabled          ? "ON" : "OFF",
                                         cfg.speedCheckEnabled        ? "ON" : "OFF",
                                         cfg.noFallCheckEnabled       ? "ON" : "OFF",
@@ -62,6 +63,9 @@ public class PraxicCommand {
                                         cfg.jesusCheckEnabled        ? "ON" : "OFF",
                                         cfg.velocityCheckEnabled     ? "ON" : "OFF",
                                         cfg.yPredictionCheckEnabled  ? "ON" : "OFF",
+                                        cfg.rotationCheckEnabled     ? "ON" : "OFF",
+                                        cfg.sprintCheckEnabled       ? "ON" : "OFF",
+                                        cfg.boatFlyCheckEnabled      ? "ON" : "OFF",
                                         cfg.enableLogging            ? "ON" : "OFF");
 
                                 source.sendSuccess(() -> Component.literal(HEADER), false);
@@ -72,12 +76,15 @@ public class PraxicCommand {
                                 source.sendSuccess(() -> Component.literal(row("YPredictionCheck", cfg.yPredictionCheckEnabled)), false);
                                 source.sendSuccess(() -> Component.literal(row("SpeedCheck",       cfg.speedCheckEnabled)),       false);
                                 source.sendSuccess(() -> Component.literal(row("JesusCheck",       cfg.jesusCheckEnabled)),       false);
+                                source.sendSuccess(() -> Component.literal(row("SprintCheck",      cfg.sprintCheckEnabled)),      false);
+                                source.sendSuccess(() -> Component.literal(row("BoatFlyCheck",     cfg.boatFlyCheckEnabled)),     false);
 
                                 // Combat
                                 source.sendSuccess(() -> Component.literal(" §8§oCombat"), false);
                                 source.sendSuccess(() -> Component.literal(row("ReachCheck",       cfg.reachCheckEnabled)),       false);
                                 source.sendSuccess(() -> Component.literal(row("KillAuraCheck",    cfg.killAuraCheckEnabled)),    false);
                                 source.sendSuccess(() -> Component.literal(row("VelocityCheck",    cfg.velocityCheckEnabled)),    false);
+                                source.sendSuccess(() -> Component.literal(row("RotationCheck",    cfg.rotationCheckEnabled)),    false);
 
                                 // World
                                 source.sendSuccess(() -> Component.literal(" §8§oWorld"), false);

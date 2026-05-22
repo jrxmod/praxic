@@ -172,6 +172,9 @@ public class ViolationManager {
             case "FastBreakCheck"    -> "Block breaking speed limit exceeded.";
             case "JesusCheck"        -> "Walking on liquids is not allowed.";
             case "VelocityCheck"     -> "Knockback manipulation is not allowed.";
+            case "RotationCheck"     -> "Suspicious aim behaviour detected.";
+            case "SprintCheck"       -> "Illegal movement behaviour detected.";
+            case "BoatFlyCheck"      -> "Flying is not allowed on this server.";
             default                  -> "Suspicious behaviour detected.";
         };
     }
@@ -196,6 +199,9 @@ public class ViolationManager {
             case "JesusCheck"        -> Praxic.getConfig().jesusAction;
             case "VelocityCheck"     -> Praxic.getConfig().velocityAction;
             case "YPredictionCheck"  -> Praxic.getConfig().yPredictionAction;
+            case "RotationCheck"     -> Praxic.getConfig().rotationAction;
+            case "SprintCheck"       -> Praxic.getConfig().sprintAction;
+            case "BoatFlyCheck"      -> Praxic.getConfig().boatFlyAction;
             default -> "warn";
         };
     }
@@ -216,6 +222,9 @@ public class ViolationManager {
             case "JesusCheck"        -> Praxic.getConfig().jesusMaxViolations;
             case "VelocityCheck"     -> Praxic.getConfig().velocityMaxViolations;
             case "YPredictionCheck"  -> Praxic.getConfig().yPredictionMaxViolations;
+            case "RotationCheck"     -> Praxic.getConfig().rotationMaxViolations;
+            case "SprintCheck"       -> Praxic.getConfig().sprintMaxViolations;
+            case "BoatFlyCheck"      -> Praxic.getConfig().boatFlyMaxViolations;
             default -> 10;
         };
     }

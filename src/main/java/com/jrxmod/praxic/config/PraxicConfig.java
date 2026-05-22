@@ -89,6 +89,21 @@ public class PraxicConfig {
     public int yPredictionMaxViolations = 5;
     public String yPredictionAction = "setback";
 
+    // RotationCheck settings — AimAssist snap detection during combat
+    public boolean rotationCheckEnabled = true;
+    public int rotationMaxViolations = 8;
+    public String rotationAction = "warn";
+
+    // SprintCheck settings — sprinting under conditions vanilla prohibits
+    public boolean sprintCheckEnabled = true;
+    public int sprintMaxViolations = 5;
+    public String sprintAction = "warn";
+
+    // BoatFlyCheck settings — flying while riding a boat
+    public boolean boatFlyCheckEnabled = true;
+    public int boatFlyMaxViolations = 5;
+    public String boatFlyAction = "kick";
+
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;
 
