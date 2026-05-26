@@ -4,6 +4,14 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.checks.*;
 import com.jrxmod.praxic.data.MovementState;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.engine.analysis.RotationAnalyzer;
+import com.jrxmod.praxic.engine.analysis.RotationProfile;
+import com.jrxmod.praxic.engine.analysis.TimingAnalyzer;
+import com.jrxmod.praxic.engine.analysis.TimingProfile;
+import com.jrxmod.praxic.engine.data.PlayerSnapshot;
+import com.jrxmod.praxic.engine.data.SnapshotBuilder;
+import com.jrxmod.praxic.engine.physics.PhysicsEngine;
+import com.jrxmod.praxic.engine.physics.PhysicsResult;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,12 +20,20 @@ import java.util.*;
 
 public class CheckManager {
 
-    private final List<AbstractCheck> checks = new ArrayList<>();
-    private final Map<UUID, PlayerData> playerDataMap = new HashMap<>();
+    private final List<AbstractCheck>          checks          = new ArrayList<>();
+    private final Map<UUID, PlayerData>        playerDataMap   = new HashMap<>();
+    private final Map<UUID, PlayerSnapshot>    snapshots       = new HashMap<>();
+    private final Map<UUID, PhysicsResult>     physicsResults  = new HashMap<>();
+    private final Map<UUID, RotationProfile>   rotationProfiles = new HashMap<>();
+    private final Map<UUID, TimingProfile>     timingProfiles  = new HashMap<>();
+
+    private final PhysicsEngine    physicsEngine    = new PhysicsEngine();
+    private final RotationAnalyzer rotationAnalyzer = new RotationAnalyzer();
+    private final TimingAnalyzer   timingAnalyzer   = new TimingAnalyzer();
 
     /** Decay fires every 100 ticks (5 seconds at 20 TPS). */
-    private static final int DECAY_INTERVAL_TICKS = 100;
-    private static final long DECAY_INTERVAL_MS = 5000L;
+    private static final int  DECAY_INTERVAL_TICKS = 100;
+    private static final long DECAY_INTERVAL_MS    = 5000L;
     private int decayTickCounter = 0;
 
     /** Grace ticks granted when leaving water, for FlyCheck and JesusCheck. */
@@ -50,6 +66,7 @@ public class CheckManager {
             List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
             for (ServerPlayer player : players) {
                 PlayerData data = getOrCreateData(player);
+                UUID uuid = player.getUUID();
 
                 // 1. Decay VL before checks to keep thresholds fair
                 if (doDecay) {
@@ -64,6 +81,9 @@ public class CheckManager {
                     data.yPredictionGraceTicks = 0;
                     data.airTicks              = 0;
                     data.boatAirTicks          = 0;
+                    physicsEngine.reset(uuid);
+                    rotationAnalyzer.reset(uuid);
+                    timingAnalyzer.reset(uuid);
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
                     continue;
                 }
@@ -74,19 +94,34 @@ public class CheckManager {
                 // 4. Sync derived legacy fields from the state machine
                 syncDerivedFields(player, data);
 
-                // 5. Run checks (whitelisted players are skipped entirely)
-                if (!Praxic.getWhitelistManager().isWhitelisted(player.getUUID())) {
+                // 5. Build immutable snapshot — engine layers read from this
+                PlayerSnapshot snapshot = SnapshotBuilder.build(player, data);
+                snapshots.put(uuid, snapshot);
+
+                // 6. Run physics simulation
+                PhysicsResult physics = physicsEngine.simulate(uuid, snapshot, data);
+                physicsResults.put(uuid, physics);
+
+                // 7. Run analysis layer
+                RotationProfile rotProfile = rotationAnalyzer.analyse(uuid, snapshot);
+                rotationProfiles.put(uuid, rotProfile);
+
+                TimingProfile timProfile = timingAnalyzer.analyse(uuid, data);
+                timingProfiles.put(uuid, timProfile);
+
+                // 8. Run checks (whitelisted players are skipped entirely)
+                if (!Praxic.getWhitelistManager().isWhitelisted(uuid)) {
                     runChecks(player, data);
                 }
 
-                // 6. Update safe position when firmly on the ground
+                // 9. Update safe position when firmly on the ground
                 if (player.onGround() && !player.isDeadOrDying()) {
                     data.lastSafeX = player.getX();
                     data.lastSafeY = player.getY();
                     data.lastSafeZ = player.getZ();
                 }
 
-                // 7. Snapshot position and rotation for next tick
+                // 10. Snapshot position and rotation for next tick
                 data.updatePosition(player.getX(), player.getY(), player.getZ());
                 data.lastYaw   = player.getYRot();
                 data.lastPitch = player.getXRot();
@@ -100,7 +135,15 @@ public class CheckManager {
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-            playerDataMap.remove(handler.getPlayer().getUUID());
+            UUID uuid = handler.getPlayer().getUUID();
+            playerDataMap.remove(uuid);
+            snapshots.remove(uuid);
+            physicsResults.remove(uuid);
+            physicsEngine.reset(uuid);
+            rotationProfiles.remove(uuid);
+            timingProfiles.remove(uuid);
+            rotationAnalyzer.reset(uuid);
+            timingAnalyzer.reset(uuid);
         });
     }
 
@@ -196,6 +239,26 @@ public class CheckManager {
 
     public PlayerData getPlayerData(UUID uuid) {
         return playerDataMap.get(uuid);
+    }
+
+    /** Returns the latest snapshot for the given player, or null if not yet built. */
+    public PlayerSnapshot getSnapshot(UUID uuid) {
+        return snapshots.get(uuid);
+    }
+
+    /** Returns the latest physics result for the given player, or null. */
+    public PhysicsResult getPhysicsResult(UUID uuid) {
+        return physicsResults.get(uuid);
+    }
+
+    /** Returns the latest rotation profile for the given player, or null. */
+    public RotationProfile getRotationProfile(UUID uuid) {
+        return rotationProfiles.get(uuid);
+    }
+
+    /** Returns the latest timing profile for the given player, or null. */
+    public TimingProfile getTimingProfile(UUID uuid) {
+        return timingProfiles.get(uuid);
     }
 
     public List<AbstractCheck> getChecks() {

@@ -2,6 +2,17 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.7.0 - Engine Foundation
+### Added
+- **Engine v2 Data Layer**: immutable per-tick player snapshot — all engine layers read from it
+- **Engine v2 Physics Layer**: Y-prediction simulation as a standalone engine component
+- **Engine v2 Analysis Layer**: rotation analyzer with Shannon entropy and post-kill snap detection
+- **Engine v2 Analysis Layer**: timing analyzer with click and packet interval deviation
+
+### Changed
+- YPredictionCheck now reads from the physics engine instead of running its own simulation
+- CheckManager tick pipeline extended: snapshot → physics → analysis → checks
+
 ## 0.6.0 - New Checks
 ### Added
 - RotationCheck: detects AimAssist via suspicious rotation snaps during combat
