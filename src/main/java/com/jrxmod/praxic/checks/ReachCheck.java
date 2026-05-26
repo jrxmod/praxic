@@ -7,13 +7,14 @@ import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 
 public class ReachCheck extends AbstractCheck {
 
     // Vanilla reach: 3.0 survival, 4.5 creative
-    // 4.5 accounts for mob hitbox size, network latency and server tick delay
-    // Real reach cheats start at 5.0+
-    private static final double MAX_REACH_SURVIVAL = 4.5;
+    // 5.0 accounts for hitbox center offset, network latency and server tick delay
+    // Real reach cheats start at 6.0+
+    private static final double MAX_REACH_SURVIVAL = 5.0;
     private static final double MAX_REACH_CREATIVE = 6.0;
 
     @Override
@@ -41,8 +42,11 @@ public class ReachCheck extends AbstractCheck {
         // Expand reach threshold based on player latency
         maxReach += LagCompensation.extraReach(ping);
 
-        // Distance from attacker eye position to target center
-        double distance = attacker.getEyePosition().distanceTo(target.position());
+        // Distance from attacker eye position to target bounding box center.
+        // Using center instead of position() (feet) avoids false positives
+        // when attacking from above or at an angle.
+        Vec3 targetCenter = target.getBoundingBox().getCenter();
+        double distance = attacker.getEyePosition().distanceTo(targetCenter);
 
         if (distance > maxReach && data.canFlag(getName(), 1500)) {
             ViolationManager.flag(attacker, data, this,

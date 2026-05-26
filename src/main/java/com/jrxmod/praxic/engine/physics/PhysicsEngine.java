@@ -18,7 +18,7 @@ import java.util.UUID;
 public class PhysicsEngine {
 
     // -------------------------------------------------------------------------
-    // Y-Prediction constants (migrated from YPredictionCheck)
+    // Y-Prediction constants
     // -------------------------------------------------------------------------
 
     /** Base vertical tolerance in blocks. Final value after 4 test rounds. */
@@ -36,27 +36,19 @@ public class PhysicsEngine {
      */
     private static final int TRANSITION_GRACE_TICKS = 10;
 
+    /**
+     * Grace ticks after hurtTime — vertical knockback trajectory is unpredictable
+     * and lasts longer than a regular state transition.
+     */
+    private static final int HURT_GRACE_TICKS = 20;
+
     // -------------------------------------------------------------------------
     // Per-player predictor state
     // -------------------------------------------------------------------------
 
-    /**
-     * Simulated vertical velocity per player.
-     * Equivalent to PlayerData.predictedVY — engine owns this now.
-     */
-    private final Map<UUID, Double>  predictedVY    = new HashMap<>();
-
-    /**
-     * Whether the predictor has been seeded for this player.
-     * Equivalent to PlayerData.yPredictionActive.
-     */
+    private final Map<UUID, Double>  predictedVY      = new HashMap<>();
     private final Map<UUID, Boolean> predictionActive = new HashMap<>();
-
-    /**
-     * Grace ticks remaining after a state transition.
-     * Equivalent to PlayerData.yPredictionGraceTicks.
-     */
-    private final Map<UUID, Integer> graceTicks = new HashMap<>();
+    private final Map<UUID, Integer> graceTicks       = new HashMap<>();
 
     // -------------------------------------------------------------------------
     // Per-player horizontal predictor state (placeholder)
@@ -70,18 +62,12 @@ public class PhysicsEngine {
 
     /**
      * Runs physics simulation for one player tick.
-     * Call this after SnapshotBuilder.build(), before checks run.
-     *
-     * @param uuid     player UUID
-     * @param snapshot immutable state snapshot for this tick
-     * @param data     legacy PlayerData (read-only for guard flags)
-     * @return PhysicsResult with all predicted vs actual values
+     * Call after SnapshotBuilder.build(), before checks run.
      */
     public PhysicsResult simulate(UUID uuid, PlayerSnapshot snapshot, PlayerData data) {
-        PhysicsResult yResult   = simulateY(uuid, snapshot, data);
-        PhysicsResult xzResult  = simulateXZ(uuid, snapshot);
+        PhysicsResult yResult  = simulateY(uuid, snapshot, data);
+        PhysicsResult xzResult = simulateXZ(uuid, snapshot);
 
-        // Merge into a single result (Y fields from yResult, XZ from xzResult)
         return new PhysicsResult(
                 yResult.predictedY,
                 yResult.actualY,
@@ -106,10 +92,10 @@ public class PhysicsEngine {
     // -------------------------------------------------------------------------
 
     private PhysicsResult simulateY(UUID uuid, PlayerSnapshot snapshot, PlayerData data) {
-        double actualY   = snapshot.y;
-        double prevY     = snapshot.prevY;
-        double actualDY  = snapshot.dy;
-        int    ping      = snapshot.ping;
+        double actualY  = snapshot.y;
+        double prevY    = snapshot.prevY;
+        double actualDY = snapshot.dy;
+        int    ping     = snapshot.ping;
         MovementState curr = snapshot.movementState;
         MovementState prev = snapshot.prevMovementState;
 
@@ -117,22 +103,22 @@ public class PhysicsEngine {
         int     grace  = graceTicks.getOrDefault(uuid, 0);
         double  vy     = predictedVY.getOrDefault(uuid, 0.0);
 
-        // Guards — skip / reseed, do not flag
+        // Guards — skip entirely, reset predictor
         boolean shouldSkip = snapshot.fallFlying
                           || snapshot.passenger
                           || snapshot.health <= 0
-                          || data.joinGraceTicks > 0
-                          || hasLevitationOrSlowFall(data);
+                          || data.joinGraceTicks > 0;
 
         if (shouldSkip) {
             reset(uuid);
             return inactiveResult(actualY, actualY, 0.0, 0.0);
         }
 
-        // hurtTime > 0 — any damage disrupts trajectory, reseed without flagging
+        // hurtTime > 0 — any damage disrupts vertical trajectory unpredictably.
+        // Use longer grace than a regular transition — knockback lasts longer.
         if (snapshot.hurtTime > 0) {
             reseed(uuid, actualDY);
-            graceTicks.put(uuid, TRANSITION_GRACE_TICKS);
+            graceTicks.put(uuid, HURT_GRACE_TICKS);
             return inactiveResult(prevY + vy, actualY, vy, toleranceFor(ping));
         }
 
@@ -157,7 +143,7 @@ public class PhysicsEngine {
             return inactiveResult(prevY + actualDY, actualY, actualDY, toleranceFor(ping));
         }
 
-        // Decrement grace
+        // Decrement grace — reseed each grace tick, no comparison
         if (grace > 0) {
             graceTicks.put(uuid, grace - 1);
             reseed(uuid, actualDY);
@@ -166,11 +152,10 @@ public class PhysicsEngine {
 
         // Active prediction — simulate one step of MC gravity
         // nextVY = (vy - 0.08) * 0.98
-        double nextVY      = (vy - 0.08) * 0.98;
-        double predictedY  = prevY + nextVY;
-        double tolerance   = toleranceFor(ping);
+        double nextVY     = (vy - 0.08) * 0.98;
+        double predictedY = prevY + nextVY;
+        double tolerance  = toleranceFor(ping);
 
-        // Store updated vy for next tick
         predictedVY.put(uuid, nextVY);
 
         return new PhysicsResult(
@@ -186,7 +171,7 @@ public class PhysicsEngine {
     // -------------------------------------------------------------------------
 
     private PhysicsResult simulateXZ(UUID uuid, PlayerSnapshot snapshot) {
-        double actual = snapshot.speed;
+        double actual    = snapshot.speed;
         double predicted = prevSpeed.getOrDefault(uuid, actual);
         prevSpeed.put(uuid, actual);
 
@@ -202,13 +187,11 @@ public class PhysicsEngine {
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    /** Seeds the predictor with the actual dy as first estimate. */
     private void reseed(UUID uuid, double dy) {
         predictedVY.put(uuid, dy);
         predictionActive.put(uuid, true);
     }
 
-    /** Builds a PhysicsResult where predictionActive = false. */
     private static PhysicsResult inactiveResult(
             double predictedY, double actualY,
             double nextVY, double tolerance
@@ -227,17 +210,5 @@ public class PhysicsEngine {
      */
     private static double toleranceFor(int ping) {
         return BASE_TOLERANCE + (ping / 500.0) * LAG_TOLERANCE_SCALE;
-    }
-
-    /**
-     * Levitation and Slow Falling disrupt gravity — predictor must skip.
-     * Reads legacy PlayerData because MobEffects require server context.
-     * In Engine v2 full migration this moves into PlayerSnapshot.
-     */
-    private static boolean hasLevitationOrSlowFall(PlayerData data) {
-        // Checked via snapshot flags in future — for now delegated to caller if needed.
-        // PhysicsEngine does not import MobEffects to stay decoupled from MC internals.
-        // YPredictionCheck retains its own MobEffects guard during transition period.
-        return false;
     }
 }

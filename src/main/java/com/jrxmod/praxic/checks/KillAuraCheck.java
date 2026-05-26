@@ -10,8 +10,9 @@ import net.minecraft.world.phys.Vec3;
 
 public class KillAuraCheck extends AbstractCheck {
 
-    // KillAura typically hits entities fully behind the player (>100 degrees)
-    private static final double MAX_ATTACK_ANGLE = 100.0;
+    // KillAura hits entities well outside the player's FOV (150°+).
+    // 120° gives legitimate players room for sideways and angled attacks.
+    private static final double MAX_ATTACK_ANGLE = 120.0;
 
     // Time window for burst detection (ms)
     private static final long BURST_WINDOW_MS = 1000;
@@ -41,11 +42,14 @@ public class KillAuraCheck extends AbstractCheck {
         checkBurst(attacker, data);
     }
 
-    // Detects hitting entities without looking at them
+    // Detects hitting entities without looking at them.
+    // Uses bounding box center instead of position() (feet) to avoid false
+    // positives when attacking from above or at a vertical angle.
     private void checkAngle(ServerPlayer attacker, Entity target, PlayerData data) {
 
-        Vec3 lookDir = attacker.getLookAngle().normalize();
-        Vec3 toTarget = target.position().subtract(attacker.getEyePosition()).normalize();
+        Vec3 lookDir  = attacker.getLookAngle().normalize();
+        Vec3 toTarget = target.getBoundingBox().getCenter()
+                              .subtract(attacker.getEyePosition()).normalize();
 
         double dot = lookDir.dot(toTarget);
         dot = Math.min(1.0, Math.max(-1.0, dot));

@@ -19,17 +19,21 @@ import net.minecraft.world.level.block.Block;
 
 public class NoFallCheck extends AbstractCheck {
 
-    // Minimum fall distance to start tracking — raised to avoid borderline false positives
-    // NoFall cheats suppress damage from any height, 6+ blocks is reliable detection
+    // Minimum fall distance to start tracking
     private static final double MIN_FALL_DISTANCE = 6.0;
 
     // Feather Falling adds 2 blocks of buffer per enchantment level
     private static final double FEATHER_FALLING_BUFFER_PER_LEVEL = 2.0;
 
-    // Vanilla formula: damage = fallDistance - 3.0
-    // We allow 3.0 HP buffer above expected post-damage health before flagging
-    // This absorbs minor regen, absorption ticks, and rounding differences
+    // HP buffer above expected post-damage health before flagging
     private static final float DAMAGE_BUFFER = 3.0f;
+
+    /**
+     * If player.fallDistance drops to less than this fraction of our tracked max
+     * while still airborne, the fall was interrupted (vine, climbable, water).
+     * Reset tracker to avoid flagging on the remainder of the fall.
+     */
+    private static final float FALL_INTERRUPT_RATIO = 0.5f;
 
     private static final ResourceKey<Enchantment> FEATHER_FALLING_KEY = ResourceKey.create(
             Registries.ENCHANTMENT,
@@ -61,12 +65,9 @@ public class NoFallCheck extends AbstractCheck {
             double fallDist    = data.pendingFallDistance;
 
             if (healthBefore > 0 && data.canFlag(getName(), 3000) && !isOnSafeLandingBlock(player)) {
-                // Vanilla fall damage = fallDistance - 3.0 (minimum 1 HP)
                 float expectedDamage    = (float) Math.max(1.0, fallDist - 3.0);
                 float expectedHealthMin = healthBefore - expectedDamage;
 
-                // Flag only if player has significantly more HP than they should
-                // Buffer absorbs regen ticks, absorption edges, and floating point drift
                 if (healthNow > expectedHealthMin + DAMAGE_BUFFER) {
                     ViolationManager.flag(player, data, this,
                             String.format("Suppressed fall damage: fall=%.2f blocks, " +
@@ -81,6 +82,17 @@ public class NoFallCheck extends AbstractCheck {
         // ── Track fall distance and snapshot health while airborne ───────────
         if (!player.onGround()) {
             float fallDistance = player.fallDistance;
+
+            // Detect interrupted fall: vine, ladder, climbable, water exit, etc.
+            // If server-side fallDistance dropped significantly below our tracked max,
+            // the fall was broken mid-air — reset tracker to avoid false positives.
+            if (data.wasInAir
+                    && data.maxFallDistance > MIN_FALL_DISTANCE
+                    && fallDistance < data.maxFallDistance * FALL_INTERRUPT_RATIO) {
+                data.maxFallDistance          = fallDistance;
+                data.totalHealthBeforeLanding = -1;
+            }
+
             if (fallDistance > data.maxFallDistance) {
                 data.maxFallDistance = fallDistance;
             }
@@ -104,7 +116,7 @@ public class NoFallCheck extends AbstractCheck {
                 data.pendingFallCheck    = true;
                 data.pendingFallDistance = data.maxFallDistance;
             }
-            data.wasInAir    = false;
+            data.wasInAir        = false;
             data.maxFallDistance = 0;
         }
     }

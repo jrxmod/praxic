@@ -26,8 +26,15 @@ public class VelocityCheck extends AbstractCheck {
 
         if (player.isSpectator()) return;
         if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.isDeadOrDying()) return;
         if (player.isPassenger()) return;
+
+        // Reset pending check on death — player teleports to spawn within 5 ticks,
+        // displacement measurement would compare pre-death and post-respawn positions
+        if (player.getHealth() <= 0) {
+            data.knockbackPending = false;
+            data.prevHurtTime = player.hurtTime;
+            return;
+        }
 
         // Skip players in water — knockback is absorbed by fluid
         if (player.isInWater() || player.isInLava()) {
@@ -59,6 +66,13 @@ public class VelocityCheck extends AbstractCheck {
 
         data.knockbackTicksWaited++;
         if (data.knockbackTicksWaited < KNOCKBACK_CHECK_DELAY) return;
+
+        // Player landed before measurement window ended — ground absorbed horizontal
+        // movement, displacement will always be near zero: not a valid sample
+        if (data.movementState == MovementState.GROUND) {
+            data.knockbackPending = false;
+            return;
+        }
 
         double dx           = player.getX() - data.knockbackStartX;
         double dz           = player.getZ() - data.knockbackStartZ;
