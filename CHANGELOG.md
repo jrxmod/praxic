@@ -2,6 +2,16 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.8.0 - Analysis Layer
+### Added
+- **Engine v2 — MovementAnalyzer**: tracks speed history, acceleration curve, strafe ratio and jump frequency per player
+- **Engine v2 — PlayerProfiler**: builds a behavioural baseline over the first 5 minutes using Welford's online algorithm, then produces a deviation score for toggling detection
+- **Engine v2 — PlayerAnalytics**: unified analytics bundle — all four profiles (rotation, timing, movement, baseline) in one object per tick
+
+### Changed
+- **CheckManager**: analysis pipeline consolidated into a single PlayerAnalytics object instead of separate maps per profile
+- **PlayerData**: removed legacy Y-prediction fields (predictedVY, yPredictionActive, yPredictionGraceTicks) — fully replaced by PhysicsEngine
+
 ## 0.7.0 - Engine Foundation
 ### Added
 - **Engine v2 Data Layer**: immutable per-tick player snapshot — all engine layers read from it

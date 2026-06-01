@@ -4,6 +4,11 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.checks.*;
 import com.jrxmod.praxic.data.MovementState;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.engine.analysis.MovementAnalyzer;
+import com.jrxmod.praxic.engine.analysis.MovementProfile;
+import com.jrxmod.praxic.engine.analysis.PlayerAnalytics;
+import com.jrxmod.praxic.engine.analysis.PlayerBaseline;
+import com.jrxmod.praxic.engine.analysis.PlayerProfiler;
 import com.jrxmod.praxic.engine.analysis.RotationAnalyzer;
 import com.jrxmod.praxic.engine.analysis.RotationProfile;
 import com.jrxmod.praxic.engine.analysis.TimingAnalyzer;
@@ -20,16 +25,17 @@ import java.util.*;
 
 public class CheckManager {
 
-    private final List<AbstractCheck>          checks          = new ArrayList<>();
-    private final Map<UUID, PlayerData>        playerDataMap   = new HashMap<>();
-    private final Map<UUID, PlayerSnapshot>    snapshots       = new HashMap<>();
-    private final Map<UUID, PhysicsResult>     physicsResults  = new HashMap<>();
-    private final Map<UUID, RotationProfile>   rotationProfiles = new HashMap<>();
-    private final Map<UUID, TimingProfile>     timingProfiles  = new HashMap<>();
+    private final List<AbstractCheck>        checks         = new ArrayList<>();
+    private final Map<UUID, PlayerData>      playerDataMap  = new HashMap<>();
+    private final Map<UUID, PlayerSnapshot>  snapshots      = new HashMap<>();
+    private final Map<UUID, PhysicsResult>   physicsResults = new HashMap<>();
+    private final Map<UUID, PlayerAnalytics> analytics      = new HashMap<>();
 
     private final PhysicsEngine    physicsEngine    = new PhysicsEngine();
     private final RotationAnalyzer rotationAnalyzer = new RotationAnalyzer();
     private final TimingAnalyzer   timingAnalyzer   = new TimingAnalyzer();
+    private final MovementAnalyzer movementAnalyzer = new MovementAnalyzer();
+    private final PlayerProfiler   playerProfiler   = new PlayerProfiler();
 
     /** Decay fires every 100 ticks (5 seconds at 20 TPS). */
     private static final int  DECAY_INTERVAL_TICKS = 100;
@@ -77,13 +83,13 @@ public class CheckManager {
                 //    health <= 0 is more reliable than isDeadOrDying() which can return
                 //    false after the death animation completes but before respawn
                 if (player.getHealth() <= 0) {
-                    data.yPredictionActive     = false;
-                    data.yPredictionGraceTicks = 0;
-                    data.airTicks              = 0;
-                    data.boatAirTicks          = 0;
+                    data.airTicks     = 0;
+                    data.boatAirTicks = 0;
                     physicsEngine.reset(uuid);
                     rotationAnalyzer.reset(uuid);
                     timingAnalyzer.reset(uuid);
+                    movementAnalyzer.reset(uuid);
+                    playerProfiler.reset(uuid);
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
                     continue;
                 }
@@ -102,26 +108,34 @@ public class CheckManager {
                 PhysicsResult physics = physicsEngine.simulate(uuid, snapshot, data);
                 physicsResults.put(uuid, physics);
 
-                // 7. Run analysis layer
+                // 7. Rotation analysis
                 RotationProfile rotProfile = rotationAnalyzer.analyse(uuid, snapshot);
-                rotationProfiles.put(uuid, rotProfile);
 
+                // 8. Timing analysis
                 TimingProfile timProfile = timingAnalyzer.analyse(uuid, data);
-                timingProfiles.put(uuid, timProfile);
 
-                // 8. Run checks (whitelisted players are skipped entirely)
+                // 9. Movement analysis
+                MovementProfile movProfile = movementAnalyzer.analyse(uuid, snapshot);
+
+                // 10. Player profiling — baseline and deviation score
+                PlayerBaseline baseline = playerProfiler.analyse(uuid, movProfile, rotProfile, timProfile);
+
+                // 11. Aggregate all analysis results into a single object
+                analytics.put(uuid, new PlayerAnalytics(rotProfile, timProfile, movProfile, baseline));
+
+                // 12. Run checks (whitelisted players are skipped entirely)
                 if (!Praxic.getWhitelistManager().isWhitelisted(uuid)) {
                     runChecks(player, data);
                 }
 
-                // 9. Update safe position when firmly on the ground
+                // 13. Update safe position when firmly on the ground
                 if (player.onGround() && !player.isDeadOrDying()) {
                     data.lastSafeX = player.getX();
                     data.lastSafeY = player.getY();
                     data.lastSafeZ = player.getZ();
                 }
 
-                // 10. Snapshot position and rotation for next tick
+                // 14. Snapshot position and rotation for next tick
                 data.updatePosition(player.getX(), player.getY(), player.getZ());
                 data.lastYaw   = player.getYRot();
                 data.lastPitch = player.getXRot();
@@ -139,11 +153,12 @@ public class CheckManager {
             playerDataMap.remove(uuid);
             snapshots.remove(uuid);
             physicsResults.remove(uuid);
+            analytics.remove(uuid);
             physicsEngine.reset(uuid);
-            rotationProfiles.remove(uuid);
-            timingProfiles.remove(uuid);
             rotationAnalyzer.reset(uuid);
             timingAnalyzer.reset(uuid);
+            movementAnalyzer.reset(uuid);
+            playerProfiler.reset(uuid);
         });
     }
 
@@ -251,14 +266,36 @@ public class CheckManager {
         return physicsResults.get(uuid);
     }
 
-    /** Returns the latest rotation profile for the given player, or null. */
-    public RotationProfile getRotationProfile(UUID uuid) {
-        return rotationProfiles.get(uuid);
+    /**
+     * Returns the full analytics bundle for the given player, or null.
+     * Contains rotation, timing, movement profiles and baseline.
+     */
+    public PlayerAnalytics getAnalytics(UUID uuid) {
+        return analytics.get(uuid);
     }
 
-    /** Returns the latest timing profile for the given player, or null. */
+    /** Convenience — returns rotation profile from analytics, or null. */
+    public RotationProfile getRotationProfile(UUID uuid) {
+        PlayerAnalytics a = analytics.get(uuid);
+        return a != null ? a.rotation : null;
+    }
+
+    /** Convenience — returns timing profile from analytics, or null. */
     public TimingProfile getTimingProfile(UUID uuid) {
-        return timingProfiles.get(uuid);
+        PlayerAnalytics a = analytics.get(uuid);
+        return a != null ? a.timing : null;
+    }
+
+    /** Convenience — returns movement profile from analytics, or null. */
+    public MovementProfile getMovementProfile(UUID uuid) {
+        PlayerAnalytics a = analytics.get(uuid);
+        return a != null ? a.movement : null;
+    }
+
+    /** Convenience — returns player baseline from analytics, or null. */
+    public PlayerBaseline getPlayerBaseline(UUID uuid) {
+        PlayerAnalytics a = analytics.get(uuid);
+        return a != null ? a.baseline : null;
     }
 
     public List<AbstractCheck> getChecks() {

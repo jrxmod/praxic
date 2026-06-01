@@ -20,22 +20,6 @@ public class PlayerData {
     public MovementState prevMovementState = MovementState.GROUND;
 
     // -------------------------------------------------------------------------
-    // Y-Prediction Engine
-    // -------------------------------------------------------------------------
-
-    /** Simulated vertical velocity, updated each airborne tick by YPredictionCheck. */
-    public double predictedVY = 0.0;
-
-    /** True once the predictor has been seeded with a real dy value. */
-    public boolean yPredictionActive = false;
-
-    /**
-     * Grace ticks after a transition (water-exit, climb-exit, etc.).
-     * Predictor reseeds from real data during grace, no flagging.
-     */
-    public int yPredictionGraceTicks = 0;
-
-    // -------------------------------------------------------------------------
     // Position
     // -------------------------------------------------------------------------
 

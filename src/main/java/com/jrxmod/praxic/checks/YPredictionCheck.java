@@ -9,11 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Detects fly / hover by comparing actual Y to PhysicsEngine prediction.
- * Physics simulation has been migrated to PhysicsEngine — this check is
- * now a thin rule that reads PhysicsResult and decides whether to flag.
- *
- * Legacy PlayerData fields (predictedVY, yPredictionActive, yPredictionGraceTicks)
- * are no longer written here. Scheduled for removal in v0.8.0 per migration map.
+ * Thin rule — all physics simulation lives in PhysicsEngine / PhysicsResult.
  */
 public class YPredictionCheck extends AbstractCheck {
 
