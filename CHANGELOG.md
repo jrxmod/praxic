@@ -2,6 +2,25 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.9.0 - Watchtower
+### Added
+- **Decision Engine — ConfidenceEngine**: per-player evidence score built from weighted check flags and cross-check correlation
+- **Decision Engine — AnomalyScoreEngine**: accumulates sub-threshold baseline deviations to detect closet cheaters over time
+- **Decision Engine — ActionResolver**: unified punishment gate based on confidence score, replaces per-check flat VL thresholds
+- **PostKillSnapCheck**: new combat check — detects Kill Aura via yaw snap in the first ticks after a kill
+- **Web Dashboard**: embedded admin panel at http://127.0.0.1:8765/ — live player list, per-player analytics, violation history, check status, player search, optional token auth
+
+### Changed
+- **ViolationManager**: punishments now routed through ActionResolver; staff alerts include confidence score
+- **CheckManager**: tick pipeline extended to 15 steps — anomaly feed and confidence nudge after analytics
+- **/praxic check**: now displays confidence and anomaly scores alongside VL
+- **/praxic status**: shows WebDashboard row with URL when enabled
+- **PraxicConfig**: new fields — postKillSnapCheckEnabled, postKillSnapMaxAngle, webDashboardPort, webDashboardToken
+
+### Fixed
+- **CheckManager**: death guard no longer resets behavioural analysers — baseline was destroyed on every death, blinding toggling detection for the rest of the session
+- **TimingAnalyzer**: interval derivation logic fixed — single attack per tick was never recorded, leaving clickIntervalStdDev at -1.0 indefinitely
+
 ## 0.8.0 - Analysis Layer
 ### Added
 - **Engine v2 — MovementAnalyzer**: tracks speed history, acceleration curve, strafe ratio and jump frequency per player

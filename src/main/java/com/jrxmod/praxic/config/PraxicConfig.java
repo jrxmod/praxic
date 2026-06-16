@@ -62,7 +62,7 @@ public class PraxicConfig {
     public int autoClickerMaxViolations = 5;
     public String autoClickerAction = "kick";
 
-    // TimerCheck settings — counts position-only packets (~20/sec normal)
+    // TimerCheck settings
     public boolean timerCheckEnabled = true;
     public int timerMaxPacketsPerSecond = 24;
     public int timerMaxViolations = 5;
@@ -84,25 +84,31 @@ public class PraxicConfig {
     public int velocityMaxViolations = 5;
     public String velocityAction = "kick";
 
-    // YPredictionCheck settings — physics-based vertical fly/hover detection
+    // YPredictionCheck settings
     public boolean yPredictionCheckEnabled = true;
     public int yPredictionMaxViolations = 5;
     public String yPredictionAction = "setback";
 
-    // RotationCheck settings — AimAssist snap detection during combat
+    // RotationCheck settings
     public boolean rotationCheckEnabled = true;
     public int rotationMaxViolations = 8;
     public String rotationAction = "warn";
 
-    // SprintCheck settings — sprinting under conditions vanilla prohibits
+    // SprintCheck settings
     public boolean sprintCheckEnabled = true;
     public int sprintMaxViolations = 5;
     public String sprintAction = "warn";
 
-    // BoatFlyCheck settings — flying while riding a boat
+    // BoatFlyCheck settings
     public boolean boatFlyCheckEnabled = true;
     public int boatFlyMaxViolations = 5;
     public String boatFlyAction = "kick";
+
+    // PostKillSnapCheck settings
+    public boolean postKillSnapCheckEnabled = true;
+    public double postKillSnapMaxAngle = 90.0;
+    public int postKillSnapMaxViolations = 5;
+    public String postKillSnapAction = "warn";
 
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;
@@ -115,10 +121,21 @@ public class PraxicConfig {
     public boolean enableLogging = true;
     public boolean enableStaffAlerts = true;
 
+    // Web Dashboard settings
+    public boolean enableWebDashboard = true;
+    public int webDashboardPort = 8765;
+
+    /**
+     * Optional access token for the web dashboard.
+     * If non-empty, all requests must include header "X-Praxic-Token: <token>"
+     * or query param "?token=<token>".
+     * Leave empty to disable auth (safe since dashboard is 127.0.0.1 only).
+     */
+    public String webDashboardToken = "";
+
     public static PraxicConfig load() {
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
-
             if (Files.exists(CONFIG_PATH)) {
                 try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
                     PraxicConfig config = GSON.fromJson(reader, PraxicConfig.class);

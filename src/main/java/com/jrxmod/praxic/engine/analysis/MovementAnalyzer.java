@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * Analyses player movement patterns each tick and produces a MovementProfile.
  * Tracks speed history, acceleration curve, strafe ratio, and jump frequency.
- * Stateful per-player — call reset() on disconnect and death.
+ * Stateful per-player — call reset() on disconnect.
  */
 public class MovementAnalyzer {
 
@@ -104,7 +104,7 @@ public class MovementAnalyzer {
         return buildProfile(s);
     }
 
-    /** Clears all state for the given player. Call on disconnect and death. */
+    /** Removes all state for a player on disconnect. */
     public void reset(UUID uuid) {
         states.remove(uuid);
     }

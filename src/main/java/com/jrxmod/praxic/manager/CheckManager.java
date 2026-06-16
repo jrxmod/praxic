@@ -15,11 +15,14 @@ import com.jrxmod.praxic.engine.analysis.TimingAnalyzer;
 import com.jrxmod.praxic.engine.analysis.TimingProfile;
 import com.jrxmod.praxic.engine.data.PlayerSnapshot;
 import com.jrxmod.praxic.engine.data.SnapshotBuilder;
+import com.jrxmod.praxic.engine.decision.AnomalyScoreEngine;
 import com.jrxmod.praxic.engine.physics.PhysicsEngine;
 import com.jrxmod.praxic.engine.physics.PhysicsResult;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 import java.util.*;
 
@@ -63,33 +66,39 @@ public class CheckManager {
         checks.add(new RotationCheck());
         checks.add(new SprintCheck());
         checks.add(new BoatFlyCheck());
+        checks.add(new PostKillSnapCheck());
+
+        // Kill event — notify RotationAnalyzer to open post-kill snap window
+        ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
+            if (killer instanceof ServerPlayer player) {
+                rotationAnalyzer.onKill(player.getUUID());
+            }
+        });
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             decayTickCounter++;
             boolean doDecay = decayTickCounter >= DECAY_INTERVAL_TICKS;
             if (doDecay) decayTickCounter = 0;
 
+            long nowMs = System.currentTimeMillis();
+
             List<ServerPlayer> players = new ArrayList<>(server.getPlayerList().getPlayers());
             for (ServerPlayer player : players) {
                 PlayerData data = getOrCreateData(player);
                 UUID uuid = player.getUUID();
 
-                // 1. Decay VL before checks to keep thresholds fair
-                if (doDecay) {
-                    data.decayViolations(DECAY_INTERVAL_MS);
-                }
+                // 1. Decay VL (every 100 ticks) + Confidence decay (every tick after grace)
+                if (doDecay) data.decayViolations(DECAY_INTERVAL_MS);
+                Praxic.getConfidenceEngine().tickDecay(uuid, nowMs);
 
-                // 2. Skip dead players entirely — death screen causes false positives
-                //    health <= 0 is more reliable than isDeadOrDying() which can return
-                //    false after the death animation completes but before respawn
+                // 2. Skip dead players — death screen causes false positives.
+                //    Only reset physicsEngine: trajectory must restart from respawn position.
+                //    Behavioural analysers are NOT reset on death — killing the baseline on
+                //    every death would blind toggling detection for 5 minutes per life.
                 if (player.getHealth() <= 0) {
                     data.airTicks     = 0;
                     data.boatAirTicks = 0;
                     physicsEngine.reset(uuid);
-                    rotationAnalyzer.reset(uuid);
-                    timingAnalyzer.reset(uuid);
-                    movementAnalyzer.reset(uuid);
-                    playerProfiler.reset(uuid);
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
                     continue;
                 }
@@ -100,11 +109,11 @@ public class CheckManager {
                 // 4. Sync derived legacy fields from the state machine
                 syncDerivedFields(player, data);
 
-                // 5. Build immutable snapshot — engine layers read from this
+                // 5. Build immutable snapshot
                 PlayerSnapshot snapshot = SnapshotBuilder.build(player, data);
                 snapshots.put(uuid, snapshot);
 
-                // 6. Run physics simulation
+                // 6. Physics simulation
                 PhysicsResult physics = physicsEngine.simulate(uuid, snapshot, data);
                 physicsResults.put(uuid, physics);
 
@@ -117,25 +126,36 @@ public class CheckManager {
                 // 9. Movement analysis
                 MovementProfile movProfile = movementAnalyzer.analyse(uuid, snapshot);
 
-                // 10. Player profiling — baseline and deviation score
+                // 10. Player profiling
                 PlayerBaseline baseline = playerProfiler.analyse(uuid, movProfile, rotProfile, timProfile);
 
-                // 11. Aggregate all analysis results into a single object
-                analytics.put(uuid, new PlayerAnalytics(rotProfile, timProfile, movProfile, baseline));
+                // 11. Aggregate analytics
+                PlayerAnalytics analyticsObj = new PlayerAnalytics(rotProfile, timProfile, movProfile, baseline);
+                analytics.put(uuid, analyticsObj);
 
-                // 12. Run checks (whitelisted players are skipped entirely)
+                // 12. Feed anomaly engine — accumulates sub-threshold baseline deviations
+                if (baseline.baselineReady && baseline.deviationScore >= 0.0) {
+                    AnomalyScoreEngine anomaly = Praxic.getAnomalyScoreEngine();
+                    anomaly.feed(uuid, baseline.deviationScore);
+                    double anomalyScore = anomaly.getScore(uuid);
+                    if (anomalyScore >= AnomalyScoreEngine.NUDGE_THRESHOLD) {
+                        Praxic.getConfidenceEngine().nudgeFromAnomaly(uuid, anomalyScore);
+                    }
+                }
+
+                // 13. Run checks
                 if (!Praxic.getWhitelistManager().isWhitelisted(uuid)) {
                     runChecks(player, data);
                 }
 
-                // 13. Update safe position when firmly on the ground
+                // 14. Update safe position
                 if (player.onGround() && !player.isDeadOrDying()) {
                     data.lastSafeX = player.getX();
                     data.lastSafeY = player.getY();
                     data.lastSafeZ = player.getZ();
                 }
 
-                // 14. Snapshot position and rotation for next tick
+                // 15. Snapshot position and rotation for next tick
                 data.updatePosition(player.getX(), player.getY(), player.getZ());
                 data.lastYaw   = player.getYRot();
                 data.lastPitch = player.getXRot();
@@ -159,6 +179,8 @@ public class CheckManager {
             timingAnalyzer.reset(uuid);
             movementAnalyzer.reset(uuid);
             playerProfiler.reset(uuid);
+            Praxic.getConfidenceEngine().reset(uuid);
+            Praxic.getAnomalyScoreEngine().reset(uuid);
         });
     }
 
@@ -166,14 +188,8 @@ public class CheckManager {
     // Movement State Machine
     // -------------------------------------------------------------------------
 
-    /**
-     * Determines the player's movement state this tick and stores it.
-     * Called once per tick, before any check runs.
-     * Priority: WATER > CLIMB > GROUND > JUMP > FALLING > AIR
-     */
     private void updateMovementState(ServerPlayer player, PlayerData data) {
         double dy = player.getY() - data.prevY;
-
         MovementState next;
 
         if (player.isInWater()) {
@@ -186,7 +202,6 @@ public class CheckManager {
             boolean risingFromGround =
                 (data.movementState == MovementState.GROUND ||
                  data.movementState == MovementState.JUMP) && dy > 0.0;
-
             if (risingFromGround) {
                 next = MovementState.JUMP;
             } else if (dy < -0.001) {
@@ -200,15 +215,10 @@ public class CheckManager {
         data.movementState     = next;
     }
 
-    /**
-     * Keeps legacy boolean/counter fields in sync with the state machine.
-     * Existing checks read these fields without any modification.
-     */
     private void syncDerivedFields(ServerPlayer player, PlayerData data) {
         MovementState prev = data.prevMovementState;
         MovementState curr = data.movementState;
 
-        // Decrement join grace each tick until expired
         if (data.joinGraceTicks > 0) data.joinGraceTicks--;
 
         data.wasOnGround = (prev == MovementState.GROUND);
@@ -217,11 +227,7 @@ public class CheckManager {
         boolean airborne = curr == MovementState.JUMP
                         || curr == MovementState.AIR
                         || curr == MovementState.FALLING;
-        if (airborne) {
-            data.airTicks++;
-        } else {
-            data.airTicks = 0;
-        }
+        data.airTicks = airborne ? data.airTicks + 1 : 0;
 
         boolean justLeftWater = (prev == MovementState.WATER) && (curr != MovementState.WATER);
         if (justLeftWater) {
@@ -238,9 +244,7 @@ public class CheckManager {
     // -------------------------------------------------------------------------
 
     private void runChecks(ServerPlayer player, PlayerData data) {
-        for (AbstractCheck check : checks) {
-            check.check(player, data);
-        }
+        for (AbstractCheck check : checks) check.check(player, data);
     }
 
     private PlayerData getOrCreateData(ServerPlayer player) {
@@ -252,57 +256,24 @@ public class CheckManager {
     // Public API
     // -------------------------------------------------------------------------
 
-    public PlayerData getPlayerData(UUID uuid) {
-        return playerDataMap.get(uuid);
-    }
+    public PlayerData      getPlayerData(UUID uuid)     { return playerDataMap.get(uuid); }
+    public PlayerSnapshot  getSnapshot(UUID uuid)       { return snapshots.get(uuid); }
+    public PhysicsResult   getPhysicsResult(UUID uuid)  { return physicsResults.get(uuid); }
+    public PlayerAnalytics getAnalytics(UUID uuid)      { return analytics.get(uuid); }
 
-    /** Returns the latest snapshot for the given player, or null if not yet built. */
-    public PlayerSnapshot getSnapshot(UUID uuid) {
-        return snapshots.get(uuid);
-    }
-
-    /** Returns the latest physics result for the given player, or null. */
-    public PhysicsResult getPhysicsResult(UUID uuid) {
-        return physicsResults.get(uuid);
-    }
-
-    /**
-     * Returns the full analytics bundle for the given player, or null.
-     * Contains rotation, timing, movement profiles and baseline.
-     */
-    public PlayerAnalytics getAnalytics(UUID uuid) {
-        return analytics.get(uuid);
-    }
-
-    /** Convenience — returns rotation profile from analytics, or null. */
     public RotationProfile getRotationProfile(UUID uuid) {
-        PlayerAnalytics a = analytics.get(uuid);
-        return a != null ? a.rotation : null;
+        PlayerAnalytics a = analytics.get(uuid); return a != null ? a.rotation : null;
     }
-
-    /** Convenience — returns timing profile from analytics, or null. */
     public TimingProfile getTimingProfile(UUID uuid) {
-        PlayerAnalytics a = analytics.get(uuid);
-        return a != null ? a.timing : null;
+        PlayerAnalytics a = analytics.get(uuid); return a != null ? a.timing : null;
     }
-
-    /** Convenience — returns movement profile from analytics, or null. */
     public MovementProfile getMovementProfile(UUID uuid) {
-        PlayerAnalytics a = analytics.get(uuid);
-        return a != null ? a.movement : null;
+        PlayerAnalytics a = analytics.get(uuid); return a != null ? a.movement : null;
     }
-
-    /** Convenience — returns player baseline from analytics, or null. */
     public PlayerBaseline getPlayerBaseline(UUID uuid) {
-        PlayerAnalytics a = analytics.get(uuid);
-        return a != null ? a.baseline : null;
+        PlayerAnalytics a = analytics.get(uuid); return a != null ? a.baseline : null;
     }
 
-    public List<AbstractCheck> getChecks() {
-        return checks;
-    }
-
-    public Map<UUID, PlayerData> getAllData() {
-        return playerDataMap;
-    }
+    public List<AbstractCheck>       getChecks()  { return checks; }
+    public Map<UUID, PlayerData>     getAllData()  { return playerDataMap; }
 }

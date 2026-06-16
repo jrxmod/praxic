@@ -44,7 +44,7 @@ public class TimingAnalyzer {
      */
     private final Map<UUID, Deque<Long>> attackIntervals = new HashMap<>();
 
-    /** Last attack timestamp seen — used to compute new intervals. */
+    /** Last attack timestamp seen — used as reference point for the next interval. */
     private final Map<UUID, Long> lastAttackTs = new HashMap<>();
 
     /**
@@ -101,26 +101,33 @@ public class TimingAnalyzer {
 
     /**
      * Derives new attack intervals from PlayerData.attackTimestamps.
-     * Only processes timestamps newer than what we last saw.
+     *
+     * prev starts as lastSeen so that the first new timestamp produces
+     * a cross-tick interval (ts - lastSeen), capturing the gap between
+     * the last known attack and the first new one this tick.
+     * Without this, single-attack-per-tick players would never accumulate
+     * intervals and clickIntervalStdDev would stay at -1.0 indefinitely.
      */
     private void updateAttackIntervals(UUID uuid, PlayerData data) {
         if (data.attackTimestamps.isEmpty()) return;
 
         long lastSeen = lastAttackTs.getOrDefault(uuid, -1L);
+        long prev     = lastSeen;   // reference point for the first new interval
         long newLast  = lastSeen;
 
         Deque<Long> intervals = attackIntervals.computeIfAbsent(uuid, k -> new ArrayDeque<>());
 
-        // attackTimestamps is ordered oldest→newest — scan for new entries
         for (long ts : data.attackTimestamps) {
             if (ts <= lastSeen) continue;
-            if (newLast > 0 && newLast > lastSeen) {
-                long interval = ts - newLast;
+            // prev >= 0 means we have a valid reference point to measure from
+            if (prev >= 0) {
+                long interval = ts - prev;
                 if (interval > 0) {
                     intervals.addLast(interval);
                     while (intervals.size() > ATTACK_WINDOW) intervals.pollFirst();
                 }
             }
+            prev    = ts;
             newLast = ts;
         }
 
@@ -129,24 +136,27 @@ public class TimingAnalyzer {
 
     /**
      * Derives new packet intervals from PlayerData.movePacketTimestamps.
+     * Same cross-tick interval logic as updateAttackIntervals.
      */
     private void updatePacketIntervals(UUID uuid, PlayerData data) {
         if (data.movePacketTimestamps.isEmpty()) return;
 
         long lastSeen = lastPacketTs.getOrDefault(uuid, -1L);
+        long prev     = lastSeen;
         long newLast  = lastSeen;
 
         Deque<Long> intervals = packetIntervals.computeIfAbsent(uuid, k -> new ArrayDeque<>());
 
         for (long ts : data.movePacketTimestamps) {
             if (ts <= lastSeen) continue;
-            if (newLast > 0 && newLast > lastSeen) {
-                long interval = ts - newLast;
+            if (prev >= 0) {
+                long interval = ts - prev;
                 if (interval > 0) {
                     intervals.addLast(interval);
                     while (intervals.size() > PACKET_WINDOW) intervals.pollFirst();
                 }
             }
+            prev    = ts;
             newLast = ts;
         }
 

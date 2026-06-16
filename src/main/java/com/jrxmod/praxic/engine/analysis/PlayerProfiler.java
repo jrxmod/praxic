@@ -147,7 +147,7 @@ public class PlayerProfiler {
         );
     }
 
-    /** Clears all state for the given player. Call on disconnect and death. */
+    /** Removes all state for a player on disconnect. */
     public void reset(UUID uuid) {
         states.remove(uuid);
     }

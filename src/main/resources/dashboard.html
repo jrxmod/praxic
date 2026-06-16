@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRAXIC</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter','system-ui','sans-serif'], mono: ['JetBrains Mono','monospace'] },
+      colors: {
+        base:    '#0a0a0b',
+        surface: '#111113',
+        card:    '#18181b',
+        border:  '#27272a',
+        muted:   '#71717a',
+        text:    '#e4e4e7',
+        bright:  '#fafafa',
+        accent:  '#6366f1',
+        ok:      '#22c55e',
+        warn:    '#f59e0b',
+        danger:  '#ef4444',
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #0a0a0b; color: #e4e4e7; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .fade-in { animation: fadeIn .15s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  .pulse-dot { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  input::placeholder { color: #52525b; }
+  .player-card { transition: background .1s, border-color .1s; }
+  .player-card:hover { background: #1c1c1f; border-color: #3f3f46; }
+  .player-card.active { background: #1e1b4b; border-color: #6366f1; }
+  .metric-card { transition: border-color .15s; }
+  .metric-card:hover { border-color: #3f3f46; }
+  /* Progress bar */
+  .progress-bar { background: #27272a; border-radius: 9999px; height: 3px; }
+  .progress-fill { background: #6366f1; border-radius: 9999px; height: 3px; transition: width .3s; }
+</style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+<!-- ═══════════════════ NAVBAR ═══════════════════ -->
+<nav class="flex items-center gap-4 px-6 h-12 border-b border-border bg-surface flex-shrink-0">
+  <span class="text-bright font-semibold text-sm tracking-tight">PRAXIC</span>
+  <span class="w-px h-4 bg-border"></span>
+  <span class="text-muted text-xs">Admin Dashboard</span>
+
+  <div class="flex items-center gap-3 ml-auto">
+    <!-- Search -->
+    <div class="relative">
+      <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="search" type="text" placeholder="Search player..." oninput="filterPlayers()"
+        class="bg-card border border-border rounded-md pl-8 pr-3 py-1.5 text-xs text-text w-44 focus:outline-none focus:border-accent transition-colors">
+    </div>
+
+    <!-- Status -->
+    <div class="flex items-center gap-1.5 text-xs text-muted" id="live-wrap">
+      <span id="live-dot" class="w-1.5 h-1.5 rounded-full bg-ok pulse-dot"></span>
+      <span id="live-label">Connecting</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════ STAT BAR ═══════════════════ -->
+<div class="flex items-center gap-6 px-6 h-9 border-b border-border bg-surface flex-shrink-0">
+  <div class="flex items-center gap-2 text-xs">
+    <span class="text-muted uppercase tracking-widest" style="font-size:10px">Version</span>
+    <span class="mono text-text font-medium" id="s-ver">—</span>
+  </div>
+  <div class="w-px h-3 bg-border"></div>
+  <div class="flex items-center gap-2 text-xs">
+    <span class="text-muted uppercase tracking-widest" style="font-size:10px">Online</span>
+    <span class="mono text-text font-medium" id="s-online">—</span>
+  </div>
+  <div class="w-px h-3 bg-border"></div>
+  <div class="flex items-center gap-2 text-xs">
+    <span class="text-muted uppercase tracking-widest" style="font-size:10px">Checks</span>
+    <span class="mono text-text font-medium" id="s-checks">—</span>
+  </div>
+  <div class="w-px h-3 bg-border"></div>
+  <div class="flex items-center gap-2 text-xs">
+    <span class="text-muted uppercase tracking-widest" style="font-size:10px">Updated</span>
+    <span class="mono text-text font-medium" id="s-time">—</span>
+  </div>
+</div>
+
+<!-- ═══════════════════ BODY ═══════════════════ -->
+<div class="flex flex-1 overflow-hidden">
+
+  <!-- ── LEFT SIDEBAR ── -->
+  <aside class="w-72 flex-shrink-0 border-r border-border flex flex-col overflow-hidden bg-surface">
+
+    <!-- Tabs -->
+    <div class="flex border-b border-border">
+      <button onclick="switchTab('players')" id="tab-btn-players"
+        class="tab-btn flex-1 py-2.5 text-xs font-semibold uppercase tracking-widest text-accent border-b-2 border-accent transition-colors">
+        Players
+      </button>
+      <button onclick="switchTab('checks')" id="tab-btn-checks"
+        class="tab-btn flex-1 py-2.5 text-xs font-semibold uppercase tracking-widest text-muted border-b-2 border-transparent transition-colors hover:text-text">
+        Checks
+      </button>
+    </div>
+
+    <!-- Players tab -->
+    <div id="tab-players" class="tab-panel flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+      <div id="no-players" class="text-center text-muted text-xs py-8" style="display:none">
+        No players online
+      </div>
+    </div>
+
+    <!-- Checks tab -->
+    <div id="tab-checks" class="tab-panel flex-1 overflow-y-auto p-2 flex-col gap-1" style="display:none">
+      <div id="checks-list" class="flex flex-col gap-1"></div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- Empty state -->
+    <div id="empty-state" class="flex flex-col items-center justify-center h-full gap-3 text-muted">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" class="opacity-20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <p class="text-sm">Select a player from the sidebar</p>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="detail" class="hidden p-6 flex flex-col gap-6 fade-in max-w-5xl">
+
+      <!-- Player header -->
+      <div class="flex items-start gap-4">
+        <div id="d-avatar" class="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-xl font-bold text-accent flex-shrink-0"></div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 id="d-name" class="text-xl font-bold text-bright"></h1>
+            <span id="d-mode" class="px-2 py-0.5 rounded text-xs font-medium bg-card border border-border text-muted mono"></span>
+            <span id="d-wl" class="hidden px-2 py-0.5 rounded text-xs font-medium bg-indigo-950 border border-indigo-800 text-indigo-400">Whitelisted</span>
+          </div>
+          <p id="d-uuid" class="text-xs text-muted mono mt-1 truncate"></p>
+        </div>
+        <button onclick="closeDetail()"
+          class="flex-shrink-0 px-3 py-1.5 rounded-md border border-border text-muted text-xs hover:border-zinc-500 hover:text-text transition-colors">
+          ✕ Close
+        </button>
+      </div>
+
+      <!-- ── RISK SECTION ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Risk Assessment</h2>
+        <div class="grid grid-cols-3 gap-3" id="risk-grid"></div>
+      </section>
+
+      <div class="border-t border-border"></div>
+
+      <!-- ── ROTATION SECTION ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Rotation & Aim</h2>
+        <div class="grid grid-cols-3 gap-3" id="rotation-grid"></div>
+      </section>
+
+      <div class="border-t border-border"></div>
+
+      <!-- ── TIMING SECTION ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Input Timing</h2>
+        <div class="grid grid-cols-3 gap-3" id="timing-grid"></div>
+      </section>
+
+      <div class="border-t border-border"></div>
+
+      <!-- ── MOVEMENT SECTION ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Movement</h2>
+        <div class="grid grid-cols-3 gap-3" id="movement-grid"></div>
+      </section>
+
+      <div class="border-t border-border"></div>
+
+      <!-- ── VIOLATIONS + BASELINE ── -->
+      <section class="grid grid-cols-2 gap-3">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Violations per Check</h2>
+          <div id="violations-card" class="bg-card border border-border rounded-xl p-4 text-xs mono leading-7"></div>
+        </div>
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Baseline</h2>
+          <div id="baseline-card" class="bg-card border border-border rounded-xl p-4"></div>
+        </div>
+      </section>
+
+      <div class="border-t border-border"></div>
+
+      <!-- ── HISTORY ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Violation History <span class="text-zinc-600 normal-case font-normal">(last 15)</span></h2>
+        <div class="bg-card border border-border rounded-xl overflow-hidden">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="border-b border-border">
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Time</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Check</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">VL</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Action</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Details</th>
+              </tr>
+            </thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────
+var sel        = null;
+var allPlayers = [];
+var TOKEN      = '{{TOKEN}}';  // injected server-side
+
+// ─── HTTP helper ─────────────────────────────────────────────
+function apiFetch(path) {
+  var headers = {};
+  if (TOKEN) headers['X-Praxic-Token'] = TOKEN;
+  return fetch(path, { headers: headers });
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────
+function switchTab(name) {
+  ['players','checks'].forEach(function(t) {
+    var btn   = document.getElementById('tab-btn-'+t);
+    var panel = document.getElementById('tab-'+t);
+    var active = t === name;
+    btn.classList.toggle('text-accent', active);
+    btn.classList.toggle('border-accent', active);
+    btn.classList.toggle('text-muted', !active);
+    btn.classList.toggle('border-transparent', !active);
+    panel.style.display = active ? 'flex' : 'none';
+  });
+}
+
+// ─── Badges ──────────────────────────────────────────────────
+function badge(text, color) {
+  var colors = {
+    ok:      'bg-green-950  text-green-400  border-green-900',
+    warn:    'bg-amber-950  text-amber-400  border-amber-900',
+    danger:  'bg-red-950    text-red-400    border-red-900',
+    neutral: 'bg-zinc-900   text-zinc-500   border-zinc-800',
+    accent:  'bg-indigo-950 text-indigo-400 border-indigo-900',
+  };
+  return '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold border mono ' + (colors[color]||colors.neutral) + '">' + text + '</span>';
+}
+
+function confBadge(v) {
+  if (v <= 0)   return badge('clean', 'ok');
+  if (v < 0.30) return badge(v, 'ok');
+  if (v < 0.80) return badge(v, 'warn');
+  return badge(v, 'danger');
+}
+
+function devBadge(v) {
+  if (v < 0)   return badge('N/A', 'neutral');
+  if (v < 1.5) return badge(v, 'ok');
+  if (v < 3.0) return badge(v, 'warn');
+  return badge(v, 'danger');
+}
+
+function pingBadge(v) {
+  return badge(v+'ms', v < 80 ? 'ok' : v < 200 ? 'warn' : 'danger');
+}
+
+function actionColor(a) {
+  return {ban:'text-red-400',kick:'text-amber-400',setback:'text-indigo-400',warn:'text-yellow-400',flag:'text-zinc-600'}[a]||'text-zinc-500';
+}
+
+// ─── Metric card ─────────────────────────────────────────────
+function metricCard(label, desc, value, warnAt, dangerAt, suffix, rev) {
+  suffix = suffix || '';
+  var valClass, valText;
+
+  if (value === null || value === undefined || value < 0) {
+    valClass = 'text-zinc-600';
+    valText  = 'N/A';
+    suffix   = '';
+  } else if (warnAt < 0) {
+    valClass = 'text-text';
+    valText  = value;
+  } else {
+    var isWarn   = rev ? value <= warnAt   : value >= warnAt;
+    var isDanger = rev ? value <= dangerAt : value >= dangerAt;
+    valClass = isDanger ? 'text-danger' : isWarn ? 'text-warn' : 'text-ok';
+    valText  = value;
+  }
+
+  return '<div class="metric-card bg-card border border-border rounded-xl p-4">' +
+    '<p class="text-xs font-semibold uppercase tracking-widest text-muted mb-2">' + label + '</p>' +
+    '<p class="text-2xl font-bold mono ' + valClass + '">' + valText + '<span class="text-base font-medium">' + suffix + '</span></p>' +
+    '<p class="text-xs text-zinc-600 mt-2 leading-relaxed">' + desc + '</p>' +
+    '</div>';
+}
+
+function fillGrid(id, specs) {
+  document.getElementById(id).innerHTML = specs.map(function(s) {
+    return metricCard(s.label, s.desc, s.value, s.w, s.d, s.suffix, s.rev);
+  }).join('');
+}
+
+// ─── Players list ─────────────────────────────────────────────
+function filterPlayers() {
+  var q = document.getElementById('search').value.toLowerCase();
+  renderPlayersList(allPlayers.filter(function(p) { return p.name.toLowerCase().includes(q); }));
+}
+
+function renderPlayersList(players) {
+  var panel = document.getElementById('tab-players');
+  var noEl  = document.getElementById('no-players');
+
+  // Clear all player cards (keep no-players element)
+  Array.from(panel.children).forEach(function(c) {
+    if (c.id !== 'no-players') c.remove();
+  });
+
+  if (players.length === 0) {
+    noEl.style.display = 'block';
+    return;
+  }
+  noEl.style.display = 'none';
+
+  players.forEach(function(p) {
+    var div = document.createElement('div');
+    div.className = 'player-card border border-border rounded-lg p-2.5 cursor-pointer' + (sel === p.name ? ' active' : '');
+    div.dataset.name = p.name;
+
+    var riskColor = p.confidence >= 0.80 ? 'text-danger' : p.confidence >= 0.30 ? 'text-warn' : 'text-ok';
+    var riskLabel = p.confidence >= 0.80 ? 'High Risk' : p.confidence >= 0.30 ? 'Suspicious' : 'Clean';
+
+    div.innerHTML =
+      '<div class="flex items-center gap-2.5">' +
+        '<div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-900 flex items-center justify-center text-sm font-bold text-indigo-400 flex-shrink-0">' + p.name.charAt(0).toUpperCase() + '</div>' +
+        '<div class="flex-1 min-w-0">' +
+          '<p class="text-sm font-semibold text-bright truncate">' + p.name + '</p>' +
+          '<p class="text-xs text-muted mono">' + p.ping + 'ms &middot; VL&nbsp;' + p.totalVl + '</p>' +
+        '</div>' +
+        '<span class="text-xs font-semibold ' + riskColor + ' flex-shrink-0">' + riskLabel + '</span>' +
+      '</div>';
+
+    div.onclick = function() {
+      if (sel === p.name) { closeDetail(); return; }
+      sel = p.name;
+      document.querySelectorAll('.player-card').forEach(function(c) { c.classList.remove('active'); });
+      div.classList.add('active');
+      loadDetail(p.name);
+    };
+    panel.appendChild(div);
+  });
+}
+
+// ─── Close detail ─────────────────────────────────────────────
+function closeDetail() {
+  sel = null;
+  document.getElementById('detail').classList.add('hidden');
+  document.getElementById('detail').classList.remove('flex');
+  document.getElementById('empty-state').classList.remove('hidden');
+  document.querySelectorAll('.player-card').forEach(function(c) { c.classList.remove('active'); });
+}
+
+// ─── Refresh players ──────────────────────────────────────────
+async function refreshPlayers() {
+  try {
+    var r = await apiFetch('/api/players');
+    if (!r.ok) throw new Error(r.status);
+    allPlayers = await r.json();
+
+    filterPlayers();
+
+    document.getElementById('s-online').textContent = allPlayers.length;
+    document.getElementById('s-time').textContent   = new Date().toLocaleTimeString();
+    document.getElementById('live-dot').className   = 'w-1.5 h-1.5 rounded-full bg-ok pulse-dot';
+    document.getElementById('live-label').textContent = 'Live';
+
+    if (sel) loadDetail(sel);
+  } catch(e) {
+    document.getElementById('live-dot').className   = 'w-1.5 h-1.5 rounded-full bg-danger';
+    document.getElementById('live-label').textContent = 'Connection lost';
+  }
+}
+
+// ─── Refresh status ───────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    var r = await apiFetch('/api/status');
+    if (!r.ok) throw new Error(r.status);
+    var s = await r.json();
+    var keys = Object.keys(s.checks);
+    var on   = Object.values(s.checks).filter(Boolean).length;
+    document.getElementById('s-ver').textContent    = s.version;
+    document.getElementById('s-checks').textContent = on + ' / ' + keys.length;
+
+    var cl = document.getElementById('checks-list');
+    cl.innerHTML = '';
+    keys.forEach(function(k) {
+      var on = s.checks[k];
+      var d = document.createElement('div');
+      d.className = 'flex items-center justify-between px-3 py-2 rounded-lg bg-card border border-border';
+      d.innerHTML =
+        '<span class="text-xs mono text-text">' + k + '</span>' +
+        badge(on ? 'ON' : 'OFF', on ? 'ok' : 'danger');
+      cl.appendChild(d);
+    });
+  } catch(e) {}
+}
+
+// ─── Load detail ──────────────────────────────────────────────
+async function loadDetail(name) {
+  try {
+    var r = await apiFetch('/api/player/' + encodeURIComponent(name));
+    if (!r.ok) { closeDetail(); return; }
+    var p = await r.json();
+    var anl = p.analytics || {};
+    var bl  = p.baseline  || {};
+
+    document.getElementById('empty-state').classList.add('hidden');
+    var det = document.getElementById('detail');
+    det.classList.remove('hidden');
+    det.classList.add('flex');
+    det.classList.add('flex-col');
+
+    // Header
+    document.getElementById('d-avatar').textContent = p.name.charAt(0).toUpperCase();
+    document.getElementById('d-name').textContent   = p.name;
+    document.getElementById('d-uuid').textContent   = p.uuid;
+    document.getElementById('d-mode').textContent   = p.gameMode;
+    document.getElementById('d-wl').classList.toggle('hidden', !p.whitelisted);
+
+    // Risk
+    fillGrid('risk-grid', [
+      { label:'Confidence',   desc:'Overall cheat probability. 0.8+ = action territory.',       value:p.confidence,                       w:0.30, d:0.80, suffix:'',  rev:false },
+      { label:'Anomaly',      desc:'Sustained deviation from baseline. Catches toggling.',       value:p.anomaly,                          w:0.30, d:0.70, suffix:'',  rev:false },
+      { label:'Baseline Dev.',desc:'Z-score vs first 5 min. 3.0+ = suspicious behaviour change.',value:bl.deviationScore>=0?bl.deviationScore:-1, w:1.5, d:3.0, suffix:'', rev:false },
+    ]);
+
+    // Rotation
+    fillGrid('rotation-grid', [
+      { label:'Entropy',        desc:'Rotation randomness. Below 2.0 = aimbot / aim assist.',   value:anl.entropy,      w:2.5, d:2.0, suffix:'',  rev:true  },
+      { label:'Max Snap',       desc:'Largest yaw jump in 20 ticks. 150°+ = aim assist.',       value:anl.maxSnapAngle, w:100, d:150, suffix:'°', rev:false },
+      { label:'Post-Kill Snap', desc:'Yaw snap right after kill. 90°+ = kill aura.',            value:anl.postKillSnap, w:60,  d:90,  suffix:'°', rev:false },
+    ]);
+
+    // Timing
+    fillGrid('timing-grid', [
+      { label:'Avg CPS',    desc:'Clicks per second (last 1 s). 20+ = auto clicker.',          value:anl.avgCps,       w:12, d:20, suffix:'',    rev:false },
+      { label:'Click σ',    desc:'Std deviation of click intervals. Under 3 ms = bot.',        value:anl.clickStdDev,  w:5,  d:3,  suffix:' ms', rev:true  },
+      { label:'Packet σ',   desc:'Std deviation of move packets. Under 1 ms = timer cheat.',  value:anl.packetStdDev, w:2,  d:1,  suffix:' ms', rev:true  },
+    ]);
+
+    // Movement
+    fillGrid('movement-grid', [
+      { label:'Avg Speed',   desc:'Average horizontal speed in blocks / tick.',                value:anl.avgSpeed,    w:0.9, d:1.2, suffix:' b/t', rev:false },
+      { label:'Strafe Ratio',desc:'Lateral vs forward fraction. 0.5 = balanced mix.',         value:anl.strafeRatio, w:-1,  d:-1,  suffix:'',     rev:false },
+      { label:'Jump Freq',   desc:'Jumps per second over 10 s window. 2.5+ = bhop.',          value:anl.jumpFreq,    w:1.5, d:2.5, suffix:' j/s', rev:false },
+    ]);
+
+    // Violations
+    var vlHtml = '';
+    var hasVl  = false;
+    Object.keys(p.violations || {}).forEach(function(k) {
+      if (p.violations[k] > 0) {
+        var col = p.violations[k] >= 5 ? 'text-danger' : p.violations[k] >= 3 ? 'text-warn' : 'text-ok';
+        vlHtml += '<div class="flex justify-between items-center"><span class="text-zinc-500">' + k + '</span><span class="font-bold ' + col + '">' + p.violations[k] + '</span></div>';
+        hasVl = true;
+      }
+    });
+    document.getElementById('violations-card').innerHTML = hasVl ? vlHtml :
+      '<p class="text-zinc-600 text-xs">No violations recorded</p>';
+
+    // Baseline
+    var blReady = bl.ready;
+    var blPct   = blReady ? 100 : Math.round(((bl.collected||0) / (bl.required||6000)) * 100);
+    document.getElementById('baseline-card').innerHTML =
+      '<div class="flex items-center justify-between mb-3">' +
+        '<span class="text-2xl font-bold mono ' + (blReady ? 'text-ok' : 'text-warn') + '">' + (blReady ? 'Ready' : blPct + '%') + '</span>' +
+        badge(blReady ? 'Active' : 'Warming up', blReady ? 'ok' : 'warn') +
+      '</div>' +
+      '<div class="progress-bar mb-2"><div class="progress-fill" style="width:' + blPct + '%"></div></div>' +
+      '<p class="text-xs text-zinc-600">' + (blReady ? '5-min baseline collected. Toggling detection active.' : (bl.collected||0) + ' / ' + (bl.required||6000) + ' ticks collected') + '</p>';
+
+    // History
+    var hist = document.getElementById('history-body');
+    hist.innerHTML = '';
+    if (!p.history || p.history.length === 0) {
+      hist.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-xs text-zinc-600">No history recorded</td></tr>';
+    } else {
+      p.history.forEach(function(e) {
+        var tr = document.createElement('tr');
+        tr.className = 'border-b border-border hover:bg-zinc-900 transition-colors';
+        tr.innerHTML =
+          '<td class="px-4 py-2.5 text-xs mono text-zinc-500 whitespace-nowrap">' + e.timestamp + '</td>' +
+          '<td class="px-4 py-2.5 text-xs mono text-indigo-400">' + e.check + '</td>' +
+          '<td class="px-4 py-2.5 text-xs mono text-text">' + e.vl + '</td>' +
+          '<td class="px-4 py-2.5 text-xs mono font-semibold ' + actionColor(e.action) + '">' + (e.action||'flag') + '</td>' +
+          '<td class="px-4 py-2.5 text-xs text-zinc-500">' + e.details + '</td>';
+        hist.appendChild(tr);
+      });
+    }
+
+  } catch(err) {
+    console.error('loadDetail error:', err);
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+refreshStatus();
+refreshPlayers();
+setInterval(refreshPlayers, 2000);
+setInterval(refreshStatus,  15000);
+</script>
+</body>
+</html>
