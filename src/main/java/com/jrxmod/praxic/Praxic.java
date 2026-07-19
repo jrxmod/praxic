@@ -42,21 +42,23 @@ public class Praxic implements ModInitializer {
         confidenceEngine   = new ConfidenceEngine();
         anomalyScoreEngine = new AnomalyScoreEngine();
         ghostEntityManager = new GhostEntityManager();
+        Praxic.LOGGER.info("[PRAXIC] GhostEntityManager initialized");
         checkManager       = new CheckManager();
         webServer          = new PraxicWebServer();
 
+        // === РЕГИСТРАЦИЯ КОМАНД СРАЗУ ===
         PraxicCommand.register();
+        Praxic.LOGGER.info("[PRAXIC] Commands registration finished");
         UpdateChecker.init();
         PraxicStats.init();
 
-        // Start web dashboard after server has started (needs MinecraftServer reference)
+        // Web dashboard
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             if (config.enableWebDashboard) {
                 webServer.start(server, config.webDashboardPort);
             }
         });
 
-        // Stop web dashboard cleanly on server shutdown
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> webServer.stop());
 
         LOGGER.info("[PRAXIC] AntiCheat initialized successfully!");

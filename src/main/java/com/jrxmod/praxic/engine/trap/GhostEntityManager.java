@@ -9,19 +9,13 @@ import net.minecraft.world.phys.Vec3;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Manages ghost (honeypot) entities for advanced KillAura and AimAssist detection.
- * Entities are invisible and invulnerable. Attacks on them are considered definitive proof of cheating.
- */
 public class GhostEntityManager {
 
-    private static final int MAX_GHOSTS_PER_PLAYER = 3;
-    private static final long GHOST_LIFETIME_MS = 30_000L; // 30 seconds
-    private static final long SPAWN_COOLDOWN_MS = 45_000L; // 45 seconds between spawns for same player
+    private static final long GHOST_LIFETIME_MS = 25_000L;
+    private static final long SPAWN_COOLDOWN_MS = 40_000L;
 
     private final Map<UUID, List<GhostEntity>> activeGhosts = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastSpawnTime = new ConcurrentHashMap<>();
-
     private final Random random = new Random();
 
     public GhostEntityManager() {
@@ -30,12 +24,9 @@ public class GhostEntityManager {
 
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 UUID uuid = player.getUUID();
-
-                // Cleanup expired ghosts
                 cleanupExpiredGhosts(uuid, now);
 
-                // Occasionally spawn new ghosts near active players
-                if (shouldSpawnGhost(uuid, now) && random.nextFloat() < 0.08f) {
+                if (shouldSpawnGhost(uuid, now) && random.nextFloat() < 0.07f) {
                     spawnGhostNearPlayer(player);
                     lastSpawnTime.put(uuid, now);
                 }
@@ -45,8 +36,7 @@ public class GhostEntityManager {
 
     private boolean shouldSpawnGhost(UUID uuid, long now) {
         Long last = lastSpawnTime.get(uuid);
-        if (last == null) return true;
-        return (now - last) > SPAWN_COOLDOWN_MS;
+        return last == null || (now - last) > SPAWN_COOLDOWN_MS;
     }
 
     private void cleanupExpiredGhosts(UUID uuid, long now) {
@@ -61,47 +51,32 @@ public class GhostEntityManager {
                 it.remove();
             }
         }
-
-        if (ghosts.isEmpty()) {
-            activeGhosts.remove(uuid);
-        }
+        if (ghosts.isEmpty()) activeGhosts.remove(uuid);
     }
 
     public void spawnGhostNearPlayer(ServerPlayer player) {
         if (player.level() instanceof ServerLevel level) {
             Vec3 pos = player.position().add(
-                    (random.nextDouble() - 0.5) * 6,
-                    0,
-                    (random.nextDouble() - 0.5) * 6
+                    (random.nextDouble() - 0.5) * 2.5,
+                    1.2,
+                    (random.nextDouble() - 0.5) * 2.5
             );
 
-            GhostEntity.GhostType type = GhostEntity.GhostType.values()[
-                    random.nextInt(GhostEntity.GhostType.values().length)
-            ];
-
-            GhostEntity ghost = new GhostEntity(level, pos, type);
-
+            GhostEntity ghost = new GhostEntity(level, pos);
             activeGhosts.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(ghost);
 
-            Praxic.LOGGER.info("[PRAXIC] Spawned ghost entity {} near {}", type, player.getName().getString());
+            Praxic.LOGGER.info("[PRAXIC] Spawned ghost honeypot near {}", player.getName().getString());
         }
     }
 
-    /**
-     * Called when a player attacks an entity.
-     * Returns true if the attacked entity was a ghost (honeypot hit).
-     */
     public boolean onPlayerAttack(ServerPlayer player, UUID targetUuid) {
         List<GhostEntity> ghosts = activeGhosts.get(player.getUUID());
         if (ghosts == null) return false;
 
         for (GhostEntity ghost : ghosts) {
             if (ghost.getEntity() != null && ghost.getEntity().getUUID().equals(targetUuid)) {
-                // Honeypot hit detected!
                 Praxic.LOGGER.warn("[PRAXIC] Ghost honeypot hit by {} — definitive KillAura evidence",
                         player.getName().getString());
-
-                // Remove the ghost immediately
                 ghost.despawn();
                 ghosts.remove(ghost);
                 return true;
@@ -117,9 +92,7 @@ public class GhostEntityManager {
 
     public void resetPlayer(UUID uuid) {
         List<GhostEntity> ghosts = activeGhosts.remove(uuid);
-        if (ghosts != null) {
-            for (GhostEntity g : ghosts) g.despawn();
-        }
+        if (ghosts != null) for (GhostEntity g : ghosts) g.despawn();
         lastSpawnTime.remove(uuid);
     }
 }

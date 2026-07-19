@@ -223,7 +223,7 @@ public class PraxicWebServer {
 
         PraxicConfig cfg = Praxic.getConfig();
         JsonObject obj = new JsonObject();
-        obj.addProperty("version",       "0.9.0");
+        obj.addProperty("version",       "0.10.0");
         obj.addProperty("onlinePlayers", mcServer.getPlayerList().getPlayers().size());
         obj.addProperty("maxPlayers",    mcServer.getMaxPlayers());
 
