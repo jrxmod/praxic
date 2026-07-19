@@ -4,8 +4,8 @@ All notable changes to PRAXIC will be documented in this file.
 
 ## 0.10.0 - Foundation & Traps
 ### Added
-- **GhostEntityManager**: honeypot trap system — invisible entities that definitively detect KillAura/AimAssist
-- **GhostEntity**: invisible, invulnerable entities (Zombie/Skeleton/Creeper) with 30-second lifetime
+- **GhostEntityManager**: new honeypot trap system that spawns invisible ArmorStand entities to detect KillAura/AimAssist
+- **GhostEntity**: invisible ArmorStand-based entities (completely rewritten from previous mob-based version)
 - **New cross-correlations** in ConfidenceEngine:
   - Rotation + Timing → ×1.4 multiplier
   - Movement + Anomaly → ×1.3 multiplier
@@ -16,7 +16,6 @@ All notable changes to PRAXIC will be documented in this file.
   - Active ghost trap count
 - **Web Dashboard v0.10.0**:
   - Displays active ghost traps per player
-  - Improved Risk Assessment section
   - Version updated to 0.10.0
 
 ### Changed
@@ -25,8 +24,9 @@ All notable changes to PRAXIC will be documented in this file.
 - `gradle.properties`: version bumped to 0.10.0
 - Dashboard API now exposes `ghostTraps` field
 
-### Removed
-- Legacy version string "0.9.0" replaced with "0.10.0" across dashboard and API
+### Fixed
+- GhostEntity completely rewritten — replaced visible aggressive mobs with invisible ArmorStands
+- Commands registration fixed (moved back to `onInitialize`)
 
 ## 0.9.0 - Watchtower
 ### Added
