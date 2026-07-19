@@ -457,6 +457,14 @@ async function loadDetail(name) {
       { label:'Baseline Dev.',desc:'Z-score vs first 5 min. 3.0+ = suspicious behaviour change.',value:bl.deviationScore>=0?bl.deviationScore:-1, w:1.5, d:3.0, suffix:'', rev:false },
     ]);
 
+    // Ghost traps indicator (v0.10.0)
+    if (p.ghostTraps > 0) {
+      const ghostDiv = document.createElement('div');
+      ghostDiv.className = 'col-span-3 mt-2 px-3 py-1.5 bg-red-950 border border-red-900 rounded text-xs text-red-400 mono';
+      ghostDiv.textContent = '👻 ' + p.ghostTraps + ' active honeypot trap(s)';
+      document.getElementById('risk-grid').appendChild(ghostDiv);
+    }
+
     // Rotation
     fillGrid('rotation-grid', [
       { label:'Entropy',        desc:'Rotation randomness. Below 2.0 = aimbot / aim assist.',   value:anl.entropy,      w:2.5, d:2.0, suffix:'',  rev:true  },

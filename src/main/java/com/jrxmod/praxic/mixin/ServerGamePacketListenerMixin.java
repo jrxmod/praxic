@@ -8,6 +8,7 @@ import com.jrxmod.praxic.checks.KillAuraCheck;
 import com.jrxmod.praxic.checks.ReachCheck;
 import com.jrxmod.praxic.checks.ScaffoldCheck;
 import com.jrxmod.praxic.checks.TimerCheck;
+import com.jrxmod.praxic.engine.trap.GhostEntityManager;
 import com.jrxmod.praxic.data.PlayerData;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
@@ -105,6 +106,13 @@ public class ServerGamePacketListenerMixin {
         // Schedule checks on the server thread to avoid duplicate execution
         // and thread-safety issues from Netty IO thread
         player.getServer().execute(() -> {
+            // Ghost honeypot detection (KillAura trap)
+            GhostEntityManager gem = Praxic.getGhostEntityManager();
+            if (gem != null && gem.onPlayerAttack(player, target.getUUID())) {
+                // Ghost hit — definitive evidence, handled by GhostEntityManager
+                return;
+            }
+
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof ReachCheck)
                     .map(c -> (ReachCheck) c)

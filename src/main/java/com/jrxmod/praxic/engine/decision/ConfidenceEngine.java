@@ -71,6 +71,16 @@ public class ConfidenceEngine {
     private static final double CORRELATION_3_MULT      = 2.0;
 
     // -------------------------------------------------------------------------
+    // v0.10.0 New cross-category correlations
+    // -------------------------------------------------------------------------
+
+    /** Rotation + Timing correlation (common in advanced aimbots + autoclickers) */
+    private static final double ROTATION_TIMING_CORRELATION = 1.4;
+
+    /** Movement + Anomaly correlation (player moving unnaturally while deviating from baseline) */
+    private static final double MOVEMENT_ANOMALY_CORRELATION = 1.3;
+
+    // -------------------------------------------------------------------------
     // Decay parameters
     // -------------------------------------------------------------------------
 
@@ -208,7 +218,20 @@ public class ConfidenceEngine {
 
         if (in5s.size() >= 3) return CORRELATION_3_MULT;
         if (in3s.size() >= 2) return CORRELATION_2_MULT;
+
+        // v0.10.0 cross-category correlations
+        if (hasRotationAndTiming(in3s)) return ROTATION_TIMING_CORRELATION;
+        if (hasMovementAndAnomaly(in3s)) return MOVEMENT_ANOMALY_CORRELATION;
+
         return 1.0;
+    }
+
+    private boolean hasRotationAndTiming(Set<String> checks) {
+        return checks.contains("RotationCheck") && checks.contains("AutoClickerCheck");
+    }
+
+    private boolean hasMovementAndAnomaly(Set<String> checks) {
+        return checks.contains("SpeedCheck") && checks.contains("YPredictionCheck");
     }
 
     /** Removes entries older than the widest correlation window. */

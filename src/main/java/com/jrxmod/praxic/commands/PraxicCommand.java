@@ -4,6 +4,8 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.api.PraxicStats;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.engine.analysis.PlayerAnalytics;
+import com.jrxmod.praxic.engine.analysis.PlayerBaseline;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import com.jrxmod.praxic.manager.HistoryManager;
 import com.jrxmod.praxic.manager.WhitelistManager;
@@ -182,6 +184,10 @@ public class PraxicCommand {
 
                                         double conf    = Praxic.getConfidenceEngine().getScore(uuid);
                                         double anomaly = Praxic.getAnomalyScoreEngine().getScore(uuid);
+                                        PlayerAnalytics analytics = Praxic.getCheckManager().getAnalytics(uuid);
+                                        PlayerBaseline baseline = Praxic.getCheckManager().getPlayerBaseline(uuid);
+                                        int ghostCount = Praxic.getGhostEntityManager() != null 
+                                                ? Praxic.getGhostEntityManager().getActiveGhostCount(uuid) : 0;
 
                                         source.sendSuccess(() -> Component.literal(HEADER), false);
                                         source.sendSuccess(() -> Component.literal(

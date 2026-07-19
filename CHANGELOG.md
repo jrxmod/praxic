@@ -2,6 +2,32 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.10.0 - Foundation & Traps
+### Added
+- **GhostEntityManager**: honeypot trap system — invisible entities that definitively detect KillAura/AimAssist
+- **GhostEntity**: invisible, invulnerable entities (Zombie/Skeleton/Creeper) with 30-second lifetime
+- **New cross-correlations** in ConfidenceEngine:
+  - Rotation + Timing → ×1.4 multiplier
+  - Movement + Anomaly → ×1.3 multiplier
+- **Enhanced `/praxic check <player>`**:
+  - Now shows Confidence + Anomaly scores
+  - Analytics snapshot (Entropy, Max Snap, CPS, Speed)
+  - Baseline status (READY / WARMING)
+  - Active ghost trap count
+- **Web Dashboard v0.10.0**:
+  - Displays active ghost traps per player
+  - Improved Risk Assessment section
+  - Version updated to 0.10.0
+
+### Changed
+- `Praxic.java`: added `GhostEntityManager` singleton
+- `ServerGamePacketListenerMixin`: ghost honeypot check runs before normal KillAura/Reach checks
+- `gradle.properties`: version bumped to 0.10.0
+- Dashboard API now exposes `ghostTraps` field
+
+### Removed
+- Legacy version string "0.9.0" replaced with "0.10.0" across dashboard and API
+
 ## 0.9.0 - Watchtower
 ### Added
 - **Decision Engine — ConfidenceEngine**: per-player evidence score built from weighted check flags and cross-check correlation

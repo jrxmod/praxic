@@ -5,6 +5,7 @@ import com.jrxmod.praxic.commands.PraxicCommand;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.engine.decision.AnomalyScoreEngine;
 import com.jrxmod.praxic.engine.decision.ConfidenceEngine;
+import com.jrxmod.praxic.engine.trap.GhostEntityManager;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import com.jrxmod.praxic.manager.CheckManager;
 import com.jrxmod.praxic.manager.HistoryManager;
@@ -28,6 +29,7 @@ public class Praxic implements ModInitializer {
     private static ConfidenceEngine   confidenceEngine;
     private static AnomalyScoreEngine anomalyScoreEngine;
     private static PraxicWebServer    webServer;
+    private static GhostEntityManager ghostEntityManager;
 
     @Override
     public void onInitialize() {
@@ -39,6 +41,7 @@ public class Praxic implements ModInitializer {
         historyManager     = new HistoryManager();
         confidenceEngine   = new ConfidenceEngine();
         anomalyScoreEngine = new AnomalyScoreEngine();
+        ghostEntityManager = new GhostEntityManager();
         checkManager       = new CheckManager();
         webServer          = new PraxicWebServer();
 
@@ -73,4 +76,5 @@ public class Praxic implements ModInitializer {
     public static ConfidenceEngine   getConfidenceEngine()   { return confidenceEngine; }
     public static AnomalyScoreEngine getAnomalyScoreEngine() { return anomalyScoreEngine; }
     public static PraxicWebServer    getWebServer()          { return webServer; }
+    public static GhostEntityManager getGhostEntityManager() { return ghostEntityManager; }
 }
