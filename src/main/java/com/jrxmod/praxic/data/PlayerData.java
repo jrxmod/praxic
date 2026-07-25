@@ -173,7 +173,7 @@ public class PlayerData {
     public int knockbackTicksWaited = 0;
 
     // -------------------------------------------------------------------------
-    // RotationCheck
+    // Combat / Client buffers
     // -------------------------------------------------------------------------
 
     /**
@@ -181,6 +181,22 @@ public class PlayerData {
      * Incremented on snap, decremented when clean — flags at threshold.
      */
     public int rotationSnapBuffer = 0;
+
+    /** Buffer for spoofed critical-hit packets. */
+    public int criticalsBuffer = 0;
+
+    /** Buffer for impossible / malformed movement packets. */
+    public int badPacketBuffer = 0;
+
+    // -------------------------------------------------------------------------
+    // Movement buffers
+    // -------------------------------------------------------------------------
+
+    /** Buffer for moving too fast while using slowed items. */
+    public int noSlowBuffer = 0;
+
+    /** Consecutive ticks spent moving inside solid collision. */
+    public int phaseTicks = 0;
 
     // -------------------------------------------------------------------------
     // BoatFlyCheck

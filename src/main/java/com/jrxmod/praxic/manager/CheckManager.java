@@ -52,14 +52,19 @@ public class CheckManager {
         checks.add(new FlyCheck());
         checks.add(new YPredictionCheck());
         checks.add(new SpeedCheck());
+        checks.add(new PhaseCheck());
+        checks.add(new NoSlowCheck());
         checks.add(new NoFallCheck());
         checks.add(new ReachCheck());
         checks.add(new KillAuraCheck());
+        checks.add(new GhostTrapCheck());
+        checks.add(new CriticalsCheck());
         checks.add(new ScaffoldCheck());
         checks.add(new AutoTotemCheck());
         checks.add(new InventoryCheck());
         checks.add(new AutoClickerCheck());
         checks.add(new TimerCheck());
+        checks.add(new BadPacketsCheck());
         checks.add(new FastBreakCheck());
         checks.add(new JesusCheck());
         checks.add(new VelocityCheck());
@@ -181,6 +186,9 @@ public class CheckManager {
             playerProfiler.reset(uuid);
             Praxic.getConfidenceEngine().reset(uuid);
             Praxic.getAnomalyScoreEngine().reset(uuid);
+            if (Praxic.getGhostEntityManager() != null) {
+                Praxic.getGhostEntityManager().resetPlayer(uuid);
+            }
         });
     }
 

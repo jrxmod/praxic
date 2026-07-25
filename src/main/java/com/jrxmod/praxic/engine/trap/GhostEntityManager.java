@@ -1,9 +1,14 @@
 package com.jrxmod.praxic.engine.trap;
 
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.checks.GhostTrapCheck;
+import com.jrxmod.praxic.config.PraxicConfig;
+import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.manager.ViolationManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
@@ -11,8 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class GhostEntityManager {
 
-    private static final long GHOST_LIFETIME_MS = 25_000L;
-    private static final long SPAWN_COOLDOWN_MS = 40_000L;
+    private static final GhostTrapCheck GHOST_TRAP_CHECK = new GhostTrapCheck();
 
     private final Map<UUID, List<GhostEntity>> activeGhosts = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastSpawnTime = new ConcurrentHashMap<>();
@@ -21,12 +25,21 @@ public class GhostEntityManager {
     public GhostEntityManager() {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             long now = System.currentTimeMillis();
+            PraxicConfig cfg = Praxic.getConfig();
+            if (cfg == null) return;
 
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 UUID uuid = player.getUUID();
-                cleanupExpiredGhosts(uuid, now);
+                cleanupExpiredGhosts(uuid, now, cfg.ghostTrapLifetimeMs);
 
-                if (shouldSpawnGhost(uuid, now) && random.nextFloat() < 0.07f) {
+                if (!cfg.ghostTrapCheckEnabled) continue;
+                if (!isEligibleForTrap(player)) continue;
+                if (Praxic.getWhitelistManager() != null
+                        && Praxic.getWhitelistManager().isWhitelisted(uuid)) continue;
+
+                double chance = Math.max(0.0, Math.min(1.0, cfg.ghostTrapSpawnChance));
+                if (shouldSpawnGhost(uuid, now, cfg.ghostTrapSpawnCooldownMs)
+                        && random.nextDouble() < chance) {
                     spawnGhostNearPlayer(player);
                     lastSpawnTime.put(uuid, now);
                 }
@@ -34,19 +47,27 @@ public class GhostEntityManager {
         });
     }
 
-    private boolean shouldSpawnGhost(UUID uuid, long now) {
-        Long last = lastSpawnTime.get(uuid);
-        return last == null || (now - last) > SPAWN_COOLDOWN_MS;
+    private boolean isEligibleForTrap(ServerPlayer player) {
+        if (player.isDeadOrDying()) return false;
+        if (player.isSpectator()) return false;
+        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return false;
+        return !player.getAbilities().mayfly;
     }
 
-    private void cleanupExpiredGhosts(UUID uuid, long now) {
+    private boolean shouldSpawnGhost(UUID uuid, long now, long cooldownMs) {
+        Long last = lastSpawnTime.get(uuid);
+        return last == null || (now - last) > Math.max(5_000L, cooldownMs);
+    }
+
+    private void cleanupExpiredGhosts(UUID uuid, long now, long lifetimeMs) {
         List<GhostEntity> ghosts = activeGhosts.get(uuid);
         if (ghosts == null) return;
 
+        long maxLifetime = Math.max(5_000L, lifetimeMs);
         Iterator<GhostEntity> it = ghosts.iterator();
         while (it.hasNext()) {
             GhostEntity ghost = it.next();
-            if (!ghost.isActive() || (now - ghost.getSpawnTime()) > GHOST_LIFETIME_MS) {
+            if (!ghost.isActive() || (now - ghost.getSpawnTime()) > maxLifetime) {
                 ghost.despawn();
                 it.remove();
             }
@@ -69,16 +90,23 @@ public class GhostEntityManager {
         }
     }
 
-    public boolean onPlayerAttack(ServerPlayer player, UUID targetUuid) {
+    public boolean onPlayerAttack(ServerPlayer player, UUID targetUuid, PlayerData data) {
+        if (!Praxic.getConfig().ghostTrapCheckEnabled) return false;
+
         List<GhostEntity> ghosts = activeGhosts.get(player.getUUID());
         if (ghosts == null) return false;
 
-        for (GhostEntity ghost : ghosts) {
+        Iterator<GhostEntity> it = ghosts.iterator();
+        while (it.hasNext()) {
+            GhostEntity ghost = it.next();
             if (ghost.getEntity() != null && ghost.getEntity().getUUID().equals(targetUuid)) {
                 Praxic.LOGGER.warn("[PRAXIC] Ghost honeypot hit by {} — definitive KillAura evidence",
                         player.getName().getString());
                 ghost.despawn();
-                ghosts.remove(ghost);
+                it.remove();
+                ViolationManager.flag(player, data, GHOST_TRAP_CHECK,
+                        "Hit invisible honeypot entity (definitive KillAura evidence)");
+                if (ghosts.isEmpty()) activeGhosts.remove(player.getUUID());
                 return true;
             }
         }

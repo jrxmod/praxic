@@ -2,6 +2,8 @@ package com.jrxmod.praxic.mixin;
 
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.checks.AutoClickerCheck;
+import com.jrxmod.praxic.checks.BadPacketsCheck;
+import com.jrxmod.praxic.checks.CriticalsCheck;
 import com.jrxmod.praxic.checks.FastBreakCheck;
 import com.jrxmod.praxic.checks.InventoryCheck;
 import com.jrxmod.praxic.checks.KillAuraCheck;
@@ -38,14 +40,20 @@ public class ServerGamePacketListenerMixin {
     @Inject(method = "handleMovePlayer", at = @At("HEAD"))
     private void onHandleMovePlayer(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
 
-        // Only count packets that carry position data — ignore rotation-only and status-only
-        if (!packet.hasPosition()) return;
-
         PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
         if (data == null) return;
 
         // Schedule on server thread — packet arrives on Netty IO thread
         player.getServer().execute(() -> {
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof BadPacketsCheck)
+                    .map(c -> (BadPacketsCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.onMovePacket(player, packet, data));
+
+            // Only count packets that carry position data — ignore rotation-only and status-only
+            if (!packet.hasPosition()) return;
+
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof TimerCheck)
                     .map(c -> (TimerCheck) c)
@@ -106,12 +114,21 @@ public class ServerGamePacketListenerMixin {
         // Schedule checks on the server thread to avoid duplicate execution
         // and thread-safety issues from Netty IO thread
         player.getServer().execute(() -> {
+            // Combat context for RotationCheck / analytics.
+            data.lastAttackTime = System.currentTimeMillis();
+
             // Ghost honeypot detection (KillAura trap)
             GhostEntityManager gem = Praxic.getGhostEntityManager();
-            if (gem != null && gem.onPlayerAttack(player, target.getUUID())) {
-                // Ghost hit — definitive evidence, handled by GhostEntityManager
+            if (gem != null && gem.onPlayerAttack(player, target.getUUID(), data)) {
+                // Ghost hit — definitive evidence, already flagged by GhostEntityManager.
                 return;
             }
+
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof CriticalsCheck)
+                    .map(c -> (CriticalsCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.checkAttack(player, target, data));
 
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof ReachCheck)

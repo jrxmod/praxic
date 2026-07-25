@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.10.0-orange)
+![Version](https://img.shields.io/badge/version-0.11.0-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
@@ -19,19 +19,19 @@ Server-side anticheat for Fabric. Your players install nothing.
 
 ## What it does
 
-14 checks across movement, combat, world interaction, and client manipulation — powered by a physics-based prediction engine with lag compensation. Violations decay over time, thresholds adapt to ping, and actions are fully configurable per check.
+23 checks across movement, combat, world interaction, protocol sanity, and client manipulation — powered by a physics-based prediction engine with lag compensation, confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
 
 ## Checks
 
-**Movement** — Fly · Speed · Jesus (water walk) · Y-Prediction (physics-based)
-**Combat** — Reach · KillAura · Velocity (anti-knockback)
-**World** — Scaffold · FastBreak · NoFall
-**Client** — AutoClicker · AutoTotem · Inventory · Timer
+- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · Y-Prediction (physics-based)
+- **Combat** — Reach · KillAura · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap
+- **World** — Scaffold · FastBreak · NoFall
+- **Client / Protocol** — AutoClicker · AutoTotem · Inventory · Timer · BadPackets
 
 ## Actions
 
-Every check supports: `warn` · `kick` · `ban` · `setback`
-Configured per check in `config/praxic.json`.
+Every check supports: `flag` · `warn` · `setback` · `kick` · `ban`
+Configured per check in `config/praxic.json`. Confidence scoring chooses the action and each check's configured action acts as a maximum cap.
 
 ## Commands
 
@@ -44,14 +44,18 @@ Configured per check in `config/praxic.json`.
 /praxic reload                  — hot-reload config
 /praxic whitelist add|remove|list — bypass checks
 /praxic history <player>        — persistent log (works offline)
+/praxic evidence [player]       — rich evidence packets for review
+/praxic evidence clear <player> — clear stored evidence
 ```
 
 All commands require **OP level 2**.
 
 ## Integrations
 
-- **Staff Alerts** — OP2+ notified in chat on every flag
+- **Staff Alerts** — OP2+ notified in chat on every flag, with cooldown protection
 - **Discord Webhook** — rich embeds to your channel
+- **Evidence Store** — compact review packets in `config/praxic-evidence.json`
+- **Web Dashboard** — local admin UI at `http://127.0.0.1:8765/`
 - **API** — `PraxicViolationEvent` for other mods (see [REVEX](https://github.com/jrxmod/revex))
 
 ## Install

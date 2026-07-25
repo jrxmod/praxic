@@ -33,6 +33,8 @@ public class ConfidenceEngine {
         WEIGHTS.put("FlyCheck",         0.25);
         WEIGHTS.put("YPredictionCheck", 0.25);
         WEIGHTS.put("SpeedCheck",       0.15);
+        WEIGHTS.put("PhaseCheck",       0.22);
+        WEIGHTS.put("NoSlowCheck",      0.12);
         WEIGHTS.put("BoatFlyCheck",     0.20);
         WEIGHTS.put("JesusCheck",       0.15);
         WEIGHTS.put("NoFallCheck",      0.15);
@@ -40,6 +42,8 @@ public class ConfidenceEngine {
         WEIGHTS.put("SprintCheck",      0.10);
         // Combat — moderate to high evidence
         WEIGHTS.put("KillAuraCheck",    0.25);
+        WEIGHTS.put("GhostTrapCheck",   0.85);
+        WEIGHTS.put("CriticalsCheck",   0.18);
         WEIGHTS.put("ReachCheck",       0.20);
         WEIGHTS.put("RotationCheck",    0.20);
         // World — moderate evidence (easier to false-positive)
@@ -48,6 +52,7 @@ public class ConfidenceEngine {
         // Client automation — high precision checks
         WEIGHTS.put("AutoClickerCheck", 0.25);
         WEIGHTS.put("TimerCheck",       0.25);
+        WEIGHTS.put("BadPacketsCheck",  0.30);
         WEIGHTS.put("AutoTotemCheck",   0.15);
         WEIGHTS.put("InventoryCheck",   0.10);
     }
@@ -71,7 +76,7 @@ public class ConfidenceEngine {
     private static final double CORRELATION_3_MULT      = 2.0;
 
     // -------------------------------------------------------------------------
-    // v0.10.0 New cross-category correlations
+    // Cross-category correlations
     // -------------------------------------------------------------------------
 
     /** Rotation + Timing correlation (common in advanced aimbots + autoclickers) */
@@ -79,6 +84,12 @@ public class ConfidenceEngine {
 
     /** Movement + Anomaly correlation (player moving unnaturally while deviating from baseline) */
     private static final double MOVEMENT_ANOMALY_CORRELATION = 1.3;
+
+    /** Bad packets + movement/phase evidence usually means an active bypass module. */
+    private static final double PROTOCOL_MOVEMENT_CORRELATION = 1.6;
+
+    /** Criticals/reach/rotation combinations are a strong combat-module chain. */
+    private static final double COMBAT_CHAIN_CORRELATION = 1.6;
 
     // -------------------------------------------------------------------------
     // Decay parameters
@@ -217,13 +228,24 @@ public class ConfidenceEngine {
         in5s.add(checkName);
 
         if (in5s.size() >= 3) return CORRELATION_3_MULT;
-        if (in3s.size() >= 2) return CORRELATION_2_MULT;
 
-        // v0.10.0 cross-category correlations
-        if (hasRotationAndTiming(in3s)) return ROTATION_TIMING_CORRELATION;
-        if (hasMovementAndAnomaly(in3s)) return MOVEMENT_ANOMALY_CORRELATION;
+        double multiplier = in3s.size() >= 2 ? CORRELATION_2_MULT : 1.0;
 
-        return 1.0;
+        // Cross-category correlations
+        if (hasRotationAndTiming(in3s)) {
+            multiplier = Math.max(multiplier, ROTATION_TIMING_CORRELATION);
+        }
+        if (hasMovementAndAnomaly(in3s)) {
+            multiplier = Math.max(multiplier, MOVEMENT_ANOMALY_CORRELATION);
+        }
+        if (hasProtocolAndMovement(in3s)) {
+            multiplier = Math.max(multiplier, PROTOCOL_MOVEMENT_CORRELATION);
+        }
+        if (hasCombatChain(in3s)) {
+            multiplier = Math.max(multiplier, COMBAT_CHAIN_CORRELATION);
+        }
+
+        return multiplier;
     }
 
     private boolean hasRotationAndTiming(Set<String> checks) {
@@ -232,6 +254,26 @@ public class ConfidenceEngine {
 
     private boolean hasMovementAndAnomaly(Set<String> checks) {
         return checks.contains("SpeedCheck") && checks.contains("YPredictionCheck");
+    }
+
+    private boolean hasProtocolAndMovement(Set<String> checks) {
+        boolean protocol = checks.contains("BadPacketsCheck") || checks.contains("TimerCheck");
+        boolean movement = checks.contains("SpeedCheck")
+                || checks.contains("PhaseCheck")
+                || checks.contains("NoSlowCheck")
+                || checks.contains("YPredictionCheck");
+        return protocol && movement;
+    }
+
+    private boolean hasCombatChain(Set<String> checks) {
+        int combat = 0;
+        if (checks.contains("KillAuraCheck")) combat++;
+        if (checks.contains("GhostTrapCheck")) combat++;
+        if (checks.contains("CriticalsCheck")) combat++;
+        if (checks.contains("ReachCheck")) combat++;
+        if (checks.contains("RotationCheck")) combat++;
+        if (checks.contains("AutoClickerCheck")) combat++;
+        return combat >= 2;
     }
 
     /** Removes entries older than the widest correlation window. */

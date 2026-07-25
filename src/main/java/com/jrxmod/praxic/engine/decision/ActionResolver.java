@@ -1,6 +1,7 @@
 package com.jrxmod.praxic.engine.decision;
 
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import net.minecraft.network.chat.Component;
@@ -11,58 +12,81 @@ import java.util.Set;
 
 /**
  * Translates a player's confidence score into a concrete action and executes it.
- * Replaces the per-check action switch that was in ViolationManager.
  *
- * Thresholds:
- *   < 0.30  → nothing  (not enough evidence yet)
- *   0.30–0.60 → warn
- *   0.60–0.80 → setback
- *   0.80–0.95 → kick
- *   ≥ 0.95    → ban
- *
- * ViolationManager remains the orchestration layer (logging, alerts, discord, event).
- * ActionResolver only handles the punishment execution.
+ * v0.11.0 keeps the confidence gate from Watchtower, but restores per-check
+ * configuration as a maximum-action cap. Example: if confidence resolves to
+ * kick but SpeedCheck is configured as "warn", the final action is "warn".
  */
 public class ActionResolver {
 
-    // -------------------------------------------------------------------------
-    // Confidence thresholds
-    // -------------------------------------------------------------------------
-
-    private static final double THRESHOLD_WARN    = 0.30;
-    private static final double THRESHOLD_SETBACK = 0.60;
-    private static final double THRESHOLD_KICK    = 0.80;
-    private static final double THRESHOLD_BAN     = 0.95;
-
-    // -------------------------------------------------------------------------
-    // Public API
-    // -------------------------------------------------------------------------
+    // Fallback thresholds used before config exists.
+    private static final double DEFAULT_THRESHOLD_WARN    = 0.30;
+    private static final double DEFAULT_THRESHOLD_SETBACK = 0.60;
+    private static final double DEFAULT_THRESHOLD_KICK    = 0.80;
+    private static final double DEFAULT_THRESHOLD_BAN     = 0.95;
 
     /**
      * Resolves a confidence score to an action name.
      * "flag" means no punishment is taken this cycle.
-     *
-     * @param confidence current score from ConfidenceEngine (0.0–1.0)
-     * @return one of: "flag", "warn", "setback", "kick", "ban"
      */
     public static String resolve(double confidence) {
-        if (confidence >= THRESHOLD_BAN)    return "ban";
-        if (confidence >= THRESHOLD_KICK)   return "kick";
-        if (confidence >= THRESHOLD_SETBACK) return "setback";
-        if (confidence >= THRESHOLD_WARN)   return "warn";
+        return resolve(confidence, "ban");
+    }
+
+    /**
+     * Resolves a confidence score and caps the result by the check's configured
+     * maximum action.
+     *
+     * @param confidence current score from ConfidenceEngine (0.0–1.0)
+     * @param maxAction  configured cap: flag, warn, setback, kick or ban
+     */
+    public static String resolve(double confidence, String maxAction) {
+        String base = resolveBase(confidence);
+        if ("flag".equals(base)) return base;
+
+        String cap = normalize(maxAction);
+        if (cap == null) return base;
+        if ("flag".equals(cap)) return "flag";
+
+        return rank(base) > rank(cap) ? cap : base;
+    }
+
+    private static String resolveBase(double confidence) {
+        PraxicConfig cfg = Praxic.getConfig();
+        double warn    = cfg != null ? cfg.confidenceWarnThreshold    : DEFAULT_THRESHOLD_WARN;
+        double setback = cfg != null ? cfg.confidenceSetbackThreshold : DEFAULT_THRESHOLD_SETBACK;
+        double kick    = cfg != null ? cfg.confidenceKickThreshold    : DEFAULT_THRESHOLD_KICK;
+        double ban     = cfg != null ? cfg.confidenceBanThreshold     : DEFAULT_THRESHOLD_BAN;
+        boolean autoBan = cfg == null || cfg.confidenceAutoBan;
+
+        if (confidence >= ban)     return autoBan ? "ban" : "kick";
+        if (confidence >= kick)    return "kick";
+        if (confidence >= setback) return "setback";
+        if (confidence >= warn)    return "warn";
         return "flag";
+    }
+
+    private static String normalize(String action) {
+        if (action == null) return null;
+        return switch (action.toLowerCase()) {
+            case "flag", "warn", "setback", "kick", "ban" -> action.toLowerCase();
+            default -> null;
+        };
+    }
+
+    private static int rank(String action) {
+        return switch (action) {
+            case "flag"    -> 0;
+            case "warn"    -> 1;
+            case "setback" -> 2;
+            case "kick"    -> 3;
+            case "ban"     -> 4;
+            default         -> 3;
+        };
     }
 
     /**
      * Executes a resolved action against a player.
-     * Called by ViolationManager after the REVEX event fires and is not cancelled.
-     *
-     * @param player    target player
-     * @param data      player state for setback position and VL reset
-     * @param action    resolved action string from resolve()
-     * @param checkName check that triggered the flag (for logging)
-     * @param reason    human-readable reason shown to the player
-     * @param violations current legacy VL for the triggering check
      */
     public static void execute(
             ServerPlayer player,
@@ -128,6 +152,5 @@ public class ActionResolver {
         }
     }
 
-    // Private constructor — static utility class
     private ActionResolver() {}
 }
