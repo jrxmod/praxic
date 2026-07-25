@@ -24,6 +24,19 @@ public class PraxicConfig {
     public int speedMaxViolations = 8;
     public String speedAction = "warn";
 
+    // PhaseCheck settings
+    public boolean phaseCheckEnabled = true;
+    public double phaseMinHorizontalMove = 0.03;
+    public int phaseMaxTicksInBlock = 8;
+    public int phaseMaxViolations = 5;
+    public String phaseAction = "setback";
+
+    // NoSlowCheck settings
+    public boolean noSlowCheckEnabled = true;
+    public double noSlowMaxBlocksPerTick = 0.16;
+    public int noSlowMaxViolations = 5;
+    public String noSlowAction = "warn";
+
     // NoFallCheck settings
     public boolean noFallCheckEnabled = true;
     public int noFallMaxViolations = 3;
@@ -38,6 +51,19 @@ public class PraxicConfig {
     public boolean killAuraCheckEnabled = true;
     public int killAuraCheckMaxViolations = 5;
     public String killAuraCheckAction = "kick";
+
+    // GhostTrapCheck settings (invisible honeypot entities)
+    public boolean ghostTrapCheckEnabled = true;
+    public int ghostTrapMaxViolations = 1;
+    public String ghostTrapAction = "kick";
+    public long ghostTrapLifetimeMs = 25_000L;
+    public long ghostTrapSpawnCooldownMs = 40_000L;
+    public double ghostTrapSpawnChance = 0.07;
+
+    // CriticalsCheck settings
+    public boolean criticalsCheckEnabled = true;
+    public int criticalsMaxViolations = 5;
+    public String criticalsAction = "warn";
 
     // ScaffoldCheck settings
     public boolean scaffoldCheckEnabled = true;
@@ -67,6 +93,12 @@ public class PraxicConfig {
     public int timerMaxPacketsPerSecond = 24;
     public int timerMaxViolations = 5;
     public String timerAction = "kick";
+
+    // BadPacketsCheck settings
+    public boolean badPacketsCheckEnabled = true;
+    public int badPacketsBufferThreshold = 2;
+    public int badPacketsMaxViolations = 3;
+    public String badPacketsAction = "kick";
 
     // FastBreakCheck settings
     public boolean fastBreakCheckEnabled = true;
@@ -121,6 +153,17 @@ public class PraxicConfig {
     public boolean enableLogging = true;
     public boolean enableStaffAlerts = true;
 
+    // Alert rate limiting (per player + check). Set to 0 to disable throttling.
+    public long staffAlertCooldownMs = 1000L;
+    public long discordAlertCooldownMs = 2000L;
+
+    // Confidence action policy
+    public double confidenceWarnThreshold = 0.30;
+    public double confidenceSetbackThreshold = 0.60;
+    public double confidenceKickThreshold = 0.80;
+    public double confidenceBanThreshold = 0.95;
+    public boolean confidenceAutoBan = true;
+
     // Web Dashboard settings
     public boolean enableWebDashboard = true;
     public int webDashboardPort = 8765;
@@ -139,6 +182,9 @@ public class PraxicConfig {
             if (Files.exists(CONFIG_PATH)) {
                 try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
                     PraxicConfig config = GSON.fromJson(reader, PraxicConfig.class);
+                    if (config == null) config = new PraxicConfig();
+                    // Persist newly added fields with defaults after updates.
+                    config.save();
                     Praxic.LOGGER.info("[PRAXIC] Config loaded.");
                     return config;
                 }

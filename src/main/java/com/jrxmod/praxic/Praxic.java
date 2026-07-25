@@ -8,6 +8,7 @@ import com.jrxmod.praxic.engine.decision.ConfidenceEngine;
 import com.jrxmod.praxic.engine.trap.GhostEntityManager;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import com.jrxmod.praxic.manager.CheckManager;
+import com.jrxmod.praxic.manager.EvidenceManager;
 import com.jrxmod.praxic.manager.HistoryManager;
 import com.jrxmod.praxic.manager.WhitelistManager;
 import com.jrxmod.praxic.util.PraxicWebServer;
@@ -20,12 +21,14 @@ import org.slf4j.LoggerFactory;
 public class Praxic implements ModInitializer {
 
     public static final String MOD_ID = "praxic";
+    public static final String VERSION = "0.11.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static PraxicConfig       config;
     private static CheckManager       checkManager;
     private static WhitelistManager   whitelistManager;
     private static HistoryManager     historyManager;
+    private static EvidenceManager    evidenceManager;
     private static ConfidenceEngine   confidenceEngine;
     private static AnomalyScoreEngine anomalyScoreEngine;
     private static PraxicWebServer    webServer;
@@ -33,12 +36,13 @@ public class Praxic implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("[PRAXIC] Initializing AntiCheat...");
+        LOGGER.info("[PRAXIC] Initializing AntiCheat v{}...", VERSION);
 
         PraxicLogger.init();
         config             = PraxicConfig.load();
         whitelistManager   = new WhitelistManager();
         historyManager     = new HistoryManager();
+        evidenceManager    = new EvidenceManager();
         confidenceEngine   = new ConfidenceEngine();
         anomalyScoreEngine = new AnomalyScoreEngine();
         ghostEntityManager = new GhostEntityManager();
@@ -75,6 +79,7 @@ public class Praxic implements ModInitializer {
     public static CheckManager       getCheckManager()       { return checkManager; }
     public static WhitelistManager   getWhitelistManager()   { return whitelistManager; }
     public static HistoryManager     getHistoryManager()     { return historyManager; }
+    public static EvidenceManager    getEvidenceManager()    { return evidenceManager; }
     public static ConfidenceEngine   getConfidenceEngine()   { return confidenceEngine; }
     public static AnomalyScoreEngine getAnomalyScoreEngine() { return anomalyScoreEngine; }
     public static PraxicWebServer    getWebServer()          { return webServer; }

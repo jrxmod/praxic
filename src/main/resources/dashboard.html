@@ -94,6 +94,16 @@ tailwind.config = {
   </div>
   <div class="w-px h-3 bg-border"></div>
   <div class="flex items-center gap-2 text-xs">
+    <span class="text-muted uppercase tracking-widest" style="font-size:10px">Flags</span>
+    <span class="mono text-text font-medium" id="s-flags">—</span>
+  </div>
+  <div class="w-px h-3 bg-border"></div>
+  <div class="flex items-center gap-2 text-xs">
+    <span class="text-muted uppercase tracking-widest" style="font-size:10px">Evidence</span>
+    <span class="mono text-text font-medium" id="s-evidence">—</span>
+  </div>
+  <div class="w-px h-3 bg-border"></div>
+  <div class="flex items-center gap-2 text-xs">
     <span class="text-muted uppercase tracking-widest" style="font-size:10px">Updated</span>
     <span class="mono text-text font-medium" id="s-time">—</span>
   </div>
@@ -115,6 +125,10 @@ tailwind.config = {
         class="tab-btn flex-1 py-2.5 text-xs font-semibold uppercase tracking-widest text-muted border-b-2 border-transparent transition-colors hover:text-text">
         Checks
       </button>
+      <button onclick="switchTab('incidents')" id="tab-btn-incidents"
+        class="tab-btn flex-1 py-2.5 text-xs font-semibold uppercase tracking-widest text-muted border-b-2 border-transparent transition-colors hover:text-text">
+        Incidents
+      </button>
     </div>
 
     <!-- Players tab -->
@@ -127,6 +141,11 @@ tailwind.config = {
     <!-- Checks tab -->
     <div id="tab-checks" class="tab-panel flex-1 overflow-y-auto p-2 flex-col gap-1" style="display:none">
       <div id="checks-list" class="flex flex-col gap-1"></div>
+    </div>
+
+    <!-- Incidents tab -->
+    <div id="tab-incidents" class="tab-panel flex-1 overflow-y-auto p-2 flex-col gap-1" style="display:none">
+      <div id="incidents-list" class="flex flex-col gap-1"></div>
     </div>
 
   </aside>
@@ -192,6 +211,14 @@ tailwind.config = {
 
       <div class="border-t border-border"></div>
 
+      <!-- ── STATE BUFFERS ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">State Buffers</h2>
+        <div class="grid grid-cols-3 gap-3" id="state-grid"></div>
+      </section>
+
+      <div class="border-t border-border"></div>
+
       <!-- ── VIOLATIONS + BASELINE ── -->
       <section class="grid grid-cols-2 gap-3">
         <div>
@@ -225,6 +252,27 @@ tailwind.config = {
         </div>
       </section>
 
+      <div class="border-t border-border"></div>
+
+      <!-- ── EVIDENCE ── -->
+      <section>
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-muted mb-3">Evidence Packets <span class="text-zinc-600 normal-case font-normal">(last 15)</span></h2>
+        <div class="bg-card border border-border rounded-xl overflow-hidden">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="border-b border-border">
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Time</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Check</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Risk</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Location</th>
+                <th class="text-left px-4 py-2.5 text-xs font-semibold text-muted uppercase tracking-widest">Details</th>
+              </tr>
+            </thead>
+            <tbody id="evidence-body"></tbody>
+          </table>
+        </div>
+      </section>
+
     </div>
   </main>
 
@@ -232,9 +280,10 @@ tailwind.config = {
 
 <script>
 // ─── State ───────────────────────────────────────────────────
-var sel        = null;
-var allPlayers = [];
-var TOKEN      = '{{TOKEN}}';  // injected server-side
+var sel          = null;
+var allPlayers   = [];
+var allIncidents = [];
+var TOKEN        = '{{TOKEN}}';  // injected server-side
 
 // ─── HTTP helper ─────────────────────────────────────────────
 function apiFetch(path) {
@@ -245,7 +294,7 @@ function apiFetch(path) {
 
 // ─── Tabs ─────────────────────────────────────────────────────
 function switchTab(name) {
-  ['players','checks'].forEach(function(t) {
+  ['players','checks','incidents'].forEach(function(t) {
     var btn   = document.getElementById('tab-btn-'+t);
     var panel = document.getElementById('tab-'+t);
     var active = t === name;
@@ -351,13 +400,14 @@ function renderPlayersList(players) {
 
     var riskColor = p.confidence >= 0.80 ? 'text-danger' : p.confidence >= 0.30 ? 'text-warn' : 'text-ok';
     var riskLabel = p.confidence >= 0.80 ? 'High Risk' : p.confidence >= 0.30 ? 'Suspicious' : 'Clean';
+    var ghost = p.ghostTraps > 0 ? ' &middot; 👻 ' + p.ghostTraps : '';
 
     div.innerHTML =
       '<div class="flex items-center gap-2.5">' +
         '<div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-900 flex items-center justify-center text-sm font-bold text-indigo-400 flex-shrink-0">' + p.name.charAt(0).toUpperCase() + '</div>' +
         '<div class="flex-1 min-w-0">' +
           '<p class="text-sm font-semibold text-bright truncate">' + p.name + '</p>' +
-          '<p class="text-xs text-muted mono">' + p.ping + 'ms &middot; VL&nbsp;' + p.totalVl + '</p>' +
+          '<p class="text-xs text-muted mono">' + p.ping + 'ms &middot; VL&nbsp;' + p.totalVl + ghost + '</p>' +
         '</div>' +
         '<span class="text-xs font-semibold ' + riskColor + ' flex-shrink-0">' + riskLabel + '</span>' +
       '</div>';
@@ -368,6 +418,33 @@ function renderPlayersList(players) {
       document.querySelectorAll('.player-card').forEach(function(c) { c.classList.remove('active'); });
       div.classList.add('active');
       loadDetail(p.name);
+    };
+    panel.appendChild(div);
+  });
+}
+
+function renderIncidents() {
+  var panel = document.getElementById('incidents-list');
+  panel.innerHTML = '';
+  if (!allIncidents || allIncidents.length === 0) {
+    panel.innerHTML = '<div class="text-center text-muted text-xs py-8">No incidents recorded</div>';
+    return;
+  }
+  allIncidents.slice(0, 30).forEach(function(e) {
+    var div = document.createElement('div');
+    div.className = 'border border-border rounded-lg p-2.5 bg-card';
+    var col = e.confidence >= 0.80 ? 'text-danger' : e.confidence >= 0.30 ? 'text-warn' : 'text-ok';
+    div.innerHTML =
+      '<div class="flex items-center justify-between gap-2">' +
+        '<span class="text-xs font-semibold text-bright truncate">' + e.playerName + '</span>' +
+        '<span class="text-xs mono ' + col + '">' + e.confidence + '</span>' +
+      '</div>' +
+      '<div class="text-xs mono text-indigo-400 truncate mt-1">' + e.check + ' · ' + (e.action||'flag') + '</div>' +
+      '<div class="text-xs text-zinc-600 truncate mt-1">' + e.timestamp + '</div>';
+    div.onclick = function() {
+      sel = e.playerName;
+      switchTab('players');
+      loadDetail(e.playerName);
     };
     panel.appendChild(div);
   });
@@ -403,6 +480,16 @@ async function refreshPlayers() {
   }
 }
 
+// ─── Refresh incidents ────────────────────────────────────────
+async function refreshIncidents() {
+  try {
+    var r = await apiFetch('/api/incidents');
+    if (!r.ok) throw new Error(r.status);
+    allIncidents = await r.json();
+    renderIncidents();
+  } catch(e) {}
+}
+
 // ─── Refresh status ───────────────────────────────────────────
 async function refreshStatus() {
   try {
@@ -411,8 +498,10 @@ async function refreshStatus() {
     var s = await r.json();
     var keys = Object.keys(s.checks);
     var on   = Object.values(s.checks).filter(Boolean).length;
-    document.getElementById('s-ver').textContent    = s.version;
-    document.getElementById('s-checks').textContent = on + ' / ' + keys.length;
+    document.getElementById('s-ver').textContent      = s.version;
+    document.getElementById('s-checks').textContent   = on + ' / ' + keys.length;
+    document.getElementById('s-flags').textContent    = s.totalFlags || 0;
+    document.getElementById('s-evidence').textContent = s.evidenceCount || 0;
 
     var cl = document.getElementById('checks-list');
     cl.innerHTML = '';
@@ -457,7 +546,7 @@ async function loadDetail(name) {
       { label:'Baseline Dev.',desc:'Z-score vs first 5 min. 3.0+ = suspicious behaviour change.',value:bl.deviationScore>=0?bl.deviationScore:-1, w:1.5, d:3.0, suffix:'', rev:false },
     ]);
 
-    // Ghost traps indicator (v0.10.0)
+    // Ghost traps indicator (v0.11.0)
     if (p.ghostTraps > 0) {
       const ghostDiv = document.createElement('div');
       ghostDiv.className = 'col-span-3 mt-2 px-3 py-1.5 bg-red-950 border border-red-900 rounded text-xs text-red-400 mono';
@@ -484,6 +573,13 @@ async function loadDetail(name) {
       { label:'Avg Speed',   desc:'Average horizontal speed in blocks / tick.',                value:anl.avgSpeed,    w:0.9, d:1.2, suffix:' b/t', rev:false },
       { label:'Strafe Ratio',desc:'Lateral vs forward fraction. 0.5 = balanced mix.',         value:anl.strafeRatio, w:-1,  d:-1,  suffix:'',     rev:false },
       { label:'Jump Freq',   desc:'Jumps per second over 10 s window. 2.5+ = bhop.',          value:anl.jumpFreq,    w:1.5, d:2.5, suffix:' j/s', rev:false },
+    ]);
+
+    // State buffers
+    fillGrid('state-grid', [
+      { label:'Move State',   desc:'Current server-side movement state.',          value:p.movementState ? p.movementState : -1, w:-1, d:-1, suffix:'', rev:false },
+      { label:'Phase Ticks',  desc:'Consecutive in-wall movement ticks.',          value:p.phaseTicks || 0,       w:4, d:8, suffix:'', rev:false },
+      { label:'NoSlow Buf',   desc:'Suspicious item-use movement buffer.',         value:p.noSlowBuffer || 0,     w:3, d:5, suffix:'', rev:false },
     ]);
 
     // Violations
@@ -529,6 +625,26 @@ async function loadDetail(name) {
       });
     }
 
+    // Evidence packets
+    var ev = document.getElementById('evidence-body');
+    ev.innerHTML = '';
+    if (!p.evidence || p.evidence.length === 0) {
+      ev.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-xs text-zinc-600">No evidence recorded</td></tr>';
+    } else {
+      p.evidence.forEach(function(e) {
+        var tr = document.createElement('tr');
+        tr.className = 'border-b border-border hover:bg-zinc-900 transition-colors';
+        var loc = (e.world || 'world') + ' ' + e.x + ' ' + e.y + ' ' + e.z;
+        tr.innerHTML =
+          '<td class="px-4 py-2.5 text-xs mono text-zinc-500 whitespace-nowrap">' + e.timestamp + '</td>' +
+          '<td class="px-4 py-2.5 text-xs mono text-indigo-400">' + e.check + '</td>' +
+          '<td class="px-4 py-2.5 text-xs mono"><span class="' + (e.confidence >= 0.8 ? 'text-danger' : e.confidence >= 0.3 ? 'text-warn' : 'text-ok') + '">' + e.confidence + '</span><span class="text-zinc-600"> / ' + e.anomaly + '</span></td>' +
+          '<td class="px-4 py-2.5 text-xs mono text-zinc-500 whitespace-nowrap">' + loc + '</td>' +
+          '<td class="px-4 py-2.5 text-xs text-zinc-500">' + e.details + '</td>';
+        ev.appendChild(tr);
+      });
+    }
+
   } catch(err) {
     console.error('loadDetail error:', err);
   }
@@ -537,8 +653,10 @@ async function loadDetail(name) {
 // ─── Init ─────────────────────────────────────────────────────
 refreshStatus();
 refreshPlayers();
-setInterval(refreshPlayers, 2000);
-setInterval(refreshStatus,  15000);
+refreshIncidents();
+setInterval(refreshPlayers,   2000);
+setInterval(refreshIncidents, 5000);
+setInterval(refreshStatus,    15000);
 </script>
 </body>
 </html>

@@ -5,10 +5,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.jrxmod.praxic.Praxic;
+import com.jrxmod.praxic.api.PraxicStats;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.engine.analysis.PlayerAnalytics;
 import com.jrxmod.praxic.engine.analysis.PlayerBaseline;
+import com.jrxmod.praxic.manager.EvidenceManager;
 import com.jrxmod.praxic.manager.HistoryManager;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -19,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -47,10 +50,11 @@ public class PraxicWebServer {
         try {
             httpServer = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
             httpServer.setExecutor(Executors.newFixedThreadPool(2));
-            httpServer.createContext("/",             this::handleDashboard);
-            httpServer.createContext("/api/players",  this::handlePlayers);
-            httpServer.createContext("/api/player/",  this::handlePlayer);
-            httpServer.createContext("/api/status",   this::handleStatus);
+            httpServer.createContext("/",              this::handleDashboard);
+            httpServer.createContext("/api/players",   this::handlePlayers);
+            httpServer.createContext("/api/player/",   this::handlePlayer);
+            httpServer.createContext("/api/status",    this::handleStatus);
+            httpServer.createContext("/api/incidents", this::handleIncidents);
             httpServer.start();
             Praxic.LOGGER.info("[PRAXIC] Web dashboard started at http://127.0.0.1:{}/", port);
             String token = Praxic.getConfig().webDashboardToken;
@@ -116,7 +120,7 @@ public class PraxicWebServer {
         if (!isAuthorised(ex)) { sendHtml(ex, 401, UNAUTH_HTML); return; }
         // Inject token into JS so API calls are authorised
         String token = Praxic.getConfig().webDashboardToken;
-        String html  = dashboardTemplate.replace("'{{TOKEN}}'", "'" + token + "'");
+        String html  = dashboardTemplate.replace("'{{TOKEN}}'", jsStringLiteral(token));
         sendHtml(ex, 200, html);
     }
 
@@ -138,6 +142,7 @@ public class PraxicWebServer {
             obj.addProperty("ping",          player.connection.latency());
             obj.addProperty("confidence",    round3(confidence));
             obj.addProperty("anomaly",       round3(anomaly));
+            obj.addProperty("ghostTraps",    ghostCount(uuid));
             int vl = 0;
             if (data != null) vl = data.violations.values().stream().mapToInt(Integer::intValue).sum();
             obj.addProperty("totalVl", vl);
@@ -155,7 +160,8 @@ public class PraxicWebServer {
 
         String[] parts = ex.getRequestURI().getPath().split("/");
         if (parts.length < 4) { sendJson(ex, 400, "{\"error\":\"Missing name\"}"); return; }
-        ServerPlayer player = mcServer.getPlayerList().getPlayerByName(parts[3]);
+        String requestedName = URLDecoder.decode(parts[3], StandardCharsets.UTF_8);
+        ServerPlayer player = mcServer.getPlayerList().getPlayerByName(requestedName);
         if (player == null) { sendJson(ex, 404, "{\"error\":\"Not found\"}"); return; }
 
         UUID uuid           = player.getUUID();
@@ -173,6 +179,16 @@ public class PraxicWebServer {
         obj.addProperty("health",      player.getHealth());
         obj.addProperty("gameMode",    player.gameMode.getGameModeForPlayer().getName());
         obj.addProperty("whitelisted", Praxic.getWhitelistManager().isWhitelisted(uuid));
+        obj.addProperty("ghostTraps",  ghostCount(uuid));
+
+        if (data != null) {
+            obj.addProperty("movementState", data.movementState.name());
+            obj.addProperty("airTicks", data.airTicks);
+            obj.addProperty("phaseTicks", data.phaseTicks);
+            obj.addProperty("noSlowBuffer", data.noSlowBuffer);
+            obj.addProperty("badPacketBuffer", data.badPacketBuffer);
+            obj.addProperty("criticalsBuffer", data.criticalsBuffer);
+        }
 
         JsonObject vl = new JsonObject();
         if (data != null) data.violations.forEach(vl::addProperty);
@@ -214,6 +230,13 @@ public class PraxicWebServer {
             hist.add(he);
         }
         obj.add("history", hist);
+
+        JsonArray evidence = new JsonArray();
+        for (EvidenceManager.EvidenceEntry e : Praxic.getEvidenceManager().getRecent(uuid, 15)) {
+            evidence.add(evidenceToJson(e));
+        }
+        obj.add("evidence", evidence);
+
         sendJson(ex, 200, GSON.toJson(obj));
     }
 
@@ -223,19 +246,25 @@ public class PraxicWebServer {
 
         PraxicConfig cfg = Praxic.getConfig();
         JsonObject obj = new JsonObject();
-        obj.addProperty("version",       "0.10.0");
+        obj.addProperty("version",       Praxic.VERSION);
         obj.addProperty("onlinePlayers", mcServer.getPlayerList().getPlayers().size());
         obj.addProperty("maxPlayers",    mcServer.getMaxPlayers());
+        obj.addProperty("totalFlags",    PraxicStats.getTotalFlags());
+        obj.addProperty("evidenceCount", Praxic.getEvidenceManager().count());
 
         JsonObject checks = new JsonObject();
         checks.addProperty("FlyCheck",          cfg.flyCheckEnabled);
         checks.addProperty("YPredictionCheck",  cfg.yPredictionCheckEnabled);
         checks.addProperty("SpeedCheck",        cfg.speedCheckEnabled);
+        checks.addProperty("PhaseCheck",        cfg.phaseCheckEnabled);
+        checks.addProperty("NoSlowCheck",       cfg.noSlowCheckEnabled);
         checks.addProperty("JesusCheck",        cfg.jesusCheckEnabled);
         checks.addProperty("SprintCheck",       cfg.sprintCheckEnabled);
         checks.addProperty("BoatFlyCheck",      cfg.boatFlyCheckEnabled);
         checks.addProperty("ReachCheck",        cfg.reachCheckEnabled);
         checks.addProperty("KillAuraCheck",     cfg.killAuraCheckEnabled);
+        checks.addProperty("GhostTrapCheck",    cfg.ghostTrapCheckEnabled);
+        checks.addProperty("CriticalsCheck",    cfg.criticalsCheckEnabled);
         checks.addProperty("VelocityCheck",     cfg.velocityCheckEnabled);
         checks.addProperty("RotationCheck",     cfg.rotationCheckEnabled);
         checks.addProperty("PostKillSnapCheck", cfg.postKillSnapCheckEnabled);
@@ -246,13 +275,60 @@ public class PraxicWebServer {
         checks.addProperty("AutoTotemCheck",    cfg.autoTotemCheckEnabled);
         checks.addProperty("InventoryCheck",    cfg.inventoryCheckEnabled);
         checks.addProperty("TimerCheck",        cfg.timerCheckEnabled);
+        checks.addProperty("BadPacketsCheck",   cfg.badPacketsCheckEnabled);
         obj.add("checks", checks);
         sendJson(ex, 200, GSON.toJson(obj));
+    }
+
+    private void handleIncidents(HttpExchange ex) throws IOException {
+        if (!"GET".equals(ex.getRequestMethod())) { ex.sendResponseHeaders(405,-1); return; }
+        if (!isAuthorised(ex)) { sendJson(ex, 401, "{\"error\":\"Unauthorised\"}"); return; }
+
+        JsonArray arr = new JsonArray();
+        for (EvidenceManager.EvidenceEntry e : Praxic.getEvidenceManager().getRecent(50)) {
+            arr.add(evidenceToJson(e));
+        }
+        sendJson(ex, 200, GSON.toJson(arr));
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private int ghostCount(UUID uuid) {
+        return Praxic.getGhostEntityManager() != null
+                ? Praxic.getGhostEntityManager().getActiveGhostCount(uuid) : 0;
+    }
+
+    private static String jsStringLiteral(String value) {
+        String v = value == null ? "" : value;
+        return "'" + v.replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r") + "'";
+    }
+
+    private static JsonObject evidenceToJson(EvidenceManager.EvidenceEntry e) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("timestamp", e.timestamp);
+        obj.addProperty("uuid", e.uuid);
+        obj.addProperty("playerName", e.playerName);
+        obj.addProperty("check", e.check);
+        obj.addProperty("vl", e.vl);
+        obj.addProperty("details", e.details);
+        obj.addProperty("action", e.action);
+        obj.addProperty("confidence", e.confidence);
+        obj.addProperty("anomaly", e.anomaly);
+        obj.addProperty("ping", e.ping);
+        obj.addProperty("world", e.world);
+        obj.addProperty("x", e.x);
+        obj.addProperty("y", e.y);
+        obj.addProperty("z", e.z);
+        obj.addProperty("movementState", e.movementState);
+        obj.addProperty("airTicks", e.airTicks);
+        obj.addProperty("ghostTraps", e.ghostTraps);
+        return obj;
+    }
 
     private static void sendJson(HttpExchange ex, int code, String body) throws IOException {
         ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");

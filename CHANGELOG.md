@@ -2,6 +2,32 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.11.0 - Evidence & Protocol
+### Added
+- **New PhaseCheck**: detects sustained noclip / in-wall movement with movement buffering
+- **New NoSlowCheck**: detects NoSlow modules while using slowed items (food, bow, shield, etc.)
+- **New CriticalsCheck**: detects spoofed critical-hit packets during combat
+- **New BadPacketsCheck**: protocol sanity check for impossible movement / rotation packets
+- **New GhostTrapCheck identity**: ghost honeypot hits now flow through the normal violation, confidence, history and API pipeline
+- **EvidenceManager**: persistent rich evidence packets in `config/praxic-evidence.json`
+- **/praxic evidence [player]**: inspect recent global or per-player evidence packets
+- **Dashboard incidents feed**: new `/api/incidents` endpoint and Incidents tab in the web dashboard
+- **Dashboard evidence panel**: player detail page now shows evidence packets, ghost traps and state buffers
+- **Configurable confidence policy**: warn/setback/kick/ban thresholds and `confidenceAutoBan`
+- **Alert cooldowns**: configurable staff and Discord alert rate limits
+
+### Changed
+- **ViolationManager** now records rich evidence and rate-limits noisy staff/Discord alerts
+- **ActionResolver** now caps confidence-based actions by each check's configured maximum action
+- **GhostEntityManager** now respects config for enabled state, spawn chance, cooldown and lifetime
+- **PraxicStats** now tracks top players in addition to top checks
+- **README** updated for the expanded 23-check release
+
+### Fixed
+- **RotationCheck combat context**: attack packets now update `lastAttackTime`, so combat-only rotation checks can actually evaluate
+- **Ghost honeypot hits** are no longer only logged; they now create actionable PRAXIC violations
+- **Disconnect cleanup** now despawns active ghost traps for the player
+
 ## 0.10.0 - Foundation & Traps
 ### Added
 - **GhostEntityManager**: new honeypot trap system that spawns invisible ArmorStand entities to detect KillAura/AimAssist
