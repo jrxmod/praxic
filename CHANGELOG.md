@@ -2,7 +2,9 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
-## Unreleased — false positive fixes
+## 0.12.1 - Sentinel (false positive fixes)
+
+This release fixes multiple false positives introduced in 0.12.0: vanilla-accurate block breaking times, correct placement counting, and fall damage checks that respect vanilla damage reductions. No new checks are added in this release.
 
 ### Fixed
 

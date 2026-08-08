@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.12.0-orange)
+![Version](https://img.shields.io/badge/version-0.12.1-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
