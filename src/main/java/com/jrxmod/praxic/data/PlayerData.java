@@ -209,6 +209,47 @@ public class PlayerData {
     public int boatAirTicks = 0;
 
     // -------------------------------------------------------------------------
+    // ElytraFlyCheck
+    // -------------------------------------------------------------------------
+
+    public int elytraAirTicks = 0;
+    public int elytraBuffer = 0;
+    public double lastElytraY = 0;
+    public boolean wasFallFlying = false;
+
+    // -------------------------------------------------------------------------
+    // StepCheck
+    // -------------------------------------------------------------------------
+
+    public double lastGroundY = 0;
+    public int stepBuffer = 0;
+
+    // -------------------------------------------------------------------------
+    // TowerCheck / FastPlaceCheck
+    // -------------------------------------------------------------------------
+
+    public int towerBlockCount = 0;
+    public long towerWindowStart = 0;
+    public double towerLastY = 0;
+    public int fastPlaceCount = 0;
+    public long fastPlaceWindowStart = 0;
+
+    // -------------------------------------------------------------------------
+    // GroundSpoofCheck
+    // -------------------------------------------------------------------------
+
+    public boolean lastPacketOnGround = false;
+    public boolean lastPacketHasPos = false;
+    public int groundSpoofTicks = 0;
+    public int groundSpoofBuffer = 0;
+
+    // -------------------------------------------------------------------------
+    // Misc
+    // -------------------------------------------------------------------------
+
+    public int totalTicks = 0;
+
+    // -------------------------------------------------------------------------
     // Violations
     // -------------------------------------------------------------------------
 
@@ -268,12 +309,12 @@ public class PlayerData {
     /** Decay all violations by 1 VL per check if no flag for decayIntervalMs. */
     public void decayViolations(long decayIntervalMs) {
         long now = System.currentTimeMillis();
-        for (String checkName : violations.keySet()) {
-            int vl = violations.get(checkName);
+        for (Map.Entry<String, Integer> entry : violations.entrySet()) {
+            int vl = entry.getValue();
             if (vl <= 0) continue;
-            long last = lastFlagTime.getOrDefault(checkName, 0L);
+            long last = lastFlagTime.getOrDefault(entry.getKey(), 0L);
             if (now - last >= decayIntervalMs) {
-                violations.put(checkName, vl - 1);
+                entry.setValue(vl - 1);
             }
         }
     }

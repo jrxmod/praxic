@@ -23,13 +23,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Stores compact evidence packets for each violation.
- *
- * HistoryManager is human-readable chronology. EvidenceManager is richer and
- * records the state that staff/API/dashboard need for review: confidence,
- * anomaly, ping, location, movement state and the exact action chosen.
+ * I/O is performed asynchronously to avoid blocking the server thread.
  */
 public class EvidenceManager {
 
@@ -41,8 +40,15 @@ public class EvidenceManager {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private final List<EvidenceEntry> entries = new ArrayList<>();
+    private final ExecutorService ioExecutor;
+    private volatile boolean shutdown = false;
 
     public EvidenceManager() {
+        this.ioExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "praxic-evidence-io");
+            t.setDaemon(true);
+            return t;
+        });
         load();
     }
 
@@ -78,7 +84,7 @@ public class EvidenceManager {
 
         entries.add(e);
         trim();
-        save();
+        saveAsync();
     }
 
     public synchronized List<EvidenceEntry> getRecent(int limit) {
@@ -108,15 +114,25 @@ public class EvidenceManager {
     public synchronized void clear(UUID uuid) {
         String key = uuid.toString();
         entries.removeIf(e -> key.equals(e.uuid));
-        save();
+        saveAsync();
+    }
+
+    public void shutdown() {
+        shutdown = true;
+        try {
+            saveSync();
+        } catch (Exception ignored) {}
+        ioExecutor.shutdown();
+    }
+
+    private synchronized List<EvidenceEntry> snapshot() {
+        return new ArrayList<>(entries);
     }
 
     private void trim() {
         while (entries.size() > MAX_GLOBAL_ENTRIES) {
             entries.remove(0);
         }
-
-        // Keep a per-player cap too, so one noisy player cannot consume the log.
         Map<String, Integer> seenByPlayer = new HashMap<>();
         for (int i = entries.size() - 1; i >= 0; i--) {
             EvidenceEntry e = entries.get(i);
@@ -134,7 +150,7 @@ public class EvidenceManager {
         try {
             Files.createDirectories(EVIDENCE_PATH.getParent());
             if (!Files.exists(EVIDENCE_PATH)) {
-                save();
+                saveSync();
                 return;
             }
             try (Reader reader = Files.newBufferedReader(EVIDENCE_PATH)) {
@@ -149,7 +165,22 @@ public class EvidenceManager {
         }
     }
 
-    private synchronized void save() {
+    private void saveAsync() {
+        if (shutdown) return;
+        List<EvidenceEntry> copy = snapshot();
+        ioExecutor.execute(() -> {
+            try {
+                Files.createDirectories(EVIDENCE_PATH.getParent());
+                try (Writer writer = Files.newBufferedWriter(EVIDENCE_PATH)) {
+                    GSON.toJson(copy, writer);
+                }
+            } catch (IOException ex) {
+                Praxic.LOGGER.error("[PRAXIC] Failed to save evidence async.", ex);
+            }
+        });
+    }
+
+    private synchronized void saveSync() {
         try {
             Files.createDirectories(EVIDENCE_PATH.getParent());
             try (Writer writer = Files.newBufferedWriter(EVIDENCE_PATH)) {
@@ -158,6 +189,10 @@ public class EvidenceManager {
         } catch (IOException e) {
             Praxic.LOGGER.error("[PRAXIC] Failed to save evidence.", e);
         }
+    }
+
+    private void save() {
+        saveSync();
     }
 
     private static double round2(double v) { return Math.round(v * 100.0) / 100.0; }

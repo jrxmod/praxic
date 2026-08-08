@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.11.0-orange)
+![Version](https://img.shields.io/badge/version-0.12.0-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
@@ -19,13 +19,13 @@ Server-side anticheat for Fabric. Your players install nothing.
 
 ## What it does
 
-23 checks across movement, combat, world interaction, protocol sanity, and client manipulation — powered by a physics-based prediction engine with lag compensation, confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
+28 checks across movement, combat, world interaction, protocol sanity, and client manipulation — powered by a physics-based prediction engine with lag compensation, confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
 
 ## Checks
 
-- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · Y-Prediction (physics-based)
+- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · ElytraFly · Step · GroundSpoof · Y-Prediction (physics-based)
 - **Combat** — Reach · KillAura · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap
-- **World** — Scaffold · FastBreak · NoFall
+- **World** — Scaffold · Tower · FastBreak · FastPlace · NoFall
 - **Client / Protocol** — AutoClicker · AutoTotem · Inventory · Timer · BadPackets
 
 ## Actions

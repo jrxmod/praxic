@@ -12,6 +12,8 @@ public class PraxicConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = Paths.get("config", "praxic.json");
 
+    public int configVersion = 3;
+
     // FlyCheck settings
     public boolean flyCheckEnabled = true;
     public int flyMaxAirTicks = 80;
@@ -141,6 +143,34 @@ public class PraxicConfig {
     public double postKillSnapMaxAngle = 90.0;
     public int postKillSnapMaxViolations = 5;
     public String postKillSnapAction = "warn";
+
+    // ElytraFlyCheck settings
+    public boolean elytraFlyCheckEnabled = true;
+    public int elytraFlyMaxViolations = 5;
+    public String elytraFlyAction = "kick";
+
+    // StepCheck settings
+    public boolean stepCheckEnabled = true;
+    public double stepMaxHeight = 0.75;
+    public int stepMaxViolations = 5;
+    public String stepAction = "setback";
+
+    // TowerCheck settings
+    public boolean towerCheckEnabled = true;
+    public int towerMaxBlocksPerSecond = 6;
+    public int towerMaxViolations = 5;
+    public String towerAction = "warn";
+
+    // GroundSpoofCheck settings
+    public boolean groundSpoofCheckEnabled = true;
+    public int groundSpoofMaxViolations = 5;
+    public String groundSpoofAction = "kick";
+
+    // FastPlaceCheck settings
+    public boolean fastPlaceCheckEnabled = true;
+    public int fastPlaceMaxBlocksPerSecond = 10;
+    public int fastPlaceMaxViolations = 5;
+    public String fastPlaceAction = "warn";
 
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;

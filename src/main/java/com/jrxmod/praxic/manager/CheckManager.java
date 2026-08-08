@@ -72,6 +72,12 @@ public class CheckManager {
         checks.add(new SprintCheck());
         checks.add(new BoatFlyCheck());
         checks.add(new PostKillSnapCheck());
+        // New in 0.12.0
+        checks.add(new ElytraFlyCheck());
+        checks.add(new StepCheck());
+        checks.add(new TowerCheck());
+        checks.add(new GroundSpoofCheck());
+        checks.add(new FastPlaceCheck());
 
         // Kill event — notify RotationAnalyzer to open post-kill snap window
         ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
@@ -97,12 +103,15 @@ public class CheckManager {
                 Praxic.getConfidenceEngine().tickDecay(uuid, nowMs);
 
                 // 2. Skip dead players — death screen causes false positives.
-                //    Only reset physicsEngine: trajectory must restart from respawn position.
-                //    Behavioural analysers are NOT reset on death — killing the baseline on
-                //    every death would blind toggling detection for 5 minutes per life.
                 if (player.getHealth() <= 0) {
-                    data.airTicks     = 0;
+                    data.airTicks = 0;
                     data.boatAirTicks = 0;
+                    data.elytraAirTicks = 0;
+                    data.groundSpoofTicks = 0;
+                    data.towerBlockCount = 0;
+                    data.fastPlaceCount = 0;
+                    data.stepBuffer = 0;
+                    data.elytraBuffer = 0;
                     physicsEngine.reset(uuid);
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
                     continue;
@@ -186,6 +195,7 @@ public class CheckManager {
             playerProfiler.reset(uuid);
             Praxic.getConfidenceEngine().reset(uuid);
             Praxic.getAnomalyScoreEngine().reset(uuid);
+            ViolationManager.cleanup(uuid);
             if (Praxic.getGhostEntityManager() != null) {
                 Praxic.getGhostEntityManager().resetPlayer(uuid);
             }
@@ -227,6 +237,7 @@ public class CheckManager {
         MovementState prev = data.prevMovementState;
         MovementState curr = data.movementState;
 
+        data.totalTicks++;
         if (data.joinGraceTicks > 0) data.joinGraceTicks--;
 
         data.wasOnGround = (prev == MovementState.GROUND);
@@ -244,6 +255,34 @@ public class CheckManager {
         } else {
             if (data.waterExitTicks       > 0) data.waterExitTicks--;
             if (data.jesusWaterGraceTicks > 0) data.jesusWaterGraceTicks--;
+        }
+
+        // Track ground Y for step check
+        if (curr == MovementState.GROUND) {
+            data.lastGroundY = player.getY();
+        }
+
+        // Track elytra state for ElytraFly
+        boolean fallFlying = player.isFallFlying();
+        if (fallFlying) {
+            data.elytraAirTicks++;
+        } else {
+            if (data.wasFallFlying) {
+                data.elytraAirTicks = 0;
+            }
+        }
+        data.wasFallFlying = fallFlying;
+        data.lastElytraY = player.getY();
+
+        // GroundSpoof: if packet says onGround but server says airborne for sustained ticks
+        if (data.lastPacketHasPos) {
+            boolean serverGround = curr == MovementState.GROUND;
+            boolean packetGround = data.lastPacketOnGround;
+            if (packetGround && !serverGround && data.airTicks > 5) {
+                data.groundSpoofTicks++;
+            } else {
+                data.groundSpoofTicks = Math.max(0, data.groundSpoofTicks - 1);
+            }
         }
     }
 

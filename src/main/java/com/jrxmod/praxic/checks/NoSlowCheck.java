@@ -45,11 +45,11 @@ public class NoSlowCheck extends AbstractCheck {
 
         // Ice naturally preserves momentum and can exceed no-slow limits.
         BlockPos below = player.blockPosition().below();
-        var blockBelow = player.level().getBlockState(below).getBlock();
-        if (blockBelow == Blocks.ICE
-                || blockBelow == Blocks.PACKED_ICE
-                || blockBelow == Blocks.BLUE_ICE
-                || blockBelow == Blocks.FROSTED_ICE) {
+        if (isIce(player.level().getBlockState(below).getBlock())
+                || isIce(player.level().getBlockState(below.north()).getBlock())
+                || isIce(player.level().getBlockState(below.south()).getBlock())
+                || isIce(player.level().getBlockState(below.east()).getBlock())
+                || isIce(player.level().getBlockState(below.west()).getBlock())) {
             data.noSlowBuffer = 0;
             return;
         }
@@ -79,5 +79,12 @@ public class NoSlowCheck extends AbstractCheck {
                             horizontal, maxSpeed, data.noSlowBuffer, ping));
             data.noSlowBuffer = 0;
         }
+    }
+
+    private boolean isIce(net.minecraft.world.level.block.Block block) {
+        return block == Blocks.ICE
+                || block == Blocks.PACKED_ICE
+                || block == Blocks.BLUE_ICE
+                || block == Blocks.FROSTED_ICE;
     }
 }

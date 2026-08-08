@@ -102,6 +102,12 @@ public class ViolationManager {
         ActionResolver.execute(player, data, resolvedAction, checkName, getHumanReason(checkName), violations);
     }
 
+    public static void cleanup(UUID uuid) {
+        String prefix = uuid.toString() + ":";
+        STAFF_ALERT_TIMES.keySet().removeIf(k -> k.startsWith(prefix));
+        DISCORD_ALERT_TIMES.keySet().removeIf(k -> k.startsWith(prefix));
+    }
+
     private static boolean shouldEmit(Map<String, Long> map, UUID uuid, String checkName, long cooldownMs) {
         if (cooldownMs <= 0) return true;
         String key = uuid + ":" + checkName;
@@ -141,6 +147,11 @@ public class ViolationManager {
             case "SprintCheck"       -> Praxic.getConfig().sprintAction;
             case "BoatFlyCheck"      -> Praxic.getConfig().boatFlyAction;
             case "PostKillSnapCheck" -> Praxic.getConfig().postKillSnapAction;
+            case "ElytraFlyCheck"    -> Praxic.getConfig().elytraFlyAction;
+            case "StepCheck"         -> Praxic.getConfig().stepAction;
+            case "TowerCheck"        -> Praxic.getConfig().towerAction;
+            case "GroundSpoofCheck"  -> Praxic.getConfig().groundSpoofAction;
+            case "FastPlaceCheck"    -> Praxic.getConfig().fastPlaceAction;
             default                  -> "kick";
         };
     }
@@ -174,6 +185,11 @@ public class ViolationManager {
             case "SprintCheck"       -> "Illegal movement behaviour detected.";
             case "BoatFlyCheck"      -> "Flying is not allowed on this server.";
             case "PostKillSnapCheck" -> "Automated combat is not allowed.";
+            case "ElytraFlyCheck"    -> "Elytra flight manipulation is not allowed.";
+            case "StepCheck"         -> "Illegal step height is not allowed.";
+            case "TowerCheck"        -> "Automated tower building is not allowed.";
+            case "GroundSpoofCheck"  -> "Ground state spoofing is not allowed.";
+            case "FastPlaceCheck"    -> "Block placement rate limit exceeded.";
             default                  -> "Suspicious behaviour detected.";
         };
     }

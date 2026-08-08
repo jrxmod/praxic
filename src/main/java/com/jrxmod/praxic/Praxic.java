@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 public class Praxic implements ModInitializer {
 
     public static final String MOD_ID = "praxic";
-    public static final String VERSION = "0.11.0";
+    public static final String VERSION = "0.12.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static PraxicConfig       config;
@@ -63,7 +63,11 @@ public class Praxic implements ModInitializer {
             }
         });
 
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> webServer.stop());
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            webServer.stop();
+            if (historyManager != null) historyManager.shutdown();
+            if (evidenceManager != null) evidenceManager.shutdown();
+        });
 
         LOGGER.info("[PRAXIC] AntiCheat initialized successfully!");
         PraxicLogger.logInfo("PRAXIC initialized successfully.");

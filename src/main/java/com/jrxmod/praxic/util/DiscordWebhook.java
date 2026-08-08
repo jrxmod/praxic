@@ -1,5 +1,7 @@
 package com.jrxmod.praxic.util;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.jrxmod.praxic.Praxic;
 
 import java.net.URI;
@@ -15,14 +17,12 @@ public class DiscordWebhook {
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    // Color codes for Discord embeds
-    private static final int COLOR_FLAG = 0xFFA500;  // orange — violation flagged
-    private static final int COLOR_KICK = 0xFF4444;  // red — player kicked
-    private static final int COLOR_BAN  = 0x8B0000;  // dark red — player banned
+    private static final int COLOR_FLAG = 0xFFA500;
+    private static final int COLOR_KICK = 0xFF4444;
+    private static final int COLOR_BAN  = 0x8B0000;
 
     public static void send(String playerName, String checkName, int violations, String details, String action) {
         if (!Praxic.getConfig().enableDiscordWebhook) return;
-
         String url = Praxic.getConfig().discordWebhookUrl;
         if (url == null || url.isBlank() || url.equals("YOUR_WEBHOOK_URL_HERE")) return;
 
@@ -33,42 +33,37 @@ public class DiscordWebhook {
         };
 
         String actionLabel = switch (action.toLowerCase()) {
-            case "kick" -> "⚠️ Kicked";
-            case "ban"  -> "🔨 Banned";
-            default     -> "🚩 Flagged";
+            case "kick" -> "Kicked";
+            case "ban"  -> "Banned";
+            default     -> "Flagged";
         };
 
         String timestamp = Instant.now().toString();
 
-        // Build Discord embed JSON payload
-        String payload = String.format("""
-                {
-                  "embeds": [{
-                    "title": "%s — %s",
-                    "color": %d,
-                    "fields": [
-                      { "name": "Player",     "value": "%s", "inline": true },
-                      { "name": "Check",      "value": "%s", "inline": true },
-                      { "name": "Violations", "value": "%d", "inline": true },
-                      { "name": "Details",    "value": "%s", "inline": false },
-                      { "name": "Action",     "value": "%s", "inline": true }
-                    ],
-                    "footer": { "text": "PRAXIC AntiCheat" },
-                    "timestamp": "%s"
-                  }]
-                }
-                """,
-                actionLabel, checkName,
-                color,
-                playerName,
-                checkName,
-                violations,
-                details.replace("\"", "'"),
-                actionLabel,
-                timestamp
-        );
+        JsonObject embed = new JsonObject();
+        embed.addProperty("title", actionLabel + " - " + checkName);
+        embed.addProperty("color", color);
 
-        // Send async — does not block server thread
+        JsonArray fields = new JsonArray();
+        fields.add(field("Player", playerName, true));
+        fields.add(field("Check", checkName, true));
+        fields.add(field("Violations", String.valueOf(violations), true));
+        String safeDetails = details.length() > 1024 ? details.substring(0, 1024) : details;
+        fields.add(field("Details", safeDetails, false));
+        fields.add(field("Action", actionLabel, true));
+        embed.add("fields", fields);
+
+        JsonObject footer = new JsonObject();
+        footer.addProperty("text", "PRAXIC AntiCheat");
+        embed.add("footer", footer);
+        embed.addProperty("timestamp", timestamp);
+
+        JsonArray embeds = new JsonArray();
+        embeds.add(embed);
+        JsonObject root = new JsonObject();
+        root.add("embeds", embeds);
+        String payload = root.toString();
+
         CLIENT.sendAsync(
                 HttpRequest.newBuilder()
                         .uri(URI.create(url))
@@ -85,5 +80,13 @@ public class DiscordWebhook {
             Praxic.LOGGER.warn("[PRAXIC] Discord webhook error: {}", e.getMessage());
             return null;
         });
+    }
+
+    private static JsonObject field(String name, String value, boolean inline) {
+        JsonObject f = new JsonObject();
+        f.addProperty("name", name);
+        f.addProperty("value", value);
+        f.addProperty("inline", inline);
+        return f;
     }
 }

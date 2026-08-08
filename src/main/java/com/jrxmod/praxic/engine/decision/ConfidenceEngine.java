@@ -40,6 +40,9 @@ public class ConfidenceEngine {
         WEIGHTS.put("NoFallCheck",      0.15);
         WEIGHTS.put("VelocityCheck",    0.15);
         WEIGHTS.put("SprintCheck",      0.10);
+        WEIGHTS.put("ElytraFlyCheck",   0.22);
+        WEIGHTS.put("StepCheck",        0.18);
+        WEIGHTS.put("GroundSpoofCheck", 0.28);
         // Combat — moderate to high evidence
         WEIGHTS.put("KillAuraCheck",    0.25);
         WEIGHTS.put("GhostTrapCheck",   0.85);
@@ -49,6 +52,8 @@ public class ConfidenceEngine {
         // World — moderate evidence (easier to false-positive)
         WEIGHTS.put("ScaffoldCheck",    0.15);
         WEIGHTS.put("FastBreakCheck",   0.15);
+        WEIGHTS.put("TowerCheck",       0.18);
+        WEIGHTS.put("FastPlaceCheck",   0.12);
         // Client automation — high precision checks
         WEIGHTS.put("AutoClickerCheck", 0.25);
         WEIGHTS.put("TimerCheck",       0.25);

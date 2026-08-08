@@ -68,10 +68,16 @@ public class VelocityCheck extends AbstractCheck {
         if (data.knockbackTicksWaited < KNOCKBACK_CHECK_DELAY) return;
 
         // Player landed before measurement window ended — ground absorbed horizontal
-        // movement, displacement will always be near zero: not a valid sample
+        // movement, displacement will always be near zero: not a valid sample,
+        // except on slime/honey which preserve velocity and should be checked.
         if (data.movementState == MovementState.GROUND) {
-            data.knockbackPending = false;
-            return;
+            var below = player.level().getBlockState(player.blockPosition().below());
+            boolean bouncy = below.is(net.minecraft.world.level.block.Blocks.SLIME_BLOCK)
+                    || below.is(net.minecraft.world.level.block.Blocks.HONEY_BLOCK);
+            if (!bouncy) {
+                data.knockbackPending = false;
+                return;
+            }
         }
 
         double dx           = player.getX() - data.knockbackStartX;

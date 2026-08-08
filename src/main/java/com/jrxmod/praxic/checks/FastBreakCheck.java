@@ -57,7 +57,11 @@ public class FastBreakCheck extends AbstractCheck {
         // Calculate tool speed multiplier
         ItemStack tool = player.getMainHandItem();
         float toolSpeed = tool.getDestroySpeed(state);
+        boolean correctTool = tool.isCorrectToolForDrops(state);
         if (toolSpeed < 1.0f) toolSpeed = 1.0f;
+        // Penalty for incorrect tool — vanilla multiplies by 1/5
+        if (!correctTool) toolSpeed *= 0.2f;
+        if (toolSpeed < 0.2f) toolSpeed = 0.2f;
 
         // Apply Haste effect
         if (player.hasEffect(MobEffects.DIG_SPEED)) {

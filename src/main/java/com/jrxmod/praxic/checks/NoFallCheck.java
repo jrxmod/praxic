@@ -136,16 +136,29 @@ public class NoFallCheck extends AbstractCheck {
 
     private boolean isOnSafeLandingBlock(ServerPlayer player) {
         BlockPos pos = player.blockPosition().below();
-        Block block = player.level().getBlockState(pos).getBlock();
-        String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
-        return id.contains("hay")         ||
-               id.contains("slime")       ||
-               id.contains("bed")         ||
-               id.contains("powder_snow") ||
-               id.contains("honeycomb")   ||
-               id.contains("web")         ||
-               id.contains("carpet")      ||
-               id.contains("moss");
+        var level = player.level();
+        // Check 2 blocks below as well because player eye height can shift
+        for (int i = 0; i < 2; i++) {
+            var state = level.getBlockState(pos);
+            Block block = state.getBlock();
+            // Exact checks for common safe landing blocks
+            if (block == net.minecraft.world.level.block.Blocks.HAY_BLOCK
+                    || block == net.minecraft.world.level.block.Blocks.SLIME_BLOCK
+                    || block == net.minecraft.world.level.block.Blocks.HONEY_BLOCK
+                    || block == net.minecraft.world.level.block.Blocks.COBWEB
+                    || block == net.minecraft.world.level.block.Blocks.POWDER_SNOW
+                    || block == net.minecraft.world.level.block.Blocks.SCAFFOLDING
+                    || state.is(net.minecraft.tags.BlockTags.BEDS)
+                    || state.is(net.minecraft.tags.BlockTags.WOOL_CARPETS)
+                    || state.is(net.minecraft.tags.BlockTags.WOOL)) {
+                return true;
+            }
+            // Moss and honeycomb via string fallback for mod compat
+            String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
+            if (id.contains("moss") || id.contains("honeycomb")) return true;
+            pos = pos.below();
+        }
+        return false;
     }
 
     // ── Reset helper ─────────────────────────────────────────────────────────

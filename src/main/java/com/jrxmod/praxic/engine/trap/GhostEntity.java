@@ -30,12 +30,29 @@ public class GhostEntity {
     private void spawn(Vec3 pos) {
         entity = new ArmorStand(EntityType.ARMOR_STAND, level);
         entity.setPos(pos.x, pos.y, pos.z);
-        
+
         entity.setInvisible(true);
-        entity.setInvulnerable(true);
         entity.setNoGravity(true);
         entity.setCustomNameVisible(false);
-        
+        // ArmorStand#setSmall is private in Mojang mappings 1.21.1 official; use reflection fallback.
+        try {
+            var m = entity.getClass().getMethod("setSmall", boolean.class);
+            m.invoke(entity, true);
+        } catch (Exception ignored1) {
+            try {
+                var dm = entity.getClass().getDeclaredMethod("setSmall", boolean.class);
+                dm.setAccessible(true);
+                dm.invoke(entity, true);
+            } catch (Exception ignored2) {
+                // Leave default size; honeypot still functional.
+            }
+        }
+        try {
+            entity.setNoBasePlate(true);
+        } catch (Exception | Error ignored) {}
+        entity.setInvulnerable(false);
+        entity.setSilent(true);
+
         level.addFreshEntity(entity);
     }
 

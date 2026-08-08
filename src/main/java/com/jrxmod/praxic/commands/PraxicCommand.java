@@ -43,29 +43,74 @@ public class PraxicCommand {
             root.then(Commands.literal("stats").executes(PraxicCommand::cmdStats));
             root.then(Commands.literal("check")
                     .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                    builder.suggest(p.getName().getString());
+                                }
+                                return builder.buildFuture();
+                            })
                             .executes(PraxicCommand::cmdCheck)));
             root.then(Commands.literal("violations").executes(PraxicCommand::cmdViolations));
             root.then(Commands.literal("reset")
                     .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                    builder.suggest(p.getName().getString());
+                                }
+                                return builder.buildFuture();
+                            })
                             .executes(PraxicCommand::cmdReset)));
             root.then(Commands.literal("reload").executes(PraxicCommand::cmdReload));
             root.then(Commands.literal("whitelist")
                     .then(Commands.literal("add")
                             .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests((ctx, builder) -> {
+                                        for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                            if (!Praxic.getWhitelistManager().isWhitelisted(p.getUUID())) {
+                                                builder.suggest(p.getName().getString());
+                                            }
+                                        }
+                                        return builder.buildFuture();
+                                    })
                                     .executes(PraxicCommand::cmdWhitelistAdd)))
                     .then(Commands.literal("remove")
                             .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests((ctx, builder) -> {
+                                        for (var id : Praxic.getWhitelistManager().getAll()) {
+                                            var pl = ctx.getSource().getServer().getPlayerList().getPlayer(id);
+                                            if (pl != null) builder.suggest(pl.getName().getString());
+                                        }
+                                        return builder.buildFuture();
+                                    })
                                     .executes(PraxicCommand::cmdWhitelistRemove)))
                     .then(Commands.literal("list").executes(PraxicCommand::cmdWhitelistList)));
             root.then(Commands.literal("history")
                     .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                    builder.suggest(p.getName().getString());
+                                }
+                                return builder.buildFuture();
+                            })
                             .executes(PraxicCommand::cmdHistory)));
             root.then(Commands.literal("evidence")
                     .executes(PraxicCommand::cmdEvidenceGlobal)
                     .then(Commands.literal("clear")
                             .then(Commands.argument("player", StringArgumentType.word())
+                                    .suggests((ctx, builder) -> {
+                                        for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                            builder.suggest(p.getName().getString());
+                                        }
+                                        return builder.buildFuture();
+                                    })
                                     .executes(PraxicCommand::cmdEvidenceClear)))
                     .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                    builder.suggest(p.getName().getString());
+                                }
+                                return builder.buildFuture();
+                            })
                             .executes(PraxicCommand::cmdEvidencePlayer)));
 
             dispatcher.register(root);
@@ -91,6 +136,9 @@ public class PraxicCommand {
         send(source, row("JesusCheck",        cfg.jesusCheckEnabled));
         send(source, row("SprintCheck",       cfg.sprintCheckEnabled));
         send(source, row("BoatFlyCheck",      cfg.boatFlyCheckEnabled));
+        send(source, row("ElytraFlyCheck",    cfg.elytraFlyCheckEnabled));
+        send(source, row("StepCheck",         cfg.stepCheckEnabled));
+        send(source, row("GroundSpoofCheck",  cfg.groundSpoofCheckEnabled));
 
         send(source, " §8§oCombat");
         send(source, row("ReachCheck",        cfg.reachCheckEnabled));
@@ -104,6 +152,8 @@ public class PraxicCommand {
         send(source, " §8§oWorld");
         send(source, row("ScaffoldCheck",     cfg.scaffoldCheckEnabled));
         send(source, row("FastBreakCheck",    cfg.fastBreakCheckEnabled));
+        send(source, row("FastPlaceCheck",    cfg.fastPlaceCheckEnabled));
+        send(source, row("TowerCheck",        cfg.towerCheckEnabled));
         send(source, row("NoFallCheck",       cfg.noFallCheckEnabled));
 
         send(source, " §8§oClient");

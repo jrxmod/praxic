@@ -39,20 +39,33 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleMovePlayer", at = @At("HEAD"))
     private void onHandleMovePlayer(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
-
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
-        if (data == null) return;
+        // Capture immutable packet data before switching threads
+        boolean hasPos = packet.hasPosition();
+        boolean hasRot = packet.hasRotation();
+        boolean onGroundPacket = packet.isOnGround();
 
         // Schedule on server thread — packet arrives on Netty IO thread
         player.getServer().execute(() -> {
+            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            if (data == null) return;
+
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof BadPacketsCheck)
                     .map(c -> (BadPacketsCheck) c)
                     .findFirst()
                     .ifPresent(check -> check.onMovePacket(player, packet, data));
 
-            // Only count packets that carry position data — ignore rotation-only and status-only
-            if (!packet.hasPosition()) return;
+            // Ground spoof detection uses onGround flag from packet
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c.getName().equals("GroundSpoofCheck"))
+                    .findFirst()
+                    .ifPresent(check -> {
+                        // reflective access via data field updated in PlayerData
+                        data.lastPacketOnGround = onGroundPacket;
+                        data.lastPacketHasPos = hasPos;
+                    });
+
+            if (!hasPos) return;
 
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof TimerCheck)
@@ -64,23 +77,20 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handlePlayerAction", at = @At("HEAD"))
     private void onHandlePlayerAction(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
-
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
-        if (data == null) return;
-
         ServerboundPlayerActionPacket.Action action = packet.getAction();
-
-        // Schedule on server thread — packet arrives on Netty IO thread
+        var pos = packet.getPos();
         player.getServer().execute(() -> {
+            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            if (data == null) return;
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof FastBreakCheck)
                     .map(c -> (FastBreakCheck) c)
                     .findFirst()
                     .ifPresent(check -> {
                         if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
-                            check.onStartBreak(player, packet.getPos(), data);
+                            check.onStartBreak(player, pos, data);
                         } else if (action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) {
-                            check.onStopBreak(player, packet.getPos(), data);
+                            check.onStopBreak(player, pos, data);
                         }
                     });
         });
@@ -88,39 +98,23 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleInteract", at = @At("HEAD"))
     private void onHandleInteract(ServerboundInteractPacket packet, CallbackInfo ci) {
-
         Entity target = packet.getTarget(player.serverLevel());
         if (target == null) return;
-
         AtomicBoolean isAttack = new AtomicBoolean(false);
         packet.dispatch(new ServerboundInteractPacket.Handler() {
-            @Override
-            public void onInteraction(InteractionHand hand) {}
-
-            @Override
-            public void onInteraction(InteractionHand hand, Vec3 pos) {}
-
-            @Override
-            public void onAttack() {
-                isAttack.set(true);
-            }
+            @Override public void onInteraction(InteractionHand hand) {}
+            @Override public void onInteraction(InteractionHand hand, Vec3 pos) {}
+            @Override public void onAttack() { isAttack.set(true); }
         });
-
         if (!isAttack.get()) return;
-
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
-        if (data == null) return;
-
-        // Schedule checks on the server thread to avoid duplicate execution
-        // and thread-safety issues from Netty IO thread
+        var targetUuid = target.getUUID();
         player.getServer().execute(() -> {
-            // Combat context for RotationCheck / analytics.
+            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            if (data == null) return;
             data.lastAttackTime = System.currentTimeMillis();
 
-            // Ghost honeypot detection (KillAura trap)
             GhostEntityManager gem = Praxic.getGhostEntityManager();
-            if (gem != null && gem.onPlayerAttack(player, target.getUUID(), data)) {
-                // Ghost hit — definitive evidence, already flagged by GhostEntityManager.
+            if (gem != null && gem.onPlayerAttack(player, targetUuid, data)) {
                 return;
             }
 
@@ -152,30 +146,43 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleUseItemOn", at = @At("HEAD"))
     private void onHandleUseItemOn(ServerboundUseItemOnPacket packet, CallbackInfo ci) {
-
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
-        if (data == null) return;
-
         BlockHitResult hitResult = packet.getHitResult();
-
-        // Schedule on server thread — packet arrives on Netty IO thread
         player.getServer().execute(() -> {
+            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            if (data == null) return;
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof ScaffoldCheck)
                     .map(c -> (ScaffoldCheck) c)
                     .findFirst()
                     .ifPresent(check -> check.onBlockPlace(player, hitResult.getBlockPos(), data));
+
+            // FastPlace and Tower detection
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c.getName().equals("FastPlaceCheck"))
+                    .findFirst()
+                    .ifPresent(check -> {
+                        try {
+                            var fastPlace = (com.jrxmod.praxic.checks.FastPlaceCheck) check;
+                            fastPlace.onBlockPlace(player, data);
+                        } catch (Exception ignored) {}
+                    });
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c.getName().equals("TowerCheck"))
+                    .findFirst()
+                    .ifPresent(check -> {
+                        try {
+                            var tower = (com.jrxmod.praxic.checks.TowerCheck) check;
+                            tower.onBlockPlace(player, hitResult.getBlockPos(), data);
+                        } catch (Exception ignored) {}
+                    });
         });
     }
 
     @Inject(method = "handleContainerClick", at = @At("HEAD"))
     private void onHandleContainerClick(ServerboundContainerClickPacket packet, CallbackInfo ci) {
-
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
-        if (data == null) return;
-
-        // Schedule on server thread — packet arrives on Netty IO thread
         player.getServer().execute(() -> {
+            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            if (data == null) return;
             Praxic.getCheckManager().getChecks().stream()
                     .filter(c -> c instanceof InventoryCheck)
                     .map(c -> (InventoryCheck) c)

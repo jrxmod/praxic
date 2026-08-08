@@ -16,6 +16,9 @@ public class TimerCheck extends AbstractCheck {
     // Threshold set above vanilla peaks, below Timer x1.5
     private static final int MAX_PACKETS_IN_WINDOW = 275;
 
+    // Skip evaluation when server TPS is low — clients send more catch-up packets
+    private static final double MIN_TPS_FOR_CHECK = 17.0;
+
     @Override
     public String getName() {
         return "TimerCheck";
@@ -33,20 +36,40 @@ public class TimerCheck extends AbstractCheck {
 
         long now = System.currentTimeMillis();
 
-        // Add current packet timestamp to sliding window
         data.movePacketTimestamps.addLast(now);
 
-        // Remove timestamps outside the 5-second window
         while (!data.movePacketTimestamps.isEmpty() &&
                now - data.movePacketTimestamps.peekFirst() > WINDOW_MS) {
             data.movePacketTimestamps.pollFirst();
         }
 
-        // Only evaluate after at least 4 seconds of data to avoid join/teleport spikes
         long windowStart = data.movePacketTimestamps.isEmpty() ? now
                 : data.movePacketTimestamps.peekFirst();
         long elapsed = now - windowStart;
         if (elapsed < 4000) return;
+
+        // TPS guard: skip when server is lagging. Use reflection to avoid hard dependency on
+        // mappings where getAverageTickTime name differs between Yarn and Mojang official.
+        try {
+            var srv = player.getServer();
+            double mspt = -1;
+            try {
+                var m = srv.getClass().getMethod("getAverageTickTime");
+                Object v = m.invoke(srv);
+                if (v instanceof Number n) mspt = n.doubleValue();
+            } catch (NoSuchMethodException e) {
+                // Try alternative names used in some mappings
+                try {
+                    var m2 = srv.getClass().getMethod("getAverageTickTimeNanos");
+                    Object v = m2.invoke(srv);
+                    if (v instanceof Number n) mspt = n.doubleValue() / 1_000_000.0;
+                } catch (Exception ignored) {}
+            }
+            if (mspt > 0) {
+                double tps = Math.min(20.0, 1000.0 / mspt);
+                if (tps < MIN_TPS_FOR_CHECK) return;
+            }
+        } catch (Exception ignored) {}
 
         int packets = data.movePacketTimestamps.size();
 

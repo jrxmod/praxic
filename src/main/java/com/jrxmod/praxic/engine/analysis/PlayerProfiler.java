@@ -21,11 +21,12 @@ public class PlayerProfiler {
 
     /**
      * Minimum baseline samples required per core metric before baseline is
-     * considered usable. Speed accumulates every tick so this is always met
-     * well before BASELINE_TICKS — it guards against profiler being fed
-     * mostly -1.0 values during an unusually quiet session.
+     * considered usable. Previously only speed was checked, which allowed baseline
+     * to become ready without entropy/click data, causing weak toggling detection.
      */
     private static final int MIN_SPEED_SAMPLES = 100;
+    private static final int MIN_ENTROPY_SAMPLES = 30;
+    private static final int MIN_CPS_SAMPLES = 10;
 
     /**
      * Noise floors — minimum stddev used when normalising deviations.
@@ -117,7 +118,9 @@ public class PlayerProfiler {
             s.ticksCollected = Math.min(s.ticksCollected + 1, BASELINE_TICKS);
 
             boolean windowComplete = s.ticksCollected >= BASELINE_TICKS;
-            boolean coreValid      = s.speed.count >= MIN_SPEED_SAMPLES;
+            boolean coreValid = s.speed.count >= MIN_SPEED_SAMPLES
+                    && s.entropy.count >= MIN_ENTROPY_SAMPLES
+                    && s.cps.count >= MIN_CPS_SAMPLES;
 
             if (windowComplete && coreValid) {
                 s.baselineReady = true;

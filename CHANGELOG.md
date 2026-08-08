@@ -2,6 +2,44 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.12.0 - Sentinel
+
+### Added
+- **New ElytraFlyCheck**: detects ElytraFly modules via horizontal speed + vertical glide anomaly, with buffer and ping compensation
+- **New StepCheck**: detects instant step >0.75 blocks without jump, with slime/honey exemption
+- **New GroundSpoofCheck**: detects clients spoofing onGround while airborne, key for fly/nofall bypasses
+- **New TowerCheck**: detects automated tower building via vertical placement rate
+- **New FastPlaceCheck**: detects block placement faster than vanilla allows (10 blocks/sec)
+- **Dashboard metrics**: new `/api/metrics` endpoint with TPS/MSPT, TPS/MSPT display in stat bar
+- **Dashboard actions**: Reset VL and Toggle Whitelist buttons in player detail (requires token if enabled)
+- **Command suggestions**: `/praxic check`, `reset`, `whitelist`, `history`, `evidence` now autocomplete online player names via Brigadier suggestions
+- **Config versioning**: `configVersion` field for future migrations
+
+### Changed
+- **EvidenceManager & HistoryManager**: file I/O now asynchronous on dedicated thread pools, eliminating main-thread lag spikes on flags
+- **ServerGamePacketListenerMixin**: fixed race where PlayerData was fetched before server thread switch; now fetched inside `execute()` and captures onGround packet flag
+- **ViolationManager**: staff/discord alert maps now cleaned on disconnect to prevent memory leak; added `cleanup(UUID)` method
+- **ConfidenceEngine**: added weights for new checks (ElytraFly 0.22, Step 0.18, GroundSpoof 0.28, Tower 0.18, FastPlace 0.12)
+- **CheckManager**: disconnect now also clears ViolationManager cooldowns; dead player handling resets new buffers (elytra, tower, fastplace, groundspoof)
+- **SpeedCheck / NoSlowCheck**: ice detection expanded to 5 blocks (center + N/S/E/W below) to prevent false positives from ice momentum
+- **NoFallCheck**: safe landing detection rewritten to use exact block checks and tags (BEDS, WOOL_CARPETS) instead of substring matching
+- **VelocityCheck**: slime/honey bounce now preserves pending knockback check instead of cancelling
+- **FastBreakCheck**: added correct-tool penalty (0.2x speed) for incorrect tool usage
+- **TimerCheck**: added TPS guard — skips evaluation when server TPS < 17.0 to avoid false positives during lag
+- **PlayerProfiler**: baseline now requires entropy and CPS samples in addition to speed, improving toggling detection reliability
+- **GhostEntity**: armor stand now small, no baseplate, silent, not invulnerable (invulnerable could block attack packets)
+- **DiscordWebhook**: payload now built with Gson to safely escape JSON, truncated details to 1024 chars
+- **UpdateChecker**: JSON parsing rewritten from regex to Gson `JsonParser`
+- **PraxicWebServer**: auth now URL-decodes token query param; thread pool increased to 4; added `/api/action/reset` and `/api/action/whitelist` endpoints
+- **PraxicCommand**: status now shows 28 checks in 4 groups including new ones
+
+### Fixed
+- **JesusCheck**: double decrement of `jesusWaterGraceTicks` (was decremented in both CheckManager and JesusCheck) caused grace to expire twice as fast
+- **JesusCheck**: lily pad detection now checks both foot and below positions
+- **PlayerData**: `decayViolations` now uses entrySet to avoid potential concurrent modification issues
+- **GhostEntityManager**: spawn position logic preserved but entity properties hardened
+- **Dashboard**: token injection now safe for special characters via URL decoding
+
 ## 0.11.0 - Evidence & Protocol
 ### Added
 - **New PhaseCheck**: detects sustained noclip / in-wall movement with movement buffering

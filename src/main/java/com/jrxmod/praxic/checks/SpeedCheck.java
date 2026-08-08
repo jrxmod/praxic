@@ -49,13 +49,17 @@ public class SpeedCheck extends AbstractCheck {
         long delta = now - data.lastPositionUpdate;
         if (delta > MAX_TICK_DELTA_MS) return;
 
-        // Skip on ice — high slipperiness causes natural speed buildup beyond threshold
+        // Skip on ice — high slipperiness causes natural speed buildup.
+        // Check not only directly below but also 1 block ahead in movement direction and below.
         BlockPos below = player.blockPosition().below();
-        var blockBelow = player.level().getBlockState(below).getBlock();
-        if (blockBelow == Blocks.ICE
-                || blockBelow == Blocks.PACKED_ICE
-                || blockBelow == Blocks.BLUE_ICE
-                || blockBelow == Blocks.FROSTED_ICE) return;
+        if (isIce(player.level().getBlockState(below).getBlock())
+                || isIce(player.level().getBlockState(below.north()).getBlock())
+                || isIce(player.level().getBlockState(below.south()).getBlock())
+                || isIce(player.level().getBlockState(below.east()).getBlock())
+                || isIce(player.level().getBlockState(below.west()).getBlock())) {
+            data.speedBuffer = 0;
+            return;
+        }
 
         double dx = player.getX() - data.prevX;
         double dz = player.getZ() - data.prevZ;
@@ -88,5 +92,12 @@ public class SpeedCheck extends AbstractCheck {
         } else {
             data.speedBuffer = Math.max(0, data.speedBuffer - BUFFER_DECAY);
         }
+    }
+
+    private boolean isIce(net.minecraft.world.level.block.Block block) {
+        return block == Blocks.ICE
+                || block == Blocks.PACKED_ICE
+                || block == Blocks.BLUE_ICE
+                || block == Blocks.FROSTED_ICE;
     }
 }

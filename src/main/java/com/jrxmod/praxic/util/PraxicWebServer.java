@@ -49,12 +49,15 @@ public class PraxicWebServer {
         loadTemplate();
         try {
             httpServer = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
-            httpServer.setExecutor(Executors.newFixedThreadPool(2));
+            httpServer.setExecutor(Executors.newFixedThreadPool(4));
             httpServer.createContext("/",              this::handleDashboard);
             httpServer.createContext("/api/players",   this::handlePlayers);
             httpServer.createContext("/api/player/",   this::handlePlayer);
             httpServer.createContext("/api/status",    this::handleStatus);
             httpServer.createContext("/api/incidents", this::handleIncidents);
+            httpServer.createContext("/api/metrics",   this::handleMetrics);
+            httpServer.createContext("/api/action/reset", this::handleActionReset);
+            httpServer.createContext("/api/action/whitelist", this::handleActionWhitelist);
             httpServer.start();
             Praxic.LOGGER.info("[PRAXIC] Web dashboard started at http://127.0.0.1:{}/", port);
             String token = Praxic.getConfig().webDashboardToken;
@@ -93,9 +96,14 @@ public class PraxicWebServer {
         if (required.equals(header)) return true;
         String query = ex.getRequestURI().getQuery();
         if (query != null) {
-            for (String part : query.split("&")) {
-                if (part.startsWith("token=") && required.equals(part.substring(6))) return true;
-            }
+            try {
+                for (String part : query.split("&")) {
+                    if (part.startsWith("token=")) {
+                        String val = URLDecoder.decode(part.substring(6), StandardCharsets.UTF_8);
+                        if (required.equals(val)) return true;
+                    }
+                }
+            } catch (Exception ignored) {}
         }
         return false;
     }
@@ -261,6 +269,9 @@ public class PraxicWebServer {
         checks.addProperty("JesusCheck",        cfg.jesusCheckEnabled);
         checks.addProperty("SprintCheck",       cfg.sprintCheckEnabled);
         checks.addProperty("BoatFlyCheck",      cfg.boatFlyCheckEnabled);
+        checks.addProperty("ElytraFlyCheck",    cfg.elytraFlyCheckEnabled);
+        checks.addProperty("StepCheck",         cfg.stepCheckEnabled);
+        checks.addProperty("GroundSpoofCheck",  cfg.groundSpoofCheckEnabled);
         checks.addProperty("ReachCheck",        cfg.reachCheckEnabled);
         checks.addProperty("KillAuraCheck",     cfg.killAuraCheckEnabled);
         checks.addProperty("GhostTrapCheck",    cfg.ghostTrapCheckEnabled);
@@ -270,6 +281,8 @@ public class PraxicWebServer {
         checks.addProperty("PostKillSnapCheck", cfg.postKillSnapCheckEnabled);
         checks.addProperty("ScaffoldCheck",     cfg.scaffoldCheckEnabled);
         checks.addProperty("FastBreakCheck",    cfg.fastBreakCheckEnabled);
+        checks.addProperty("FastPlaceCheck",    cfg.fastPlaceCheckEnabled);
+        checks.addProperty("TowerCheck",        cfg.towerCheckEnabled);
         checks.addProperty("NoFallCheck",       cfg.noFallCheckEnabled);
         checks.addProperty("AutoClickerCheck",  cfg.autoClickerCheckEnabled);
         checks.addProperty("AutoTotemCheck",    cfg.autoTotemCheckEnabled);
@@ -289,6 +302,79 @@ public class PraxicWebServer {
             arr.add(evidenceToJson(e));
         }
         sendJson(ex, 200, GSON.toJson(arr));
+    }
+
+    private void handleMetrics(HttpExchange ex) throws IOException {
+        if (!"GET".equals(ex.getRequestMethod())) { ex.sendResponseHeaders(405,-1); return; }
+        if (!isAuthorised(ex)) { sendJson(ex, 401, "{\"error\":\"Unauthorised\"}"); return; }
+
+        JsonObject obj = new JsonObject();
+        obj.addProperty("version", Praxic.VERSION);
+        double mspt = -1;
+        double tps = -1;
+        try {
+            Object msptVal = null;
+            try {
+                var m = mcServer.getClass().getMethod("getAverageTickTime");
+                msptVal = m.invoke(mcServer);
+            } catch (NoSuchMethodException e) {
+                try {
+                    var m2 = mcServer.getClass().getMethod("getAverageTickTimeNanos");
+                    Object nano = m2.invoke(mcServer);
+                    if (nano instanceof Number n) msptVal = n.doubleValue() / 1_000_000.0;
+                } catch (Exception ignored) {}
+            }
+            if (msptVal instanceof Number n) {
+                mspt = n.doubleValue();
+                tps = mspt > 0 ? Math.min(20.0, 1000.0 / mspt) : 20.0;
+            }
+        } catch (Exception ignored) {}
+        obj.addProperty("mspt", mspt >= 0 ? Math.round(mspt * 100.0) / 100.0 : -1);
+        obj.addProperty("tps", tps >= 0 ? Math.round(tps * 100.0) / 100.0 : -1);
+        obj.addProperty("online", mcServer.getPlayerList().getPlayers().size());
+        obj.addProperty("totalFlags", PraxicStats.getTotalFlags());
+        obj.addProperty("evidence", Praxic.getEvidenceManager().count());
+        sendJson(ex, 200, GSON.toJson(obj));
+    }
+
+    private void handleActionReset(HttpExchange ex) throws IOException {
+        if (!"POST".equals(ex.getRequestMethod())) { ex.sendResponseHeaders(405,-1); return; }
+        if (!isAuthorised(ex)) { sendJson(ex, 401, "{\"error\":\"Unauthorised\"}"); return; }
+        String path = ex.getRequestURI().getPath();
+        String[] parts = path.split("/");
+        if (parts.length < 4) { sendJson(ex, 400, "{\"error\":\"Missing player\"}"); return; }
+        String name = URLDecoder.decode(parts[parts.length - 1], StandardCharsets.UTF_8);
+        ServerPlayer target = mcServer.getPlayerList().getPlayerByName(name);
+        if (target == null) { sendJson(ex, 404, "{\"error\":\"Player not found\"}"); return; }
+        UUID uuid = target.getUUID();
+        var data = Praxic.getCheckManager().getPlayerData(uuid);
+        if (data != null) {
+            data.violations.clear();
+            data.lastFlagTime.clear();
+        }
+        Praxic.getConfidenceEngine().reset(uuid);
+        Praxic.getAnomalyScoreEngine().reset(uuid);
+        sendJson(ex, 200, "{\"status\":\"reset\"}");
+    }
+
+    private void handleActionWhitelist(HttpExchange ex) throws IOException {
+        if (!"POST".equals(ex.getRequestMethod())) { ex.sendResponseHeaders(405,-1); return; }
+        if (!isAuthorised(ex)) { sendJson(ex, 401, "{\"error\":\"Unauthorised\"}"); return; }
+        String query = ex.getRequestURI().getQuery();
+        boolean add = true;
+        String playerName = null;
+        if (query != null) {
+            for (String part : query.split("&")) {
+                if (part.startsWith("player=")) playerName = URLDecoder.decode(part.substring(7), StandardCharsets.UTF_8);
+                if (part.startsWith("action=")) add = !part.substring(7).equalsIgnoreCase("remove");
+            }
+        }
+        if (playerName == null) { sendJson(ex, 400, "{\"error\":\"Missing player param\"}"); return; }
+        ServerPlayer target = mcServer.getPlayerList().getPlayerByName(playerName);
+        if (target == null) { sendJson(ex, 404, "{\"error\":\"Player not found\"}"); return; }
+        if (add) Praxic.getWhitelistManager().add(target.getUUID());
+        else Praxic.getWhitelistManager().remove(target.getUUID());
+        sendJson(ex, 200, "{\"status\":\"ok\",\"whitelisted\":" + add + "}");
     }
 
     // -------------------------------------------------------------------------
