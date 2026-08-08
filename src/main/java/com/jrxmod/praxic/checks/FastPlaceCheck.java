@@ -7,8 +7,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 
 /**
- * Detects FastPlace — placing blocks faster than vanilla allows.
- * Vanilla limit ~ 4-5 blocks/sec with normal latency; 10+ is suspicious.
+ * Detects FastPlace — placing blocks faster than the vanilla limit.
+ * Vanilla processes at most one placement per game tick, so 20 blocks/sec
+ * is the hard ceiling; sustained rates above it indicate packet spam.
+ * Only successful block placements are counted (see ServerPlayerGameModeMixin).
  */
 public class FastPlaceCheck extends AbstractCheck {
 
@@ -39,9 +41,10 @@ public class FastPlaceCheck extends AbstractCheck {
 
         data.fastPlaceCount++;
 
-        int max = Praxic.getConfig().fastPlaceMaxBlocksPerSecond > 0 ? Praxic.getConfig().fastPlaceMaxBlocksPerSecond : 10;
+        int max = Praxic.getConfig().fastPlaceMaxBlocksPerSecond > 0
+                ? Praxic.getConfig().fastPlaceMaxBlocksPerSecond : 20;
 
-        if (data.fastPlaceCount >= max && data.canFlag(getName(), 2000)) {
+        if (data.fastPlaceCount > max && data.canFlag(getName(), 2000)) {
             ViolationManager.flag(player, data, this,
                     String.format("FastPlace: %d blocks/sec (max %d)", data.fastPlaceCount, max));
             data.fastPlaceCount = 0;

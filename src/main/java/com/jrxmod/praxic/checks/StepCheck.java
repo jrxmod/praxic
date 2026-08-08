@@ -52,10 +52,13 @@ public class StepCheck extends AbstractCheck {
             return;
         }
 
-        // Skip if block above is climbable or if stepping onto slabs/stairs legitimately can cause some jitter
+        // Skip bouncy blocks (slime/honey bounce) and piston lifts — both can
+        // raise the player by more than a vanilla step legitimately.
         BlockPos below = player.blockPosition().below();
         var stateBelow = player.level().getBlockState(below);
-        if (stateBelow.is(Blocks.SLIME_BLOCK) || stateBelow.is(Blocks.HONEY_BLOCK)) {
+        if (stateBelow.is(Blocks.SLIME_BLOCK) || stateBelow.is(Blocks.HONEY_BLOCK)
+                || stateBelow.is(Blocks.PISTON) || stateBelow.is(Blocks.STICKY_PISTON)
+                || stateBelow.is(Blocks.PISTON_HEAD) || stateBelow.is(Blocks.MOVING_PISTON)) {
             data.stepBuffer = 0;
             return;
         }

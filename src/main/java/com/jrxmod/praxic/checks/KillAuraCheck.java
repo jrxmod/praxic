@@ -77,6 +77,8 @@ public class KillAuraCheck extends AbstractCheck {
             ViolationManager.flag(attacker, data, this,
                     String.format("Attack burst: %d hits/sec (max: %d)",
                             data.rapidAttackCount, MAX_ATTACKS_PER_SECOND));
+            data.rapidAttackCount = 0;
+            data.rapidAttackWindowStart = now;
         }
     }
 }

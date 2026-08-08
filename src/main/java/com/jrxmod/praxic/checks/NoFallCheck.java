@@ -10,12 +10,16 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SweetBerryBushBlock;
 
 public class NoFallCheck extends AbstractCheck {
 
@@ -25,8 +29,11 @@ public class NoFallCheck extends AbstractCheck {
     // Feather Falling adds 2 blocks of buffer per enchantment level
     private static final double FEATHER_FALLING_BUFFER_PER_LEVEL = 2.0;
 
-    // HP buffer above expected post-damage health before flagging
-    private static final float DAMAGE_BUFFER = 3.0f;
+    /**
+     * Fall damage is considered suppressed when less than half of the expected
+     * damage (after armor, enchantment and effect reductions) was actually dealt.
+     */
+    private static final double SUPPRESSION_RATIO = 0.5;
 
     /**
      * If player.fallDistance drops to less than this fraction of our tracked max
@@ -49,6 +56,12 @@ public class NoFallCheck extends AbstractCheck {
     public void check(ServerPlayer player, PlayerData data) {
         if (!Praxic.getConfig().noFallCheckEnabled) return;
 
+        // Servers may disable fall damage globally via the fallDamage gamerule.
+        if (!player.serverLevel().getGameRules().getBoolean(GameRules.RULE_FALL_DAMAGE)) {
+            resetFallData(data);
+            return;
+        }
+
         if (player.isSpectator() || player.isCreative() || player.isDeadOrDying() ||
             player.isPassenger() || player.isInWater() || player.isInLava() ||
             player.hasEffect(MobEffects.SLOW_FALLING) || player.hasEffect(MobEffects.JUMP) ||
@@ -64,15 +77,19 @@ public class NoFallCheck extends AbstractCheck {
             float healthBefore = data.totalHealthBeforeLanding;
             double fallDist    = data.pendingFallDistance;
 
-            if (healthBefore > 0 && data.canFlag(getName(), 3000) && !isOnSafeLandingBlock(player)) {
-                float expectedDamage    = (float) Math.max(1.0, fallDist - 3.0);
-                float expectedHealthMin = healthBefore - expectedDamage;
+            if (healthBefore > 0 && data.canFlag(getName(), 3000)
+                    && !isOnSafeLandingBlock(player, data.pendingFallPos)) {
+                float expectedDamage = expectedFallDamage(player, fallDist);
 
-                if (healthNow > expectedHealthMin + DAMAGE_BUFFER) {
+                // Flag only when the dealt damage is clearly below the expected
+                // amount. Vanilla reductions are accounted for beforehand, so a
+                // legitimate landing keeps health within the expected range.
+                if (expectedDamage >= 1.0f
+                        && healthNow > healthBefore - expectedDamage * (float) SUPPRESSION_RATIO) {
                     ViolationManager.flag(player, data, this,
                             String.format("Suppressed fall damage: fall=%.2f blocks, " +
                                     "expected HP=%.1f actual HP=%.1f (before=%.1f)",
-                                    fallDist, expectedHealthMin, healthNow, healthBefore));
+                                    fallDist, healthBefore - expectedDamage, healthNow, healthBefore));
                 }
             }
             resetFallData(data);
@@ -115,10 +132,41 @@ public class NoFallCheck extends AbstractCheck {
             if (data.maxFallDistance >= effectiveMinFall && data.totalHealthBeforeLanding > 0) {
                 data.pendingFallCheck    = true;
                 data.pendingFallDistance = data.maxFallDistance;
+                data.pendingFallPos      = player.blockPosition();
             }
             data.wasInAir        = false;
             data.maxFallDistance = 0;
         }
+    }
+
+    /**
+     * Computes the damage vanilla would deal for the given fall distance,
+     * applying armor, protection enchantments (Protection / Feather Falling)
+     * and the Resistance effect.
+     */
+    private float expectedFallDamage(ServerPlayer player, double fallDist) {
+        // Vanilla damage: fall distance minus 3, rounded up.
+        float damage = (float) Math.ceil(fallDist - 3.0);
+        if (damage < 1.0f) return 0.0f;
+
+        // Armor reduces fall damage in vanilla: 4% per armor point, capped at 80%.
+        float armorReduction = Math.min(20.0f, player.getArmorValue()) / 25.0f;
+        damage *= 1.0f - armorReduction;
+
+        // Protection and Feather Falling points from the vanilla protection system.
+        DamageSource fallSource = player.damageSources().fall();
+        float protection = EnchantmentHelper.getDamageProtection(
+                player.serverLevel(), player, fallSource);
+        float protectionReduction = Math.min(20.0f, protection) / 25.0f;
+        damage *= 1.0f - protectionReduction;
+
+        // Resistance reduces all damage by 20% per level.
+        if (player.hasEffect(MobEffects.DAMAGE_RESISTANCE)) {
+            int amplifier = player.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier();
+            damage *= Math.max(0.0f, 1.0f - 0.2f * (amplifier + 1));
+        }
+
+        return damage;
     }
 
     // ── Enchantment helpers ──────────────────────────────────────────────────
@@ -134,8 +182,14 @@ public class NoFallCheck extends AbstractCheck {
 
     // ── Safe block detection ─────────────────────────────────────────────────
 
-    private boolean isOnSafeLandingBlock(ServerPlayer player) {
-        BlockPos pos = player.blockPosition().below();
+    /**
+     * Checks the block the player landed on (and blocks below it) for vanilla
+     * blocks that reduce or negate fall damage: slime, honey, hay, cobweb,
+     * powder snow, scaffolding, beds, wool carpets, wool and sweet berry bushes.
+     */
+    private boolean isOnSafeLandingBlock(ServerPlayer player, BlockPos landingPos) {
+        if (landingPos == null) return false;
+        BlockPos pos = landingPos.below();
         var level = player.level();
         // Check 2 blocks below as well because player eye height can shift
         for (int i = 0; i < 2; i++) {
@@ -148,6 +202,7 @@ public class NoFallCheck extends AbstractCheck {
                     || block == net.minecraft.world.level.block.Blocks.COBWEB
                     || block == net.minecraft.world.level.block.Blocks.POWDER_SNOW
                     || block == net.minecraft.world.level.block.Blocks.SCAFFOLDING
+                    || block instanceof SweetBerryBushBlock
                     || state.is(net.minecraft.tags.BlockTags.BEDS)
                     || state.is(net.minecraft.tags.BlockTags.WOOL_CARPETS)
                     || state.is(net.minecraft.tags.BlockTags.WOOL)) {
@@ -169,5 +224,6 @@ public class NoFallCheck extends AbstractCheck {
         data.wasInAir                 = false;
         data.pendingFallCheck         = false;
         data.pendingFallDistance      = 0;
+        data.pendingFallPos           = null;
     }
 }

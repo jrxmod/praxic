@@ -98,6 +98,9 @@ public class CheckManager {
                 PlayerData data = getOrCreateData(player);
                 UUID uuid = player.getUUID();
 
+                // Track recent damage for AutoTotemCheck (totem consumption context)
+                if (player.hurtTime > 0) data.lastDamageTime = nowMs;
+
                 // 1. Decay VL (every 100 ticks) + Confidence decay (every tick after grace)
                 if (doDecay) data.decayViolations(DECAY_INTERVAL_MS);
                 Praxic.getConfidenceEngine().tickDecay(uuid, nowMs);

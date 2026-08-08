@@ -5,7 +5,9 @@ import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -54,31 +56,71 @@ public class FastBreakCheck extends AbstractCheck {
         // Skip insta-mine blocks (hardness <= 0) — designed to break instantly
         if (hardness <= 0) return;
 
-        // Calculate tool speed multiplier
+        // Player dig speed, replicating Player#getDestroySpeed of vanilla 1.21.1.
+        // ItemStack#getDestroySpeed already returns 1.0 when the held tool does
+        // not match the block's material, which matches vanilla behaviour.
         ItemStack tool = player.getMainHandItem();
-        float toolSpeed = tool.getDestroySpeed(state);
-        boolean correctTool = tool.isCorrectToolForDrops(state);
-        if (toolSpeed < 1.0f) toolSpeed = 1.0f;
-        // Penalty for incorrect tool — vanilla multiplies by 1/5
-        if (!correctTool) toolSpeed *= 0.2f;
-        if (toolSpeed < 0.2f) toolSpeed = 0.2f;
+        float speed = tool.getDestroySpeed(state);
+        if (speed < 1.0f) speed = 1.0f;
 
-        // Apply Haste effect
-        if (player.hasEffect(MobEffects.DIG_SPEED)) {
-            int amplifier = player.getEffect(MobEffects.DIG_SPEED).getAmplifier();
-            toolSpeed *= (1.0f + 0.2f * (amplifier + 1));
+        // Efficiency contributes via the mining_efficiency attribute (normally
+        // level^2 + 1) and only when the tool already grants a speed bonus.
+        if (speed > 1.0f && !tool.isEmpty()) {
+            speed += (float) player.getAttributeValue(Attributes.MINING_EFFICIENCY);
         }
 
-        // Apply Mining Fatigue effect
+        // Haste / Conduit Power: +20% per level, the stronger effect applies.
+        int hasteLevel = player.hasEffect(MobEffects.DIG_SPEED)
+                ? player.getEffect(MobEffects.DIG_SPEED).getAmplifier() : -1;
+        int conduitLevel = player.hasEffect(MobEffects.CONDUIT_POWER)
+                ? player.getEffect(MobEffects.CONDUIT_POWER).getAmplifier() : -1;
+        int effectLevel = Math.max(hasteLevel, conduitLevel);
+        if (effectLevel >= 0) {
+            speed *= 1.0f + 0.2f * (effectLevel + 1);
+        }
+
+        // Mining Fatigue: vanilla hardcoded multipliers per level.
         if (player.hasEffect(MobEffects.DIG_SLOWDOWN)) {
-            int amplifier = player.getEffect(MobEffects.DIG_SLOWDOWN).getAmplifier();
-            toolSpeed *= Math.pow(0.3f, amplifier + 1);
+            speed *= switch (player.getEffect(MobEffects.DIG_SLOWDOWN).getAmplifier()) {
+                case 0 -> 0.3f;
+                case 1 -> 0.09f;
+                case 2 -> 0.0027f;
+                default -> 0.00081f;
+            };
         }
 
-        // Minimum expected break time in ms:
-        // vanilla formula: ticks = ceil(hardness * 30 / toolSpeed) for correct tool
-        // 1 tick = 50ms, we use a generous multiplier to avoid false positives
-        double minBreakMs = (hardness * 30.0 / toolSpeed) * 50.0
+        // block_break_speed attribute, normally 1.0.
+        speed *= (float) player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
+
+        // Underwater mining penalty: submerged_mining_speed attribute,
+        // 0.2 by default, 1.0 with Aqua Affinity.
+        if (player.isEyeInFluid(FluidTags.WATER)) {
+            speed *= (float) player.getAttributeValue(Attributes.SUBMERGED_MINING_SPEED);
+        }
+
+        // Mining while not standing on the ground is 5x slower.
+        if (!player.onGround()) {
+            speed *= 0.2f;
+        }
+
+        // Vanilla progress divisor: 30 when Player#hasCorrectToolForDrops is
+        // true, 100 otherwise. That method is true either when the held tool is
+        // correct for drops, OR when the block does not require a correct tool
+        // at all (leaves, dirt, grass, logs break at the 30 divisor even with
+        // bare hands). Mirroring it exactly is what keeps the expected time
+        // aligned with the real server-side breaking speed.
+        boolean canHarvest = player.hasCorrectToolForDrops(state);
+        float divisor = canHarvest ? 30.0f : 100.0f;
+
+        // Vanilla breaks the block instantly when per-tick progress reaches 1.0
+        // (e.g. shears on leaves, Efficiency V + Haste on stone). Such breaks are
+        // legitimate and must never be compared against a minimum duration.
+        if (hardness * divisor / speed <= 1.0f) return;
+
+        // Minimum expected break time in ms. Vanilla accumulates progress once
+        // per tick (50 ms); the configured multiplier is a margin against
+        // network jitter and blocks broken by several players at once.
+        double minBreakMs = (hardness * divisor / speed) * 50.0
                 * Praxic.getConfig().fastBreakSpeedMultiplier;
 
         if (elapsed < minBreakMs && data.canFlag(getName(), 2000)) {

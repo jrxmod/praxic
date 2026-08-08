@@ -36,7 +36,7 @@ public class AutoClickerCheck extends AbstractCheck {
         int cps = data.attackTimestamps.size();
         int maxCps = Praxic.getConfig().autoClickerMaxCps;
 
-        if (cps > maxCps) {
+        if (cps > maxCps && data.canFlag(getName(), 2000)) {
             ViolationManager.flag(player, data, this,
                     "CPS: " + cps + " (max: " + maxCps + ")");
         }

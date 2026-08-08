@@ -101,6 +101,9 @@ public class PlayerData {
     /** Fall distance pending verification. */
     public double pendingFallDistance = 0;
 
+    /** Block position at the moment of landing, for safe-landing checks. */
+    public BlockPos pendingFallPos = null;
+
     // -------------------------------------------------------------------------
     // Combat
     // -------------------------------------------------------------------------
@@ -117,6 +120,12 @@ public class PlayerData {
     // -------------------------------------------------------------------------
     // Scaffold / AutoTotem / Inventory
     // -------------------------------------------------------------------------
+
+    /** Timestamp of the last damage received (hurtTime > 0), for AutoTotemCheck. */
+    public long lastDamageTime = 0;
+
+    /** Timestamp of the last firework rocket use, for ElytraFlyCheck. */
+    public long lastRocketUseTime = 0;
 
     /** Counter for blocks placed under feet within window for ScaffoldCheck. */
     public int scaffoldBlocksPlaced = 0;

@@ -47,6 +47,13 @@ public class ElytraFlyCheck extends AbstractCheck {
             return;
         }
 
+        // Firework rockets legitimately boost elytra speed and altitude —
+        // ElytraFlyCheck must not flag for a few seconds after rocket use.
+        if (System.currentTimeMillis() - data.lastRocketUseTime < 3000L) {
+            data.elytraBuffer = 0;
+            return;
+        }
+
         // Skip if using firework rocket recently (boost allowed)
         // Check if player has active fireworks boost is non-trivial without tracking;
         // we allow short periods of high speed as grace and require sustained buffer.

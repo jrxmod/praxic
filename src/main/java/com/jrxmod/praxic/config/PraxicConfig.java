@@ -34,8 +34,9 @@ public class PraxicConfig {
     public String phaseAction = "setback";
 
     // NoSlowCheck settings
+    // 0.30 covers vanilla sprinting while eating (0.286 b/t) plus lag margin.
     public boolean noSlowCheckEnabled = true;
-    public double noSlowMaxBlocksPerTick = 0.16;
+    public double noSlowMaxBlocksPerTick = 0.30;
     public int noSlowMaxViolations = 5;
     public String noSlowAction = "warn";
 
@@ -68,8 +69,10 @@ public class PraxicConfig {
     public String criticalsAction = "warn";
 
     // ScaffoldCheck settings
+    // Vanilla ceiling is 1 placement per game tick (20 blocks/sec); 12 covers
+    // fast legitimate bridging while still catching automated bridging.
     public boolean scaffoldCheckEnabled = true;
-    public int scaffoldMaxBlocksPerSecond = 8;
+    public int scaffoldMaxBlocksPerSecond = 12;
     public int scaffoldMaxViolations = 5;
     public String scaffoldAction = "kick";
 
@@ -167,8 +170,9 @@ public class PraxicConfig {
     public String groundSpoofAction = "kick";
 
     // FastPlaceCheck settings
+    // Vanilla ceiling is 1 placement per game tick (20 blocks/sec).
     public boolean fastPlaceCheckEnabled = true;
-    public int fastPlaceMaxBlocksPerSecond = 10;
+    public int fastPlaceMaxBlocksPerSecond = 20;
     public int fastPlaceMaxViolations = 5;
     public String fastPlaceAction = "warn";
 

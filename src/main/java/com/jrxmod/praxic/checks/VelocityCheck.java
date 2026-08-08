@@ -52,7 +52,11 @@ public class VelocityCheck extends AbstractCheck {
                     || data.prevMovementState == MovementState.FALLING
                     || data.movementState     == MovementState.GROUND;
 
-            if (!isFallDamage) {
+            // Skip when already pressed against a wall — knockback cannot move
+            // the player, so the measured displacement is legitimately zero.
+            boolean againstWall = player.horizontalCollision;
+
+            if (!isFallDamage && !againstWall) {
                 data.knockbackPending     = true;
                 data.knockbackStartX      = player.getX();
                 data.knockbackStartZ      = player.getZ();
@@ -66,6 +70,13 @@ public class VelocityCheck extends AbstractCheck {
 
         data.knockbackTicksWaited++;
         if (data.knockbackTicksWaited < KNOCKBACK_CHECK_DELAY) return;
+
+        // Player was knocked into a wall — the wall absorbed the horizontal
+        // movement, so zero displacement is legitimate.
+        if (player.horizontalCollision) {
+            data.knockbackPending = false;
+            return;
+        }
 
         // Player landed before measurement window ended — ground absorbed horizontal
         // movement, displacement will always be near zero: not a valid sample,

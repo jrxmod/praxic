@@ -8,7 +8,6 @@ import com.jrxmod.praxic.checks.FastBreakCheck;
 import com.jrxmod.praxic.checks.InventoryCheck;
 import com.jrxmod.praxic.checks.KillAuraCheck;
 import com.jrxmod.praxic.checks.ReachCheck;
-import com.jrxmod.praxic.checks.ScaffoldCheck;
 import com.jrxmod.praxic.checks.TimerCheck;
 import com.jrxmod.praxic.engine.trap.GhostEntityManager;
 import com.jrxmod.praxic.data.PlayerData;
@@ -16,12 +15,12 @@ import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.item.FireworkRocketItem;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -144,37 +143,17 @@ public class ServerGamePacketListenerMixin {
         });
     }
 
-    @Inject(method = "handleUseItemOn", at = @At("HEAD"))
-    private void onHandleUseItemOn(ServerboundUseItemOnPacket packet, CallbackInfo ci) {
-        BlockHitResult hitResult = packet.getHitResult();
+    @Inject(method = "handleUseItem", at = @At("HEAD"))
+    private void onHandleUseItem(ServerboundUseItemPacket packet, CallbackInfo ci) {
         player.getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof ScaffoldCheck)
-                    .map(c -> (ScaffoldCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.onBlockPlace(player, hitResult.getBlockPos(), data));
-
-            // FastPlace and Tower detection
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c.getName().equals("FastPlaceCheck"))
-                    .findFirst()
-                    .ifPresent(check -> {
-                        try {
-                            var fastPlace = (com.jrxmod.praxic.checks.FastPlaceCheck) check;
-                            fastPlace.onBlockPlace(player, data);
-                        } catch (Exception ignored) {}
-                    });
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c.getName().equals("TowerCheck"))
-                    .findFirst()
-                    .ifPresent(check -> {
-                        try {
-                            var tower = (com.jrxmod.praxic.checks.TowerCheck) check;
-                            tower.onBlockPlace(player, hitResult.getBlockPos(), data);
-                        } catch (Exception ignored) {}
-                    });
+            // Firework rockets legitimately boost elytra speed and altitude —
+            // ElytraFlyCheck must not flag for a few seconds after rocket use.
+            if (player.getMainHandItem().getItem() instanceof FireworkRocketItem
+                    || player.getOffhandItem().getItem() instanceof FireworkRocketItem) {
+                data.lastRocketUseTime = System.currentTimeMillis();
+            }
         });
     }
 

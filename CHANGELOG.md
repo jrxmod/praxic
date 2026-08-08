@@ -2,6 +2,25 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## Unreleased — false positive fixes
+
+### Fixed
+
+- **FastBreakCheck**: mining time calculation now matches vanilla 1.21.1 (tool speeds, Efficiency, Haste / Conduit Power, Mining Fatigue, water and mid-air penalties, 30/100 divisor). Blocks that break instantly in vanilla (shears on leaves, Efficiency V + Haste) are no longer flagged.
+- **FastPlaceCheck**: only successful block placements are counted; non-block items such as fireworks are ignored. Default limit raised to the vanilla ceiling of 20 blocks/sec.
+- **NoFallCheck**: respects the `fallDamage` gamerule and accounts for armor, Protection / Feather Falling, Resistance and sweet berry bushes. A flag requires less than half of the expected damage to have been dealt.
+- **NoSlowCheck**: default limit raised to 0.30 blocks/tick — vanilla sprinting while eating (0.286) is no longer flagged.
+- **FastBreakCheck**: correct-tool detection now mirrors vanilla `Player#hasCorrectToolForDrops` — blocks that do not require a tool for drops (leaves, dirt, grass, logs) use the 30 divisor even with bare hands, matching real server-side breaking speed.
+- **ScaffoldCheck / TowerCheck**: only successful block placements are counted; scaffold default limit raised to 12 blocks/sec.
+- **ElytraFlyCheck**: firework rocket use grants a 3-second grace period.
+- **AutoClickerCheck**: added a flag cooldown to prevent flag spam.
+- **KillAuraCheck**: burst counter resets after a flag.
+- **VelocityCheck**: knockback into a wall no longer flags.
+- **AutoTotemCheck**: item swaps without recent damage are not treated as totem consumption.
+- **SprintCheck**: removed the blindness branch — vanilla does not cancel an ongoing sprint.
+- **StepCheck**: piston lifts are exempt.
+- **FlyCheck**: Jump Boost is exempt; natural falls no longer flag.
+
 ## 0.12.0 - Sentinel
 
 ### Added

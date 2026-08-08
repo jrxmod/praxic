@@ -32,9 +32,16 @@ public class AutoTotemCheck extends AbstractCheck {
         boolean hasTotem = hasTotemInHand(player);
         long now = System.currentTimeMillis();
 
-        // Totem disappeared from hand while player is alive — totem was consumed
+        // Totem disappeared from hand while player is alive. It counts as a
+        // consumed totem only when the player took damage shortly before —
+        // otherwise it was moved manually (inventory, item switching) and
+        // re-equipping it must not be treated as AutoTotem.
         if (data.hadTotemInHand && !hasTotem) {
-            data.lastTotemUseTime = now;
+            if (now - data.lastDamageTime < 2000L) {
+                data.lastTotemUseTime = now;
+            } else {
+                data.lastTotemUseTime = 0;
+            }
         }
 
         // Totem reappeared after being consumed — measure how fast
