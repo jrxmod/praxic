@@ -7,7 +7,10 @@ import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.engine.decision.ActionResolver;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import com.jrxmod.praxic.util.DiscordWebhook;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Map;
@@ -67,16 +70,32 @@ public class ViolationManager {
             PraxicLogger.logViolation(checkName, player.getName().getString(), violations, details);
         }
 
-        // 5. Staff alerts
+        // 5. Staff alerts — clickable player names with hover details
         if (Praxic.getConfig().enableStaffAlerts
                 && shouldEmit(STAFF_ALERT_TIMES, uuid, checkName, Praxic.getConfig().staffAlertCooldownMs)) {
-            Component alert = Component.literal(
-                    "§6[PRAXIC] §bStaff Alert §8» §fPlayer §e" + player.getName().getString() +
-                    " §fflagged §b" + checkName +
-                    " §7(VL: §e" + violations +
-                    " §7| Conf: §e" + String.format("%.2f", confidence) +
-                    " §7| Action: §e" + resolvedAction + "§7)"
-            );
+            String playerName = player.getName().getString();
+            String confStr = String.format("%.2f", confidence);
+            String pingStr = String.valueOf(player.connection.latency());
+
+            MutableComponent alert = Component.literal("§6[PRAXIC] §bAlert §8» §f")
+                    .append(Component.literal("§e" + playerName + "§f")
+                            .withStyle(s -> s
+                                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                                            "/praxic check " + playerName))
+                                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                            Component.literal(
+                                                    "§e" + playerName + "\n" +
+                                                    "§7Check: §b" + checkName + "\n" +
+                                                    "§7VL: §e" + violations +
+                                                    " §7| Conf: §e" + confStr + "\n" +
+                                                    "§7Action: §e" + resolvedAction +
+                                                    " §7| Ping: §e" + pingStr + "ms" + "\n" +
+                                                    "§7" + details + "\n\n" +
+                                                    "§8Click to inspect"
+                                            )))))
+                    .append(Component.literal(" §7→ §b" + checkName +
+                            " §8(VL §e" + violations + "§8 | §e" + confStr + "§8)"));
+
             player.getServer().getPlayerList().getPlayers().stream()
                     .filter(p -> p.hasPermissions(2))
                     .forEach(p -> p.sendSystemMessage(alert));

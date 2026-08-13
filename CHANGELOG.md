@@ -2,6 +2,32 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.14.0 - Polish
+
+### Added
+- **Clickable staff alerts** — player names in flag notifications are now clickable to open a full inspection and show a tooltip with context on hover. One click replaces manual `/praxic check` lookups.
+- **Performance monitor** (`/praxic perf`) — shows server TPS, MSPT and how much processing time the anticheat itself consumes per tick and per player. Instantly see whether the server or the anticheat is the bottleneck.
+- **Debug recording** (`/praxic debug <player>`) — captures 30 seconds of tick-by-tick data for a player and saves it to a JSON file. Designed for reviewing suspected false positives with full context.
+- **Teleport to flag** (`/praxic tp <player>`) — teleports the moderator to the coordinates of the player's most recent violation for quick scene inspection.
+- **Confidence bar** — `/praxic check` now includes a colour-coded visual bar alongside the confidence score for faster at-a-glance assessment.
+- **Config validation** — out-of-range values in `praxic.json` are automatically clamped with a log warning instead of causing silent misbehaviour.
+- **Config auto-backup** — every save creates `praxic.json.bak` from the previous version, protecting against accidental configuration loss.
+- **Session summary on disconnect** — a one-line log entry is recorded when a player leaves, capturing session duration, total violations and overall suspicion for retro-analysis.
+- **Lag-adaptive detection** — when server performance degrades, detection thresholds automatically relax to prevent lag-induced false positives.
+- **Richer Discord alerts** — webhook embeds now include session context and server performance alongside the violation details.
+
+### Fixed
+- `ConfidenceEngine.java` — one combat detection module was missing from the evidence weight configuration, causing it to contribute less than intended.
+- `PraxicWebServer.java` — the dashboard reset endpoint could not resolve valid player names due to a URL parsing error.
+- `PraxicCommand.java` — the freeze punishment was displayed without colour in command output.
+- `SpeedCheck.java`, `CheckManager.java` — speed detection relied on a timing value that was refreshed every tick, preventing the server-lag guard from ever activating.
+- `WhitelistManager.java` — saving the whitelist could fail when the config directory did not yet exist.
+- `ServerGamePacketListenerMixin.java`, `CheckManager.java` — replaced per-packet stream searches with direct references, reducing unnecessary processing overhead in the packet pipeline.
+
+### Changed
+- `/praxic status` now lists all 29 checks across 4 groups.
+- Four new subcommands: `perf`, `debug`, `tp` and improved `check` output.
+
 ## 0.13.0 - Hardening
 
 ### Added

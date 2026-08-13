@@ -343,7 +343,7 @@ public class PraxicWebServer {
         if (!isAuthorised(ex)) { sendJson(ex, 401, "{\"error\":\"Unauthorised\"}"); return; }
         String path = ex.getRequestURI().getPath();
         String[] parts = path.split("/");
-        if (parts.length < 4) { sendJson(ex, 400, "{\"error\":\"Missing player\"}"); return; }
+        if (parts.length < 5) { sendJson(ex, 400, "{\"error\":\"Missing player\"}"); return; }
         String name = URLDecoder.decode(parts[parts.length - 1], StandardCharsets.UTF_8);
         ServerPlayer target = mcServer.getPlayerList().getPlayerByName(name);
         if (target == null) { sendJson(ex, 404, "{\"error\":\"Player not found\"}"); return; }

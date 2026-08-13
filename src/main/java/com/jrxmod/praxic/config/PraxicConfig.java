@@ -6,6 +6,7 @@ import com.jrxmod.praxic.Praxic;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.StandardCopyOption;
 
 public class PraxicConfig {
 
@@ -238,6 +239,7 @@ public class PraxicConfig {
                 }
                 if (config == null) config = new PraxicConfig();
                 config.migrate();
+                config.validate();
             } else {
                 config = new PraxicConfig();
             }
@@ -265,9 +267,82 @@ public class PraxicConfig {
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
+    /**
+     * Validates field ranges and logs warnings for out-of-bounds values.
+     * Corrected values are clamped rather than rejected, so the server keeps
+     * running with sane defaults.
+     */
+    private void validate() {
+        int warnings = 0;
+        warnings += clampPositive("flyMaxAirTicks", flyMaxAirTicks, v -> flyMaxAirTicks = v, 1);
+        warnings += clampPositive("speedMaxViolations", speedMaxViolations, v -> speedMaxViolations = v, 1);
+        warnings += clampDouble("speedMaxBlocksPerTick", speedMaxBlocksPerTick, v -> speedMaxBlocksPerTick = v, 0.1, 10.0);
+        warnings += clampDouble("noSlowMaxBlocksPerTick", noSlowMaxBlocksPerTick, v -> noSlowMaxBlocksPerTick = v, 0.05, 5.0);
+        warnings += clampDouble("phaseMinHorizontalMove", phaseMinHorizontalMove, v -> phaseMinHorizontalMove = v, 0.001, 5.0);
+        warnings += clampDouble("stepMaxHeight", stepMaxHeight, v -> stepMaxHeight = v, 0.1, 10.0);
+        warnings += clampDouble("teleportMaxBlocksPerTick", teleportMaxBlocksPerTick, v -> teleportMaxBlocksPerTick = v, 1.0, 100.0);
+        warnings += clampDouble("postKillSnapMaxAngle", postKillSnapMaxAngle, v -> postKillSnapMaxAngle = v, 1.0, 180.0);
+        warnings += clampDouble("ghostTrapSpawnChance", ghostTrapSpawnChance, v -> ghostTrapSpawnChance = v, 0.0, 1.0);
+        warnings += clampDouble("confidenceWarnThreshold", confidenceWarnThreshold, v -> confidenceWarnThreshold = v, 0.0, 1.0);
+        warnings += clampDouble("confidenceSetbackThreshold", confidenceSetbackThreshold, v -> confidenceSetbackThreshold = v, 0.0, 1.0);
+        warnings += clampDouble("confidenceKickThreshold", confidenceKickThreshold, v -> confidenceKickThreshold = v, 0.0, 1.0);
+        warnings += clampDouble("confidenceBanThreshold", confidenceBanThreshold, v -> confidenceBanThreshold = v, 0.0, 1.0);
+        warnings += clampPositive("freezeDurationTicks", freezeDurationTicks, v -> freezeDurationTicks = v, 1);
+        warnings += clampInt("webDashboardPort", webDashboardPort, v -> webDashboardPort = v, 1024, 65535);
+        warnings += clampDouble("fastBreakSpeedMultiplier", fastBreakSpeedMultiplier, v -> fastBreakSpeedMultiplier = v, 0.05, 2.0);
+        if (warnings > 0) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {} value(s) were out of range and clamped.", warnings);
+        }
+    }
+
+    private int clampPositive(String name, int val, java.util.function.IntConsumer setter, int min) {
+        if (val < min) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {}={} is below minimum {}, clamping.", name, val, min);
+            setter.accept(min);
+            return 1;
+        }
+        return 0;
+    }
+
+    private int clampDouble(String name, double val, java.util.function.DoubleConsumer setter, double min, double max) {
+        if (val < min) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {}={} is below minimum {}, clamping.", name, val, min);
+            setter.accept(min);
+            return 1;
+        }
+        if (val > max) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {}={} exceeds maximum {}, clamping.", name, val, max);
+            setter.accept(max);
+            return 1;
+        }
+        return 0;
+    }
+
+    private int clampInt(String name, int val, java.util.function.IntConsumer setter, int min, int max) {
+        if (val < min) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {}={} is below minimum {}, clamping.", name, val, min);
+            setter.accept(min);
+            return 1;
+        }
+        if (val > max) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {}={} exceeds maximum {}, clamping.", name, val, max);
+            setter.accept(max);
+            return 1;
+        }
+        return 0;
+    }
+
     public void save() {
-        try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
-            GSON.toJson(this, writer);
+        try {
+            Files.createDirectories(CONFIG_PATH.getParent());
+            // Auto backup — preserve the previous config before overwriting
+            Path backupPath = CONFIG_PATH.resolveSibling("praxic.json.bak");
+            if (Files.exists(CONFIG_PATH) && Files.size(CONFIG_PATH) > 0) {
+                Files.copy(CONFIG_PATH, backupPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
+                GSON.toJson(this, writer);
+            }
         } catch (IOException e) {
             Praxic.LOGGER.error("[PRAXIC] Failed to save config.", e);
         }

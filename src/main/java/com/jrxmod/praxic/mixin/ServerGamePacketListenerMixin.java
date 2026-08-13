@@ -1,16 +1,7 @@
 package com.jrxmod.praxic.mixin;
 
 import com.jrxmod.praxic.Praxic;
-import com.jrxmod.praxic.checks.AutoClickerCheck;
-import com.jrxmod.praxic.checks.BadPacketsCheck;
-import com.jrxmod.praxic.checks.CriticalsCheck;
-import com.jrxmod.praxic.checks.FastBreakCheck;
-import com.jrxmod.praxic.checks.InventoryCheck;
-import com.jrxmod.praxic.checks.KillAuraCheck;
-import com.jrxmod.praxic.checks.ReachCheck;
-import com.jrxmod.praxic.checks.TeleportCheck;
-import com.jrxmod.praxic.checks.TimerCheck;
-import com.jrxmod.praxic.engine.trap.GhostEntityManager;
+import com.jrxmod.praxic.manager.CheckManager;
 import com.jrxmod.praxic.data.PlayerData;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
@@ -48,45 +39,24 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleMovePlayer", at = @At("HEAD"))
     private void onHandleMovePlayer(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
-        // Capture immutable packet data before switching threads
         boolean hasPos = packet.hasPosition();
-        boolean hasRot = packet.hasRotation();
         boolean onGroundPacket = packet.isOnGround();
 
-        // Schedule on server thread — packet arrives on Netty IO thread
         player.getServer().execute(() -> {
-            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            CheckManager cm = Praxic.getCheckManager();
+            PlayerData data = cm.getPlayerData(player.getUUID());
             if (data == null) return;
 
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof BadPacketsCheck)
-                    .map(c -> (BadPacketsCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.onMovePacket(player, packet, data));
+            cm.getBadPacketsCheck().onMovePacket(player, packet, data);
 
             // Ground spoof detection uses onGround flag from packet
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c.getName().equals("GroundSpoofCheck"))
-                    .findFirst()
-                    .ifPresent(check -> {
-                        // reflective access via data field updated in PlayerData
-                        data.lastPacketOnGround = onGroundPacket;
-                        data.lastPacketHasPos = hasPos;
-                    });
+            data.lastPacketOnGround = onGroundPacket;
+            data.lastPacketHasPos = hasPos;
 
             if (!hasPos) return;
 
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof TimerCheck)
-                    .map(c -> (TimerCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.onMovePacket(player, data));
-
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof TeleportCheck)
-                    .map(c -> (TeleportCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.onMovePacket(player, packet, data));
+            cm.getTimerCheck().onMovePacket(player, data);
+            cm.getTeleportCheck().onMovePacket(player, packet, data);
         });
     }
 
@@ -97,17 +67,11 @@ public class ServerGamePacketListenerMixin {
         player.getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof FastBreakCheck)
-                    .map(c -> (FastBreakCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> {
-                        if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
-                            check.onStartBreak(player, pos, data);
-                        } else if (action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) {
-                            check.onStopBreak(player, pos, data);
-                        }
-                    });
+            if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
+                Praxic.getCheckManager().getFastBreakCheck().onStartBreak(player, pos, data);
+            } else if (action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) {
+                Praxic.getCheckManager().getFastBreakCheck().onStopBreak(player, pos, data);
+            }
         });
     }
 
@@ -124,38 +88,20 @@ public class ServerGamePacketListenerMixin {
         if (!isAttack.get()) return;
         var targetUuid = target.getUUID();
         player.getServer().execute(() -> {
-            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            CheckManager cm = Praxic.getCheckManager();
+            PlayerData data = cm.getPlayerData(player.getUUID());
             if (data == null) return;
             data.lastAttackTime = System.currentTimeMillis();
 
-            GhostEntityManager gem = Praxic.getGhostEntityManager();
-            if (gem != null && gem.onPlayerAttack(player, targetUuid, data)) {
+            if (Praxic.getGhostEntityManager() != null
+                    && Praxic.getGhostEntityManager().onPlayerAttack(player, targetUuid, data)) {
                 return;
             }
 
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof CriticalsCheck)
-                    .map(c -> (CriticalsCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.checkAttack(player, target, data));
-
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof ReachCheck)
-                    .map(c -> (ReachCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.checkAttack(player, target, data));
-
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof KillAuraCheck)
-                    .map(c -> (KillAuraCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.checkAttack(player, target, data));
-
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof AutoClickerCheck)
-                    .map(c -> (AutoClickerCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.onAttack(player, data));
+            cm.getCriticalsCheck().checkAttack(player, target, data);
+            cm.getReachCheck().checkAttack(player, target, data);
+            cm.getKillAuraCheck().checkAttack(player, target, data);
+            cm.getAutoClickerCheck().onAttack(player, data);
         });
     }
 
@@ -164,8 +110,6 @@ public class ServerGamePacketListenerMixin {
         player.getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
-            // Firework rockets legitimately boost elytra speed and altitude —
-            // ElytraFlyCheck must not flag for a few seconds after rocket use.
             if (player.getMainHandItem().getItem() instanceof FireworkRocketItem
                     || player.getOffhandItem().getItem() instanceof FireworkRocketItem) {
                 data.lastRocketUseTime = System.currentTimeMillis();
@@ -178,11 +122,7 @@ public class ServerGamePacketListenerMixin {
         player.getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
-            Praxic.getCheckManager().getChecks().stream()
-                    .filter(c -> c instanceof InventoryCheck)
-                    .map(c -> (InventoryCheck) c)
-                    .findFirst()
-                    .ifPresent(check -> check.onInventoryClick(player, data));
+            Praxic.getCheckManager().getInventoryCheck().onInventoryClick(player, data);
         });
     }
 

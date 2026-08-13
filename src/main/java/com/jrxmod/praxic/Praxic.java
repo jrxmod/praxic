@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 public class Praxic implements ModInitializer {
 
     public static final String MOD_ID = "praxic";
-    public static final String VERSION = "0.13.0";
+    public static final String VERSION = "0.14.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static PraxicConfig       config;

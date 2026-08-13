@@ -4,9 +4,11 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.api.PraxicStats;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.manager.CheckManager;
 import com.jrxmod.praxic.engine.analysis.PlayerAnalytics;
 import com.jrxmod.praxic.engine.analysis.PlayerBaseline;
 import com.jrxmod.praxic.logger.PraxicLogger;
+import com.jrxmod.praxic.manager.DebugRecorder;
 import com.jrxmod.praxic.manager.EvidenceManager;
 import com.jrxmod.praxic.manager.HistoryManager;
 import com.jrxmod.praxic.manager.WhitelistManager;
@@ -41,6 +43,7 @@ public class PraxicCommand {
             root.then(Commands.literal("status").executes(PraxicCommand::cmdStatus));
             root.then(Commands.literal("dashboard").executes(PraxicCommand::cmdDashboard));
             root.then(Commands.literal("stats").executes(PraxicCommand::cmdStats));
+            root.then(Commands.literal("perf").executes(PraxicCommand::cmdPerf));
             root.then(Commands.literal("check")
                     .then(Commands.argument("player", StringArgumentType.word())
                             .suggests((ctx, builder) -> {
@@ -93,6 +96,24 @@ public class PraxicCommand {
                                 return builder.buildFuture();
                             })
                             .executes(PraxicCommand::cmdHistory)));
+            root.then(Commands.literal("debug")
+                    .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                    builder.suggest(p.getName().getString());
+                                }
+                                return builder.buildFuture();
+                            })
+                            .executes(PraxicCommand::cmdDebug)));
+            root.then(Commands.literal("tp")
+                    .then(Commands.argument("player", StringArgumentType.word())
+                            .suggests((ctx, builder) -> {
+                                for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+                                    builder.suggest(p.getName().getString());
+                                }
+                                return builder.buildFuture();
+                            })
+                            .executes(PraxicCommand::cmdTpFlag)));
             root.then(Commands.literal("evidence")
                     .executes(PraxicCommand::cmdEvidenceGlobal)
                     .then(Commands.literal("clear")
@@ -223,6 +244,38 @@ public class PraxicCommand {
         return 1;
     }
 
+    private static int cmdPerf(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        double mspt = CheckManager.getCurrentMspt();
+        double tps = CheckManager.getCurrentTps();
+        long lastNs = CheckManager.getLastTickNanos();
+        double avgNs = CheckManager.getAvgTickNanos();
+        double lastMs = lastNs / 1_000_000.0;
+        double avgMs = avgNs / 1_000_000.0;
+        int playerCount = Praxic.getCheckManager().getAllData().size();
+        double perPlayerMs = playerCount > 0 ? avgMs / playerCount : 0;
+
+        String tpsColor = tps >= 19.0 ? "§a" : tps >= 15.0 ? "§e" : "§c";
+        String loadColor = avgMs < 2.0 ? "§a" : avgMs < 5.0 ? "§e" : "§c";
+        // Rough percentage of a 50ms tick budget
+        double pct = Math.min(100.0, (avgMs / 50.0) * 100.0);
+
+        send(source, HEADER);
+        send(source, BULLET + "§7Server Performance");
+        send(source, LINE);
+        send(source, BULLET + "§7TPS: " + tpsColor + fmt2(tps) + " §8| §7MSPT: " + tpsColor + fmt2(mspt) + "ms");
+        send(source, BULLET + "§7AntiCheat overhead:");
+        send(source, "   §8— §7Last tick: " + loadColor + String.format("%.3f", lastMs) + "ms");
+        send(source, "   §8— §7Avg tick:  " + loadColor + String.format("%.3f", avgMs) + "ms" +
+                " §8(" + String.format("%.1f", pct) + "% of tick budget)");
+        send(source, "   §8— §7Per player: " + loadColor + String.format("%.3f", perPlayerMs) + "ms" +
+                " §8(" + playerCount + " tracked)");
+        send(source, BULLET + "§7Checks: §e" + Praxic.getCheckManager().getChecks().size() +
+                " §8| §7Evidence: §e" + Praxic.getEvidenceManager().count());
+        send(source, LINE);
+        return 1;
+    }
+
     private static int cmdCheck(CommandContext<CommandSourceStack> ctx) {
         String name = StringArgumentType.getString(ctx, "player");
         CommandSourceStack source = ctx.getSource();
@@ -248,9 +301,9 @@ public class PraxicCommand {
 
         send(source, HEADER);
         send(source, BULLET + "§7Player: §e" + name +
-                " §8| Conf: §e" + fmt2(conf) +
                 " §8| Anomaly: §e" + fmt2(anomaly) +
                 " §8| Ghosts: §e" + ghostCount);
+        send(source, BULLET + "§7Confidence: " + confidenceBar(conf) + " §e" + fmt2(conf));
         send(source, LINE);
 
         if (data.violations.isEmpty()) {
@@ -334,6 +387,57 @@ public class PraxicCommand {
         send(source, "§6[PRAXIC] §fViolations, confidence and anomaly for §e" + name + " §fcleared.");
         Praxic.LOGGER.info("[PRAXIC] Violations reset for {} by {}", name, source.getTextName());
         PraxicLogger.logInfo("Violations reset for " + name + " by " + source.getTextName());
+        return 1;
+    }
+
+    private static int cmdDebug(CommandContext<CommandSourceStack> ctx) {
+        String name = StringArgumentType.getString(ctx, "player");
+        CommandSourceStack source = ctx.getSource();
+        ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(name);
+        if (target == null) {
+            source.sendFailure(Component.literal("§c[PRAXIC] Player not found: §e" + name));
+            return 0;
+        }
+        UUID uuid = target.getUUID();
+        if (DebugRecorder.isRecording(uuid)) {
+            int remaining = DebugRecorder.ticksRemaining(uuid);
+            send(source, "§6[PRAXIC] §e" + name + " §7is already being recorded. " +
+                    "§8(" + remaining + " ticks remaining, §7" + (remaining / 20) + "s§8)");
+            return 0;
+        }
+        boolean started = DebugRecorder.start(uuid, name);
+        if (started) {
+            send(source, "§6[PRAXIC] §aRecording §e" + name + " §afor 30 seconds §8(600 ticks)§a.");
+            send(source, "   §7Output: §8config/praxic-debug/debug-" + name + "-<timestamp>.json");
+        }
+        return 1;
+    }
+
+    private static int cmdTpFlag(CommandContext<CommandSourceStack> ctx) {
+        String name = StringArgumentType.getString(ctx, "player");
+        CommandSourceStack source = ctx.getSource();
+        UUID uuid = findUuid(source, name);
+        if (uuid == null) {
+            source.sendFailure(Component.literal("§c[PRAXIC] Player not found: §e" + name));
+            return 0;
+        }
+        ServerPlayer executor = source.getPlayer();
+        if (executor == null) {
+            source.sendFailure(Component.literal("§c[PRAXIC] This command must be run by a player."));
+            return 0;
+        }
+        // Get the most recent evidence entry for this player
+        List<EvidenceManager.EvidenceEntry> entries = Praxic.getEvidenceManager().getRecent(uuid, 1);
+        if (entries.isEmpty()) {
+            source.sendFailure(Component.literal("§c[PRAXIC] No flag location recorded for §e" + name));
+            return 0;
+        }
+        EvidenceManager.EvidenceEntry last = entries.get(0);
+        executor.connection.teleport(last.x, last.y, last.z,
+                executor.getYRot(), executor.getXRot(), Set.of());
+        send(source, "§6[PRAXIC] §fTeleported to last flag location for §e" + name +
+                " §8(" + String.format("%.1f %.1f %.1f", last.x, last.y, last.z) +
+                " §8in §7" + last.world + "§8)");
         return 1;
     }
 
@@ -523,10 +627,26 @@ public class PraxicCommand {
         return String.format("%.2f", value);
     }
 
+    /**
+     * Renders a 10-segment confidence bar with colour coding.
+     * Green (0.0–0.29), yellow (0.30–0.59), red (0.60–1.0).
+     */
+    private static String confidenceBar(double confidence) {
+        int filled = (int) Math.round(Math.max(0, Math.min(1.0, confidence)) * 10);
+        String color = confidence >= 0.60 ? "§c" : confidence >= 0.30 ? "§e" : "§a";
+        StringBuilder sb = new StringBuilder("§8[");
+        for (int i = 0; i < 10; i++) {
+            sb.append(i < filled ? color + "█" : "§8░");
+        }
+        sb.append("§8]");
+        return sb.toString();
+    }
+
     private static String actionColor(String action) {
         return switch (action) {
             case "ban"     -> "§c";
             case "kick"    -> "§e";
+            case "freeze"  -> "§9";
             case "setback" -> "§b";
             case "warn"    -> "§6";
             default        -> "§7";

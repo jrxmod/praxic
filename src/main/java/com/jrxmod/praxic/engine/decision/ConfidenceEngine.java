@@ -50,6 +50,7 @@ public class ConfidenceEngine {
         WEIGHTS.put("CriticalsCheck",   0.18);
         WEIGHTS.put("ReachCheck",       0.20);
         WEIGHTS.put("RotationCheck",    0.20);
+        WEIGHTS.put("PostKillSnapCheck", 0.22);
         // World — moderate evidence (easier to false-positive)
         WEIGHTS.put("ScaffoldCheck",    0.15);
         WEIGHTS.put("FastBreakCheck",   0.15);

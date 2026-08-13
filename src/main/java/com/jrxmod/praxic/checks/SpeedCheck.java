@@ -2,6 +2,7 @@ package com.jrxmod.praxic.checks;
 
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.manager.CheckManager;
 import com.jrxmod.praxic.manager.ViolationManager;
 import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.core.BlockPos;
@@ -12,8 +13,9 @@ import net.minecraft.world.level.block.Blocks;
 
 public class SpeedCheck extends AbstractCheck {
 
-    // Skip check if tick took longer than this (server lag protection)
-    private static final long MAX_TICK_DELTA_MS = 100;
+    // Skip check if the server tick took longer than this (server lag protection).
+    // Measured via CheckManager.getCurrentMspt() — smoothed wall-clock interval.
+    private static final double MAX_SERVER_MSPT = 100.0;
 
     // Skip if distance suggests teleport or severe lag
     private static final double TELEPORT_THRESHOLD = 6.0;
@@ -44,10 +46,8 @@ public class SpeedCheck extends AbstractCheck {
         // Skip if player was recently hit — knockback causes false positives
         if (player.hurtTime > 0) return;
 
-        // Skip on server lag
-        long now = System.currentTimeMillis();
-        long delta = now - data.lastPositionUpdate;
-        if (delta > MAX_TICK_DELTA_MS) return;
+        // Skip on server lag — smoothed MSPT from CheckManager tick monitor
+        if (CheckManager.getCurrentMspt() > MAX_SERVER_MSPT) return;
 
         // Skip on ice — high slipperiness causes natural speed buildup.
         // Check not only directly below but also 1 block ahead in movement direction and below.
@@ -70,9 +70,9 @@ public class SpeedCheck extends AbstractCheck {
 
         int ping = player.connection.latency();
 
-        // Base threshold from config, scaled with latency
-        double maxSpeed = Praxic.getConfig().speedMaxBlocksPerTick
-                + LagCompensation.extraSpeed(ping);
+        // Base threshold from config, scaled with latency and server TPS
+        double maxSpeed = (Praxic.getConfig().speedMaxBlocksPerTick
+                + LagCompensation.extraSpeed(ping)) * LagCompensation.tpsSensitivity();
 
         // Scale threshold with speed effect
         if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {

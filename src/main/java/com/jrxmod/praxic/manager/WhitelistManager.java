@@ -67,11 +67,14 @@ public class WhitelistManager {
     }
 
     private void save() {
-        try (Writer writer = Files.newBufferedWriter(WHITELIST_PATH)) {
-            // Store as list of UUID strings for readability
-            Set<String> raw = new HashSet<>();
-            for (UUID uuid : whitelisted) raw.add(uuid.toString());
-            GSON.toJson(raw, writer);
+        try {
+            Files.createDirectories(WHITELIST_PATH.getParent());
+            try (Writer writer = Files.newBufferedWriter(WHITELIST_PATH)) {
+                // Store as list of UUID strings for readability
+                Set<String> raw = new HashSet<>();
+                for (UUID uuid : whitelisted) raw.add(uuid.toString());
+                GSON.toJson(raw, writer);
+            }
         } catch (IOException e) {
             Praxic.LOGGER.error("[PRAXIC] Failed to save whitelist.", e);
         }

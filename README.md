@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.13.0-orange)
+![Version](https://img.shields.io/badge/version-0.14.0-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
@@ -37,9 +37,12 @@ Configured per check in `config/praxic.json`. Confidence scoring chooses the act
 
 ```
 /praxic status                  — module overview
-/praxic check <player>          — player violations
+/praxic check <player>          — player violations with confidence bar
 /praxic violations              — all players
 /praxic stats                   — session statistics
+/praxic perf                    — server & anticheat performance monitor
+/praxic debug <player>          — record 30s of tick data for investigation
+/praxic tp <player>             — teleport to last flag location
 /praxic reset <player>          — clear violations
 /praxic reload                  — hot-reload config
 /praxic whitelist add|remove|list — bypass checks

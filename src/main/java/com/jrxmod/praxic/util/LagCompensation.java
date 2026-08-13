@@ -1,5 +1,7 @@
 package com.jrxmod.praxic.util;
 
+import com.jrxmod.praxic.manager.CheckManager;
+
 public class LagCompensation {
 
     // Latency above this value is clamped — prevents ping spoofing abuse
@@ -18,5 +20,18 @@ public class LagCompensation {
     // Extra reach distance allowed (max +1.0 block at 500ms)
     public static double extraReach(int latencyMs) {
         return Math.min(latencyMs, LATENCY_CAP_MS) * 0.002;
+    }
+
+    /**
+     * Global sensitivity multiplier driven by server TPS.
+     * At 20 TPS → 1.0 (no change). At 15 TPS → 1.25. At 10 TPS → 1.5.
+     * Checks multiply their thresholds by this value to tolerate lag-induced
+     * movement anomalies. Values below 17 TPS trigger scaling.
+     */
+    public static double tpsSensitivity() {
+        double tps = CheckManager.getCurrentTps();
+        if (tps >= 17.0) return 1.0;
+        // Linear scale: at 17 TPS → 1.0, at 10 TPS → 1.5
+        return 1.0 + (17.0 - tps) * 0.07;
     }
 }

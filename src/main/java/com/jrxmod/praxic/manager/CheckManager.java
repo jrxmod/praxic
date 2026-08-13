@@ -40,6 +40,45 @@ public class CheckManager {
     private final MovementAnalyzer movementAnalyzer = new MovementAnalyzer();
     private final PlayerProfiler   playerProfiler   = new PlayerProfiler();
 
+    // -------------------------------------------------------------------------
+    // Direct references to event-driven checks — avoids stream filtering in mixins
+    // -------------------------------------------------------------------------
+
+    private final BadPacketsCheck   badPacketsCheck   = new BadPacketsCheck();
+    private final TimerCheck        timerCheck        = new TimerCheck();
+    private final TeleportCheck     teleportCheck     = new TeleportCheck();
+    private final FastBreakCheck    fastBreakCheck    = new FastBreakCheck();
+    private final CriticalsCheck    criticalsCheck    = new CriticalsCheck();
+    private final ReachCheck        reachCheck        = new ReachCheck();
+    private final KillAuraCheck     killAuraCheck     = new KillAuraCheck();
+    private final AutoClickerCheck  autoClickerCheck  = new AutoClickerCheck();
+    private final InventoryCheck    inventoryCheck    = new InventoryCheck();
+
+    // -------------------------------------------------------------------------
+    // Performance monitoring
+    // -------------------------------------------------------------------------
+
+    /** Wall-clock timestamp of the previous END_SERVER_TICK. */
+    private static long lastTickWallMs = 0;
+
+    /**
+     * Measured server tick duration in milliseconds (smoothed).
+     * 50.0 at 20 TPS, 100.0 at 10 TPS. Updated every tick.
+     */
+    private static double currentMspt = 50.0;
+
+    /**
+     * Nanosecond timestamp marking the start of the current tick's
+     * CheckManager processing. Used by /praxic perf to measure overhead.
+     */
+    private static long tickStartNanos = 0;
+
+    /** CheckManager processing time for the most recent tick in nanoseconds. */
+    private static long lastTickNanos = 0;
+
+    /** Exponentially weighted moving average of tick processing time in nanos. */
+    private static double avgTickNanos = 0;
+
     /** Decay fires every 100 ticks (5 seconds at 20 TPS). */
     private static final int  DECAY_INTERVAL_TICKS = 100;
     private static final long DECAY_INTERVAL_MS    = 5000L;
@@ -55,17 +94,17 @@ public class CheckManager {
         checks.add(new PhaseCheck());
         checks.add(new NoSlowCheck());
         checks.add(new NoFallCheck());
-        checks.add(new ReachCheck());
-        checks.add(new KillAuraCheck());
+        checks.add(reachCheck);
+        checks.add(killAuraCheck);
         checks.add(new GhostTrapCheck());
-        checks.add(new CriticalsCheck());
+        checks.add(criticalsCheck);
         checks.add(new ScaffoldCheck());
         checks.add(new AutoTotemCheck());
-        checks.add(new InventoryCheck());
-        checks.add(new AutoClickerCheck());
-        checks.add(new TimerCheck());
-        checks.add(new BadPacketsCheck());
-        checks.add(new FastBreakCheck());
+        checks.add(inventoryCheck);
+        checks.add(autoClickerCheck);
+        checks.add(timerCheck);
+        checks.add(badPacketsCheck);
+        checks.add(fastBreakCheck);
         checks.add(new JesusCheck());
         checks.add(new VelocityCheck());
         checks.add(new RotationCheck());
@@ -79,7 +118,7 @@ public class CheckManager {
         checks.add(new GroundSpoofCheck());
         checks.add(new FastPlaceCheck());
         // New in 0.13.0
-        checks.add(new TeleportCheck());
+        checks.add(teleportCheck);
 
         // Kill event — notify RotationAnalyzer to open post-kill snap window
         ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
@@ -89,6 +128,14 @@ public class CheckManager {
         });
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            // Performance monitoring — measure tick interval and own overhead
+            long nowWallMs = System.currentTimeMillis();
+            if (lastTickWallMs > 0) {
+                currentMspt = (currentMspt * 0.8) + ((nowWallMs - lastTickWallMs) * 0.2);
+            }
+            lastTickWallMs = nowWallMs;
+            tickStartNanos = System.nanoTime();
+
             decayTickCounter++;
             boolean doDecay = decayTickCounter >= DECAY_INTERVAL_TICKS;
             if (doDecay) decayTickCounter = 0;
@@ -176,6 +223,9 @@ public class CheckManager {
                     runChecks(player, data);
                 }
 
+                // 13b. Debug recorder — capture tick data if recording is active
+                DebugRecorder.tick(player);
+
                 // 14. Update safe position
                 if (player.onGround() && !player.isDeadOrDying()) {
                     data.lastSafeX = player.getX();
@@ -188,6 +238,12 @@ public class CheckManager {
                 data.lastYaw   = player.getYRot();
                 data.lastPitch = player.getXRot();
             }
+
+            // Performance: record how long CheckManager took this tick
+            lastTickNanos = System.nanoTime() - tickStartNanos;
+            avgTickNanos = avgTickNanos > 0
+                    ? (avgTickNanos * 0.95) + (lastTickNanos * 0.05)
+                    : lastTickNanos;
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -197,7 +253,31 @@ public class CheckManager {
         });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-            UUID uuid = handler.getPlayer().getUUID();
+            ServerPlayer player = handler.getPlayer();
+            UUID uuid = player.getUUID();
+            PlayerData data = playerDataMap.get(uuid);
+
+            // Session summary — one-line log entry for retro-analysis
+            if (data != null) {
+                double confidence = Praxic.getConfidenceEngine().getScore(uuid);
+                double anomaly = Praxic.getAnomalyScoreEngine().getScore(uuid);
+                int totalVL = data.violations.values().stream().mapToInt(Integer::intValue).sum();
+                String topCheck = data.violations.entrySet().stream()
+                        .filter(e -> e.getValue() > 0)
+                        .max(java.util.Map.Entry.comparingByValue())
+                        .map(e -> e.getKey() + "=" + e.getValue())
+                        .orElse("none");
+                int sessionTicks = data.totalTicks;
+                int sessionSeconds = sessionTicks / 20;
+                Praxic.LOGGER.info("[PRAXIC] Session end: {} | {}m {}s | VL={} conf={} anomaly={} top={}",
+                        player.getName().getString(),
+                        sessionSeconds / 60, sessionSeconds % 60,
+                        totalVL,
+                        String.format("%.3f", confidence),
+                        String.format("%.3f", anomaly),
+                        topCheck);
+            }
+
             playerDataMap.remove(uuid);
             snapshots.remove(uuid);
             physicsResults.remove(uuid);
@@ -337,4 +417,36 @@ public class CheckManager {
 
     public List<AbstractCheck>       getChecks()  { return checks; }
     public Map<UUID, PlayerData>     getAllData()  { return playerDataMap; }
+
+    // -------------------------------------------------------------------------
+    // Event-driven check accessors — used by mixins instead of stream filtering
+    // -------------------------------------------------------------------------
+
+    public BadPacketsCheck   getBadPacketsCheck()   { return badPacketsCheck; }
+    public TimerCheck        getTimerCheck()        { return timerCheck; }
+    public TeleportCheck     getTeleportCheck()     { return teleportCheck; }
+    public FastBreakCheck    getFastBreakCheck()     { return fastBreakCheck; }
+    public CriticalsCheck    getCriticalsCheck()    { return criticalsCheck; }
+    public ReachCheck        getReachCheck()        { return reachCheck; }
+    public KillAuraCheck     getKillAuraCheck()     { return killAuraCheck; }
+    public AutoClickerCheck  getAutoClickerCheck()  { return autoClickerCheck; }
+    public InventoryCheck    getInventoryCheck()    { return inventoryCheck; }
+
+    // -------------------------------------------------------------------------
+    // Performance monitoring accessors
+    // -------------------------------------------------------------------------
+
+    /** Current server tick duration in ms (smoothed). 50.0 = 20 TPS. */
+    public static double getCurrentMspt() { return currentMspt; }
+
+    /** Current estimated TPS. */
+    public static double getCurrentTps() {
+        return currentMspt > 0 ? Math.min(20.0, 1000.0 / currentMspt) : 20.0;
+    }
+
+    /** CheckManager processing time for the most recent tick in nanoseconds. */
+    public static long getLastTickNanos() { return lastTickNanos; }
+
+    /** Exponentially weighted average of CheckManager processing time in nanos. */
+    public static double getAvgTickNanos() { return avgTickNanos; }
 }
