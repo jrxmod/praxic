@@ -8,9 +8,11 @@ import com.jrxmod.praxic.checks.FastBreakCheck;
 import com.jrxmod.praxic.checks.InventoryCheck;
 import com.jrxmod.praxic.checks.KillAuraCheck;
 import com.jrxmod.praxic.checks.ReachCheck;
+import com.jrxmod.praxic.checks.TeleportCheck;
 import com.jrxmod.praxic.checks.TimerCheck;
 import com.jrxmod.praxic.engine.trap.GhostEntityManager;
 import com.jrxmod.praxic.data.PlayerData;
+import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
@@ -35,6 +37,14 @@ public class ServerGamePacketListenerMixin {
 
     @Shadow
     public ServerPlayer player;
+
+    /**
+     * Grace ticks granted to TeleportCheck after the client confirms a
+     * server-initiated teleport (ender pearl, chorus fruit, /tp, portal,
+     * respawn). Covers the tick where the large position jump becomes visible
+     * plus network round-trip for the confirmation packet.
+     */
+    private static final int TELEPORT_GRACE_TICKS = 20;
 
     @Inject(method = "handleMovePlayer", at = @At("HEAD"))
     private void onHandleMovePlayer(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
@@ -71,6 +81,12 @@ public class ServerGamePacketListenerMixin {
                     .map(c -> (TimerCheck) c)
                     .findFirst()
                     .ifPresent(check -> check.onMovePacket(player, data));
+
+            Praxic.getCheckManager().getChecks().stream()
+                    .filter(c -> c instanceof TeleportCheck)
+                    .map(c -> (TeleportCheck) c)
+                    .findFirst()
+                    .ifPresent(check -> check.onMovePacket(player, packet, data));
         });
     }
 
@@ -167,6 +183,20 @@ public class ServerGamePacketListenerMixin {
                     .map(c -> (InventoryCheck) c)
                     .findFirst()
                     .ifPresent(check -> check.onInventoryClick(player, data));
+        });
+    }
+
+    /**
+     * Marks a legitimate server-initiated teleport so TeleportCheck does not
+     * mistake the resulting position jump for a Blink / Teleport cheat.
+     */
+    @Inject(method = "handleAcceptTeleportPacket", at = @At("HEAD"))
+    private void onHandleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket packet, CallbackInfo ci) {
+        player.getServer().execute(() -> {
+            PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+            if (data != null) {
+                data.teleportGraceTicks = TELEPORT_GRACE_TICKS;
+            }
         });
     }
 }

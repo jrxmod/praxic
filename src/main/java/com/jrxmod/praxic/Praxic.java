@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 public class Praxic implements ModInitializer {
 
     public static final String MOD_ID = "praxic";
-    public static final String VERSION = "0.12.1";
+    public static final String VERSION = "0.13.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static PraxicConfig       config;
@@ -50,7 +50,7 @@ public class Praxic implements ModInitializer {
         checkManager       = new CheckManager();
         webServer          = new PraxicWebServer();
 
-        // === РЕГИСТРАЦИЯ КОМАНД СРАЗУ ===
+        // Commands are registered immediately during initialization.
         PraxicCommand.register();
         Praxic.LOGGER.info("[PRAXIC] Commands registration finished");
         UpdateChecker.init();

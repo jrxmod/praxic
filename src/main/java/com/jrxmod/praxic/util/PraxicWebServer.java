@@ -272,6 +272,7 @@ public class PraxicWebServer {
         checks.addProperty("ElytraFlyCheck",    cfg.elytraFlyCheckEnabled);
         checks.addProperty("StepCheck",         cfg.stepCheckEnabled);
         checks.addProperty("GroundSpoofCheck",  cfg.groundSpoofCheckEnabled);
+        checks.addProperty("TeleportCheck",     cfg.teleportCheckEnabled);
         checks.addProperty("ReachCheck",        cfg.reachCheckEnabled);
         checks.addProperty("KillAuraCheck",     cfg.killAuraCheckEnabled);
         checks.addProperty("GhostTrapCheck",    cfg.ghostTrapCheckEnabled);

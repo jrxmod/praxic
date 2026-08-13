@@ -197,6 +197,23 @@ public class PlayerData {
     /** Buffer for impossible / malformed movement packets. */
     public int badPacketBuffer = 0;
 
+    /** Buffer for attacks through a full solid block (ReachCheck). */
+    public int reachWallBuffer = 0;
+
+    // -------------------------------------------------------------------------
+    // Freeze punishment
+    // -------------------------------------------------------------------------
+
+    /** Ticks remaining in an active freeze. The player is held at the frozen position while > 0. */
+    public int freezeTicksRemaining = 0;
+
+    /** Position and rotation captured when the freeze started. */
+    public double freezeX;
+    public double freezeY;
+    public double freezeZ;
+    public float freezeYaw;
+    public float freezePitch;
+
     // -------------------------------------------------------------------------
     // Movement buffers
     // -------------------------------------------------------------------------
@@ -251,6 +268,24 @@ public class PlayerData {
     public boolean lastPacketHasPos = false;
     public int groundSpoofTicks = 0;
     public int groundSpoofBuffer = 0;
+
+    // -------------------------------------------------------------------------
+    // TeleportCheck
+    // -------------------------------------------------------------------------
+
+    /**
+     * Grace ticks after a confirmed server-initiated teleport (set by
+     * ServerGamePacketListenerMixin when the client confirms the teleport).
+     */
+    public int teleportGraceTicks = 0;
+
+    /** Last position declared in a move packet, for jump detection. */
+    public double lastPacketX;
+    public double lastPacketY;
+    public double lastPacketZ;
+
+    /** Wall-clock time (ms) of the last move packet, for stall detection. */
+    public long lastPacketTime;
 
     // -------------------------------------------------------------------------
     // Misc

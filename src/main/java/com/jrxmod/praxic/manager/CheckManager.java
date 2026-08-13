@@ -78,6 +78,8 @@ public class CheckManager {
         checks.add(new TowerCheck());
         checks.add(new GroundSpoofCheck());
         checks.add(new FastPlaceCheck());
+        // New in 0.13.0
+        checks.add(new TeleportCheck());
 
         // Kill event — notify RotationAnalyzer to open post-kill snap window
         ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
@@ -97,6 +99,15 @@ public class CheckManager {
             for (ServerPlayer player : players) {
                 PlayerData data = getOrCreateData(player);
                 UUID uuid = player.getUUID();
+
+                // Enforce freeze punishment — hold the player at the frozen
+                // position for the remaining freeze ticks.
+                if (data.freezeTicksRemaining > 0) {
+                    player.connection.teleport(data.freezeX, data.freezeY, data.freezeZ,
+                            data.freezeYaw, data.freezePitch, Set.of());
+                    data.updatePosition(data.freezeX, data.freezeY, data.freezeZ);
+                    data.freezeTicksRemaining--;
+                }
 
                 // Track recent damage for AutoTotemCheck (totem consumption context)
                 if (player.hurtTime > 0) data.lastDamageTime = nowMs;

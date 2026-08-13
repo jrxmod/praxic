@@ -69,7 +69,7 @@ public class ActionResolver {
     private static String normalize(String action) {
         if (action == null) return null;
         return switch (action.toLowerCase()) {
-            case "flag", "warn", "setback", "kick", "ban" -> action.toLowerCase();
+            case "flag", "warn", "freeze", "setback", "kick", "ban" -> action.toLowerCase();
             default -> null;
         };
     }
@@ -78,10 +78,11 @@ public class ActionResolver {
         return switch (action) {
             case "flag"    -> 0;
             case "warn"    -> 1;
-            case "setback" -> 2;
-            case "kick"    -> 3;
-            case "ban"     -> 4;
-            default         -> 3;
+            case "freeze"  -> 2;
+            case "setback" -> 3;
+            case "kick"    -> 4;
+            case "ban"     -> 5;
+            default         -> 4;
         };
     }
 
@@ -139,6 +140,22 @@ public class ActionResolver {
                 PraxicLogger.logViolation(checkName, player.getName().getString(), violations,
                         "setback to " + String.format("%.1f %.1f %.1f",
                                 data.lastSafeX, data.lastSafeY, data.lastSafeZ));
+            }
+            case "freeze" -> {
+                data.freezeTicksRemaining = Praxic.getConfig().freezeDurationTicks;
+                data.freezeX = player.getX();
+                data.freezeY = player.getY();
+                data.freezeZ = player.getZ();
+                data.freezeYaw = player.getYRot();
+                data.freezePitch = player.getXRot();
+                player.sendSystemMessage(Component.literal(
+                        "§6[PRAXIC] §eYou have been §l§efrozen§r§e temporarily. §7" + reason
+                ));
+                data.resetViolations(checkName);
+                Praxic.LOGGER.warn("[PRAXIC] Player {} was FROZEN by {}.",
+                        player.getName().getString(), checkName);
+                PraxicLogger.logViolation(checkName, player.getName().getString(), violations,
+                        "frozen for " + Praxic.getConfig().freezeDurationTicks + " ticks");
             }
             case "warn" -> {
                 player.sendSystemMessage(Component.literal(

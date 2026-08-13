@@ -139,6 +139,7 @@ public class PraxicCommand {
         send(source, row("ElytraFlyCheck",    cfg.elytraFlyCheckEnabled));
         send(source, row("StepCheck",         cfg.stepCheckEnabled));
         send(source, row("GroundSpoofCheck",  cfg.groundSpoofCheckEnabled));
+        send(source, row("TeleportCheck",    cfg.teleportCheckEnabled));
 
         send(source, " §8§oCombat");
         send(source, row("ReachCheck",        cfg.reachCheckEnabled));

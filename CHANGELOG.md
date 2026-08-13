@@ -2,6 +2,20 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.13.0 - Hardening
+
+### Added
+- **TeleportCheck**: detects Blink / Teleport cheats by comparing the position declared in consecutive move packets, before the vanilla server can correct it. Legitimate teleports (ender pearls, chorus fruit, `/tp`, portals, respawn) are exempt via teleport confirmation. Lag and connection stalls do not false-positive.
+- **ReachCheck through-wall detection**: attacks whose line of sight passes through a full solid block are flagged independently of distance. Thin blocks (fences, panes, bars) are ignored.
+- **Freeze punishment**: a new `freeze` action holds a player in place for a configurable duration (`freezeDurationTicks`, default 60). Falls between `warn` and `setback` in severity.
+- **Config migrations**: `configVersion` is now matched by a `migrate()` step so future field renames and type changes can be applied automatically.
+- **Unit tests**: 21 JUnit tests covering the physics engine, confidence and anomaly engines, lag compensation and the profiler's pure logic.
+
+### Changed
+- **ReachCheck**: distance is now measured to the closest point of the target's bounding box (vanilla semantics) instead of its centre. Survival threshold lowered from 5.0 to 3.5, creative from 6.0 to 5.5, catching reach in the 3.2–4.5 range that was previously missed.
+- **TeleportCheck** replaces the earlier tick-level draft; detection now runs at packet level for accuracy.
+- CI now builds on JDK 21, matching the project's `release = 21` target.
+
 ## 0.12.1 - Sentinel (false positive fixes)
 
 This release fixes multiple false positives introduced in 0.12.0: vanilla-accurate block breaking times, correct placement counting, and fall damage checks that respect vanilla damage reductions. No new checks are added in this release.

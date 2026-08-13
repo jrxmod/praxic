@@ -152,6 +152,7 @@ public class ViolationManager {
             case "TowerCheck"        -> Praxic.getConfig().towerAction;
             case "GroundSpoofCheck"  -> Praxic.getConfig().groundSpoofAction;
             case "FastPlaceCheck"    -> Praxic.getConfig().fastPlaceAction;
+            case "TeleportCheck"     -> Praxic.getConfig().teleportAction;
             default                  -> "kick";
         };
     }
@@ -190,6 +191,7 @@ public class ViolationManager {
             case "TowerCheck"        -> "Automated tower building is not allowed.";
             case "GroundSpoofCheck"  -> "Ground state spoofing is not allowed.";
             case "FastPlaceCheck"    -> "Block placement rate limit exceeded.";
+            case "TeleportCheck"     -> "Unexplained teleport is not allowed.";
             default                  -> "Suspicious behaviour detected.";
         };
     }

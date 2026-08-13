@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.12.1-orange)
+![Version](https://img.shields.io/badge/version-0.13.0-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
@@ -19,18 +19,18 @@ Server-side anticheat for Fabric. Your players install nothing.
 
 ## What it does
 
-28 checks across movement, combat, world interaction, protocol sanity, and client manipulation — powered by a physics-based prediction engine with lag compensation, confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
+29 checks across movement, combat, world interaction, protocol sanity, and client manipulation — powered by a physics-based prediction engine with lag compensation, confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
 
 ## Checks
 
-- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · ElytraFly · Step · GroundSpoof · Y-Prediction (physics-based)
-- **Combat** — Reach · KillAura · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap
+- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · ElytraFly · Step · GroundSpoof · Teleport (Blink) · Y-Prediction (physics-based)
+- **Combat** — Reach (incl. through-wall raycast) · KillAura · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap
 - **World** — Scaffold · Tower · FastBreak · FastPlace · NoFall
 - **Client / Protocol** — AutoClicker · AutoTotem · Inventory · Timer · BadPackets
 
 ## Actions
 
-Every check supports: `flag` · `warn` · `setback` · `kick` · `ban`
+Every check supports: `flag` · `warn` · `freeze` · `setback` · `kick` · `ban`
 Configured per check in `config/praxic.json`. Confidence scoring chooses the action and each check's configured action acts as a maximum cap.
 
 ## Commands

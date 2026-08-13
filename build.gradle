@@ -34,7 +34,15 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	
+
+	// JUnit 5 for unit tests of pure logic (no game runtime required).
+	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+	// Gradle 9 no longer adds the JUnit launcher automatically.
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.10.2"
+}
+
+test {
+	useJUnitPlatform()
 }
 
 processResources {

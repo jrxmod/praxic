@@ -12,7 +12,13 @@ public class PraxicConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = Paths.get("config", "praxic.json");
 
-    public int configVersion = 3;
+    /**
+     * Current configuration schema version. Incremented when a release adds,
+     * removes, or renames fields, and matched by stepwise blocks in migrate().
+     */
+    public static final int CURRENT_CONFIG_VERSION = 3;
+
+    public int configVersion = CURRENT_CONFIG_VERSION;
 
     // FlyCheck settings
     public boolean flyCheckEnabled = true;
@@ -176,6 +182,15 @@ public class PraxicConfig {
     public int fastPlaceMaxViolations = 5;
     public String fastPlaceAction = "warn";
 
+    // TeleportCheck settings
+    // A single move-packet jump above this distance (blocks) with no recent
+    // server-initiated teleport is a Blink / Teleport signature. Legitimate
+    // teleports are exempt via teleport confirmations.
+    public boolean teleportCheckEnabled = true;
+    public double teleportMaxBlocksPerTick = 6.0;
+    public int teleportMaxViolations = 3;
+    public String teleportAction = "warn";
+
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;
 
@@ -198,6 +213,9 @@ public class PraxicConfig {
     public double confidenceBanThreshold = 0.95;
     public boolean confidenceAutoBan = true;
 
+    // Freeze punishment — duration in ticks the player is held in place.
+    public int freezeDurationTicks = 60;
+
     // Web Dashboard settings
     public boolean enableWebDashboard = true;
     public int webDashboardPort = 8765;
@@ -213,25 +231,38 @@ public class PraxicConfig {
     public static PraxicConfig load() {
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
+            PraxicConfig config;
             if (Files.exists(CONFIG_PATH)) {
                 try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
-                    PraxicConfig config = GSON.fromJson(reader, PraxicConfig.class);
-                    if (config == null) config = new PraxicConfig();
-                    // Persist newly added fields with defaults after updates.
-                    config.save();
-                    Praxic.LOGGER.info("[PRAXIC] Config loaded.");
-                    return config;
+                    config = GSON.fromJson(reader, PraxicConfig.class);
                 }
+                if (config == null) config = new PraxicConfig();
+                config.migrate();
             } else {
-                PraxicConfig config = new PraxicConfig();
-                config.save();
-                Praxic.LOGGER.info("[PRAXIC] Default config created.");
-                return config;
+                config = new PraxicConfig();
             }
+            // Rewriting merges any newly added fields into the file.
+            config.save();
+            Praxic.LOGGER.info("[PRAXIC] Config loaded (schema v{}).", config.configVersion);
+            return config;
         } catch (IOException e) {
             Praxic.LOGGER.error("[PRAXIC] Failed to load config, using defaults.", e);
             return new PraxicConfig();
         }
+    }
+
+    /**
+     * Brings a loaded config up to the current schema version.
+     * Absent fields already fall back to their field initialisers through Gson,
+     * so migrations only need to handle renames, type changes, and value
+     * normalisation. Each block must be idempotent because the file is
+     * rewritten on every load.
+     */
+    private void migrate() {
+        // No migrations are required below CURRENT_CONFIG_VERSION yet.
+        // Future example, from v4 to v5:
+        // if (configVersion < 5) { ...normalise...; configVersion = 5; }
+        configVersion = CURRENT_CONFIG_VERSION;
     }
 
     public void save() {

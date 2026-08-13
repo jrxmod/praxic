@@ -43,6 +43,7 @@ public class ConfidenceEngine {
         WEIGHTS.put("ElytraFlyCheck",   0.22);
         WEIGHTS.put("StepCheck",        0.18);
         WEIGHTS.put("GroundSpoofCheck", 0.28);
+        WEIGHTS.put("TeleportCheck",   0.30);
         // Combat — moderate to high evidence
         WEIGHTS.put("KillAuraCheck",    0.25);
         WEIGHTS.put("GhostTrapCheck",   0.85);
