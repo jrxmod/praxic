@@ -120,9 +120,9 @@ public class CheckManager {
         // New in 0.13.0
         checks.add(teleportCheck);
 
-        // Kill event — notify RotationAnalyzer to open post-kill snap window
-        ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
-            if (killer instanceof ServerPlayer player) {
+        // Kill event --- notify RotationAnalyzer to open post-kill snap window
+        ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, entity, killedEntity, damageSource) -> {
+            if (entity instanceof ServerPlayer player) {
                 rotationAnalyzer.onKill(player.getUUID());
             }
         });
@@ -151,7 +151,7 @@ public class CheckManager {
                 // position for the remaining freeze ticks.
                 if (data.freezeTicksRemaining > 0) {
                     player.connection.teleport(data.freezeX, data.freezeY, data.freezeZ,
-                            data.freezeYaw, data.freezePitch, Set.of());
+                            data.freezeYaw, data.freezePitch);
                     data.updatePosition(data.freezeX, data.freezeY, data.freezeZ);
                     data.freezeTicksRemaining--;
                 }

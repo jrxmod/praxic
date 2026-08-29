@@ -73,7 +73,7 @@ public class EvidenceManager {
         e.confidence = round3(confidence);
         e.anomaly = round3(anomaly);
         e.ping = player.connection.latency();
-        e.world = player.serverLevel().dimension().location().toString();
+        e.world = player.level().dimension().identifier().toString();
         e.x = round2(player.getX());
         e.y = round2(player.getY());
         e.z = round2(player.getZ());

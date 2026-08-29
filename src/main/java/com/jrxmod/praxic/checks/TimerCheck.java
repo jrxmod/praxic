@@ -51,7 +51,7 @@ public class TimerCheck extends AbstractCheck {
         // TPS guard: skip when server is lagging. Use reflection to avoid hard dependency on
         // mappings where getAverageTickTime name differs between Yarn and Mojang official.
         try {
-            var srv = player.getServer();
+            var srv = player.level().getServer();
             double mspt = -1;
             try {
                 var m = srv.getClass().getMethod("getAverageTickTime");

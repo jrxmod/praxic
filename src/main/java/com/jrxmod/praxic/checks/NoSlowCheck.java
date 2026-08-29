@@ -62,8 +62,8 @@ public class NoSlowCheck extends AbstractCheck {
         double maxSpeed = (Praxic.getConfig().noSlowMaxBlocksPerTick
                 + LagCompensation.extraSpeed(ping) * 0.35) * LagCompensation.tpsSensitivity();
 
-        if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
-            int amplifier = player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
+        if (player.hasEffect(MobEffects.SPEED)) {
+            int amplifier = player.getEffect(MobEffects.SPEED).getAmplifier();
             maxSpeed *= (1.0 + 0.2 * (amplifier + 1));
         }
 

@@ -27,7 +27,7 @@ public class FlyCheck extends AbstractCheck {
         if (player.hasEffect(MobEffects.LEVITATION)) return;
         if (player.hasEffect(MobEffects.SLOW_FALLING)) return;
         // Jump Boost changes jump arcs and fall damage — not a fly indicator
-        if (player.hasEffect(MobEffects.JUMP)) return;
+        if (player.hasEffect(MobEffects.JUMP_BOOST)) return;
 
         // Grace period after leaving water — state machine already counted airTicks,
         // but the transition can look like hovering for a few ticks

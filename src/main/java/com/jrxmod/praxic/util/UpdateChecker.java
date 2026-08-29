@@ -8,6 +8,10 @@ import com.jrxmod.praxic.Praxic;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.LevelBasedPermissionSet;
+import net.minecraft.server.permissions.PermissionLevel;
+import net.minecraft.server.players.NameAndId;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -82,7 +86,7 @@ public class UpdateChecker {
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             if (latestVersion == null) return;
-            if (!handler.getPlayer().hasPermissions(2)) return;
+            if (!hasPermission(handler.getPlayer(), 2)) return;
 
             String current = FabricLoader.getInstance()
                     .getModContainer(Praxic.MOD_ID)
@@ -98,5 +102,11 @@ public class UpdateChecker {
 
     public static String getLatestVersion() {
         return latestVersion;
+    }
+
+    private static boolean hasPermission(ServerPlayer player, int level) {
+        return player.level().getServer()
+                .getProfilePermissions(new NameAndId(player.getGameProfile()))
+                .level().isEqualOrHigherThan(PermissionLevel.byId(level));
     }
 }

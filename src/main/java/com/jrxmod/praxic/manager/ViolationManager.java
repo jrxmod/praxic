@@ -11,6 +11,8 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.ClickEvent.RunCommand;
+import net.minecraft.network.chat.HoverEvent.ShowText;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Map;
@@ -80,9 +82,9 @@ public class ViolationManager {
             MutableComponent alert = Component.literal("§6[PRAXIC] §bAlert §8» §f")
                     .append(Component.literal("§e" + playerName + "§f")
                             .withStyle(s -> s
-                                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND,
+                                    .withClickEvent(new ClickEvent.RunCommand(
                                             "/praxic check " + playerName))
-                                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                                    .withHoverEvent(new HoverEvent.ShowText(
                                             Component.literal(
                                                     "§e" + playerName + "\n" +
                                                     "§7Check: §b" + checkName + "\n" +
@@ -96,8 +98,10 @@ public class ViolationManager {
                     .append(Component.literal(" §7→ §b" + checkName +
                             " §8(VL §e" + violations + "§8 | §e" + confStr + "§8)"));
 
-            player.getServer().getPlayerList().getPlayers().stream()
-                    .filter(p -> p.hasPermissions(2))
+            player.level().getServer().getPlayerList().getPlayers().stream()
+                    .filter(p -> p.level().getServer()
+                            .getProfilePermissions(new net.minecraft.server.players.NameAndId(p.getGameProfile()))
+                            .level().isEqualOrHigherThan(net.minecraft.server.permissions.PermissionLevel.byId(2)))
                     .forEach(p -> p.sendSystemMessage(alert));
         }
 

@@ -3,7 +3,7 @@
   "id": "praxic",
   "version": "${version}",
   "name": "PRAXIC",
-  "description": "Server-side AntiCheat for Fabric 1.21.1",
+  "description": "Server-side AntiCheat for Fabric 26.2",
   "authors": [
     "jrxmod"
   ],
@@ -23,9 +23,9 @@
     "praxic.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.15.0",
+    "fabricloader": ">=0.19.3",
     "fabric-api": "*",
-    "minecraft": "~1.21.1",
-    "java": ">=21"
+    "minecraft": "~26.2",
+    "java": ">=25"
   }
 }

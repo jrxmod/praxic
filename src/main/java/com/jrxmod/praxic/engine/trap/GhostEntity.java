@@ -2,7 +2,6 @@ package com.jrxmod.praxic.engine.trap;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.phys.Vec3;
 
@@ -28,7 +27,7 @@ public class GhostEntity {
     }
 
     private void spawn(Vec3 pos) {
-        entity = new ArmorStand(EntityType.ARMOR_STAND, level);
+        entity = new ArmorStand(net.minecraft.world.entity.EntityTypes.ARMOR_STAND, level);
         entity.setPos(pos.x, pos.y, pos.z);
 
         entity.setInvisible(true);

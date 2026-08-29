@@ -75,8 +75,8 @@ public class SpeedCheck extends AbstractCheck {
                 + LagCompensation.extraSpeed(ping)) * LagCompensation.tpsSensitivity();
 
         // Scale threshold with speed effect
-        if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
-            int amplifier = player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
+        if (player.hasEffect(MobEffects.SPEED)) {
+            int amplifier = player.getEffect(MobEffects.SPEED).getAmplifier();
             maxSpeed *= (1.0 + 0.2 * (amplifier + 1));
         }
 

@@ -6,6 +6,7 @@ import com.jrxmod.praxic.manager.ViolationManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
@@ -50,8 +51,9 @@ public class FastBreakCheck extends AbstractCheck {
         data.breakStartTime = 0;
         data.breakingBlockPos = null;
 
-        BlockState state = player.serverLevel().getBlockState(pos);
-        float hardness = state.getDestroySpeed(player.serverLevel(), pos);
+        ServerLevel level = (ServerLevel) player.level();
+        BlockState state = level.getBlockState(pos);
+        float hardness = state.getDestroySpeed(level, pos);
 
         // Skip insta-mine blocks (hardness <= 0) — designed to break instantly
         if (hardness <= 0) return;
@@ -70,8 +72,8 @@ public class FastBreakCheck extends AbstractCheck {
         }
 
         // Haste / Conduit Power: +20% per level, the stronger effect applies.
-        int hasteLevel = player.hasEffect(MobEffects.DIG_SPEED)
-                ? player.getEffect(MobEffects.DIG_SPEED).getAmplifier() : -1;
+        int hasteLevel = player.hasEffect(MobEffects.HASTE)
+                ? player.getEffect(MobEffects.HASTE).getAmplifier() : -1;
         int conduitLevel = player.hasEffect(MobEffects.CONDUIT_POWER)
                 ? player.getEffect(MobEffects.CONDUIT_POWER).getAmplifier() : -1;
         int effectLevel = Math.max(hasteLevel, conduitLevel);
@@ -80,13 +82,12 @@ public class FastBreakCheck extends AbstractCheck {
         }
 
         // Mining Fatigue: vanilla hardcoded multipliers per level.
-        if (player.hasEffect(MobEffects.DIG_SLOWDOWN)) {
-            speed *= switch (player.getEffect(MobEffects.DIG_SLOWDOWN).getAmplifier()) {
-                case 0 -> 0.3f;
-                case 1 -> 0.09f;
-                case 2 -> 0.0027f;
-                default -> 0.00081f;
-            };
+        if (player.hasEffect(MobEffects.MINING_FATIGUE)) {
+            int amp = player.getEffect(MobEffects.MINING_FATIGUE).getAmplifier();
+            if (amp == 0) speed *= 0.3f;
+            else if (amp == 1) speed *= 0.09f;
+            else if (amp == 2) speed *= 0.0027f;
+            else speed *= 0.00081f;
         }
 
         // block_break_speed attribute, normally 1.0.

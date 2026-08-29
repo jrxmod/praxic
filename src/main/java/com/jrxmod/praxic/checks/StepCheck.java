@@ -37,7 +37,7 @@ public class StepCheck extends AbstractCheck {
         if (player.onClimbable()) return;
         if (player.isFallFlying()) return;
         if (data.joinGraceTicks > 0) return;
-        if (player.hasEffect(MobEffects.JUMP)) return;
+        if (player.hasEffect(MobEffects.JUMP_BOOST)) return;
         if (player.hasEffect(MobEffects.LEVITATION)) return;
 
         double dy = player.getY() - data.prevY;

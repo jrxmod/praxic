@@ -6,9 +6,8 @@ import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.UserBanListEntry;
-
-import java.util.Set;
 
 /**
  * Translates a player's confidence score into a concrete action and executes it.
@@ -100,10 +99,10 @@ public class ActionResolver {
         switch (action.toLowerCase()) {
             case "ban" -> {
                 UserBanListEntry ban = new UserBanListEntry(
-                        player.getGameProfile(),
+                        new NameAndId(player.getGameProfile()),
                         null, "PRAXIC", null, reason
                 );
-                player.getServer().getPlayerList().getBans().add(ban);
+                player.level().getServer().getPlayerList().getBans().add(ban);
                 player.connection.disconnect(Component.literal(
                         "§6§lPRAXIC §8§m──────────────§r\n\n" +
                         "§cYou have been §l§cpermanently banned§r§c.\n\n" +
@@ -132,7 +131,7 @@ public class ActionResolver {
             case "setback" -> {
                 player.connection.teleport(
                         data.lastSafeX, data.lastSafeY, data.lastSafeZ,
-                        player.getYRot(), player.getXRot(), Set.of()
+                        player.getYRot(), player.getXRot()
                 );
                 data.resetViolations(checkName);
                 Praxic.LOGGER.warn("[PRAXIC] Player {} was SET BACK by {}.",

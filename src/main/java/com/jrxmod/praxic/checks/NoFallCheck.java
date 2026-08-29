@@ -8,7 +8,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffects;
@@ -17,7 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SweetBerryBushBlock;
 
@@ -44,7 +44,7 @@ public class NoFallCheck extends AbstractCheck {
 
     private static final ResourceKey<Enchantment> FEATHER_FALLING_KEY = ResourceKey.create(
             Registries.ENCHANTMENT,
-            ResourceLocation.withDefaultNamespace("feather_falling")
+            Identifier.withDefaultNamespace("feather_falling")
     );
 
     @Override
@@ -57,14 +57,14 @@ public class NoFallCheck extends AbstractCheck {
         if (!Praxic.getConfig().noFallCheckEnabled) return;
 
         // Servers may disable fall damage globally via the fallDamage gamerule.
-        if (!player.serverLevel().getGameRules().getBoolean(GameRules.RULE_FALL_DAMAGE)) {
+        if (!player.level().getGameRules().get(GameRules.FALL_DAMAGE)) {
             resetFallData(data);
             return;
         }
 
         if (player.isSpectator() || player.isCreative() || player.isDeadOrDying() ||
             player.isPassenger() || player.isInWater() || player.isInLava() ||
-            player.hasEffect(MobEffects.SLOW_FALLING) || player.hasEffect(MobEffects.JUMP) ||
+            player.hasEffect(MobEffects.SLOW_FALLING) || player.hasEffect(MobEffects.JUMP_BOOST) ||
             player.isFallFlying() || player.getAbilities().flying || player.onClimbable()) {
             resetFallData(data);
             return;
@@ -98,7 +98,7 @@ public class NoFallCheck extends AbstractCheck {
 
         // ── Track fall distance and snapshot health while airborne ───────────
         if (!player.onGround()) {
-            float fallDistance = player.fallDistance;
+            float fallDistance = (float) player.fallDistance;
 
             // Detect interrupted fall: vine, ladder, climbable, water exit, etc.
             // If server-side fallDistance dropped significantly below our tracked max,
@@ -156,13 +156,13 @@ public class NoFallCheck extends AbstractCheck {
         // Protection and Feather Falling points from the vanilla protection system.
         DamageSource fallSource = player.damageSources().fall();
         float protection = EnchantmentHelper.getDamageProtection(
-                player.serverLevel(), player, fallSource);
+                (net.minecraft.server.level.ServerLevel) player.level(), player, fallSource);
         float protectionReduction = Math.min(20.0f, protection) / 25.0f;
         damage *= 1.0f - protectionReduction;
 
         // Resistance reduces all damage by 20% per level.
-        if (player.hasEffect(MobEffects.DAMAGE_RESISTANCE)) {
-            int amplifier = player.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier();
+        if (player.hasEffect(MobEffects.RESISTANCE)) {
+            int amplifier = player.getEffect(MobEffects.RESISTANCE).getAmplifier();
             damage *= Math.max(0.0f, 1.0f - 0.2f * (amplifier + 1));
         }
 

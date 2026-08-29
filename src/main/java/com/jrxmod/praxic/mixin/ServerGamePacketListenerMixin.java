@@ -11,17 +11,14 @@ import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
-import net.minecraft.world.InteractionHand;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.FireworkRocketItem;
-import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Mixin(ServerGamePacketListenerImpl.class)
 public class ServerGamePacketListenerMixin {
@@ -42,7 +39,7 @@ public class ServerGamePacketListenerMixin {
         boolean hasPos = packet.hasPosition();
         boolean onGroundPacket = packet.isOnGround();
 
-        player.getServer().execute(() -> {
+        player.level().getServer().execute(() -> {
             CheckManager cm = Praxic.getCheckManager();
             PlayerData data = cm.getPlayerData(player.getUUID());
             if (data == null) return;
@@ -64,7 +61,7 @@ public class ServerGamePacketListenerMixin {
     private void onHandlePlayerAction(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
         ServerboundPlayerActionPacket.Action action = packet.getAction();
         var pos = packet.getPos();
-        player.getServer().execute(() -> {
+        player.level().getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
             if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
@@ -77,17 +74,13 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleInteract", at = @At("HEAD"))
     private void onHandleInteract(ServerboundInteractPacket packet, CallbackInfo ci) {
-        Entity target = packet.getTarget(player.serverLevel());
+        Entity target = ((ServerLevel) player.level()).getEntity(packet.entityId());
         if (target == null) return;
-        AtomicBoolean isAttack = new AtomicBoolean(false);
-        packet.dispatch(new ServerboundInteractPacket.Handler() {
-            @Override public void onInteraction(InteractionHand hand) {}
-            @Override public void onInteraction(InteractionHand hand, Vec3 pos) {}
-            @Override public void onAttack() { isAttack.set(true); }
-        });
-        if (!isAttack.get()) return;
+        // In 26.2, ServerboundInteractPacket is a Record with usingSecondaryAction flag.
+        // usingSecondaryAction=false means attack (primary action).
+        if (packet.usingSecondaryAction()) return;
         var targetUuid = target.getUUID();
-        player.getServer().execute(() -> {
+        player.level().getServer().execute(() -> {
             CheckManager cm = Praxic.getCheckManager();
             PlayerData data = cm.getPlayerData(player.getUUID());
             if (data == null) return;
@@ -107,7 +100,7 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleUseItem", at = @At("HEAD"))
     private void onHandleUseItem(ServerboundUseItemPacket packet, CallbackInfo ci) {
-        player.getServer().execute(() -> {
+        player.level().getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
             if (player.getMainHandItem().getItem() instanceof FireworkRocketItem
@@ -119,7 +112,7 @@ public class ServerGamePacketListenerMixin {
 
     @Inject(method = "handleContainerClick", at = @At("HEAD"))
     private void onHandleContainerClick(ServerboundContainerClickPacket packet, CallbackInfo ci) {
-        player.getServer().execute(() -> {
+        player.level().getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data == null) return;
             Praxic.getCheckManager().getInventoryCheck().onInventoryClick(player, data);
@@ -132,7 +125,7 @@ public class ServerGamePacketListenerMixin {
      */
     @Inject(method = "handleAcceptTeleportPacket", at = @At("HEAD"))
     private void onHandleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket packet, CallbackInfo ci) {
-        player.getServer().execute(() -> {
+        player.level().getServer().execute(() -> {
             PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
             if (data != null) {
                 data.teleportGraceTicks = TELEPORT_GRACE_TICKS;

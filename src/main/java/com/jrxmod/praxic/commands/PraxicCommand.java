@@ -12,7 +12,6 @@ import com.jrxmod.praxic.manager.DebugRecorder;
 import com.jrxmod.praxic.manager.EvidenceManager;
 import com.jrxmod.praxic.manager.HistoryManager;
 import com.jrxmod.praxic.manager.WhitelistManager;
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -38,7 +37,7 @@ public class PraxicCommand {
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("praxic")
-                    .requires(source -> source.hasPermission(2));
+                    .requires(Commands.hasPermission(Commands.LEVEL_ADMINS));
 
             root.then(Commands.literal("status").executes(PraxicCommand::cmdStatus));
             root.then(Commands.literal("dashboard").executes(PraxicCommand::cmdDashboard));
@@ -434,7 +433,7 @@ public class PraxicCommand {
         }
         EvidenceManager.EvidenceEntry last = entries.get(0);
         executor.connection.teleport(last.x, last.y, last.z,
-                executor.getYRot(), executor.getXRot(), Set.of());
+                executor.getYRot(), executor.getXRot());
         send(source, "§6[PRAXIC] §fTeleported to last flag location for §e" + name +
                 " §8(" + String.format("%.1f %.1f %.1f", last.x, last.y, last.z) +
                 " §8in §7" + last.world + "§8)");
@@ -609,10 +608,9 @@ public class PraxicCommand {
         ServerPlayer online = source.getServer().getPlayerList().getPlayerByName(name);
         if (online != null) return online.getUUID();
 
-        GameProfile profile = source.getServer().getProfileCache() != null
-                ? source.getServer().getProfileCache().get(name).map(p -> p).orElse(null)
-                : null;
-        return profile != null ? profile.getId() : null;
+        // ProfileCache removed in 1.21.2+, return null for offline names
+        // Users are expected to search for online players anyway
+        return null;
     }
 
     private static String row(String label, boolean enabled) {
