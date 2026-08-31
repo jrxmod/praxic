@@ -1,10 +1,9 @@
 package com.jrxmod.praxic.mixin;
 
 import com.jrxmod.praxic.Praxic;
-import com.jrxmod.praxic.checks.FastPlaceCheck;
-import com.jrxmod.praxic.checks.ScaffoldCheck;
-import com.jrxmod.praxic.checks.TowerCheck;
 import com.jrxmod.praxic.data.PlayerData;
+import com.jrxmod.praxic.manager.CheckManager;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
 import net.minecraft.world.InteractionHand;
@@ -27,6 +26,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ServerPlayerGameMode.class)
 public class ServerPlayerGameModeMixin {
 
+    @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
+    private void praxic$mitigateUseItemOn(ServerPlayer player, Level level, ItemStack stack,
+                                          InteractionHand hand, BlockHitResult hitResult,
+                                          CallbackInfoReturnable<InteractionResult> cir) {
+        if (!(stack.getItem() instanceof BlockItem)) return;
+        CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
+        PlayerData data = cm.getPlayerData(player.getUUID());
+        if (data == null) return;
+        if (cm.getAirPlaceCheck().shouldCancel(player, hitResult, data)) {
+            cir.setReturnValue(InteractionResult.FAIL);
+        }
+    }
+
     @Inject(method = "useItemOn", at = @At("RETURN"))
     private void praxic$onUseItemOn(ServerPlayer player, Level level, ItemStack stack,
                                     InteractionHand hand, BlockHitResult hitResult,
@@ -34,17 +47,14 @@ public class ServerPlayerGameModeMixin {
         if (!(stack.getItem() instanceof BlockItem)) return;
         if (!cir.getReturnValue().consumesAction()) return;
 
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+        CheckManager cm = Praxic.getCheckManager();
+        PlayerData data = cm.getPlayerData(player.getUUID());
         if (data == null) return;
 
-        for (var check : Praxic.getCheckManager().getChecks()) {
-            if (check instanceof FastPlaceCheck fastPlace) {
-                fastPlace.onBlockPlace(player, data);
-            } else if (check instanceof ScaffoldCheck scaffold) {
-                scaffold.onBlockPlace(player, hitResult.getBlockPos(), data);
-            } else if (check instanceof TowerCheck tower) {
-                tower.onBlockPlace(player, hitResult.getBlockPos(), data);
-            }
-        }
+        BlockPos placed = hitResult.getBlockPos().relative(hitResult.getDirection());
+        cm.getFastPlaceCheck().onBlockPlace(player, data);
+        cm.getScaffoldCheck().onBlockPlace(player, placed, data);
+        cm.getTowerCheck().onBlockPlace(player, placed, data);
+        cm.getAirPlaceCheck().onBlockPlace(player, hitResult, data);
     }
 }

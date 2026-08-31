@@ -172,6 +172,12 @@ public class ViolationManager {
             case "GroundSpoofCheck"  -> Praxic.getConfig().groundSpoofAction;
             case "FastPlaceCheck"    -> Praxic.getConfig().fastPlaceAction;
             case "TeleportCheck"     -> Praxic.getConfig().teleportAction;
+            case "AimAssistCheck"    -> Praxic.getConfig().aimAssistAction;
+            case "VehicleFlyCheck"   -> Praxic.getConfig().vehicleFlyAction;
+            case "FastUseCheck"      -> Praxic.getConfig().fastUseAction;
+            case "AirPlaceCheck"     -> Praxic.getConfig().airPlaceAction;
+            case "MaceSmashCheck"    -> Praxic.getConfig().maceSmashAction;
+            case "WindChargeAbuseCheck" -> Praxic.getConfig().windChargeAbuseAction;
             default                  -> "kick";
         };
     }
@@ -211,6 +217,8 @@ public class ViolationManager {
             case "GroundSpoofCheck"  -> "Ground state spoofing is not allowed.";
             case "FastPlaceCheck"    -> "Block placement rate limit exceeded.";
             case "TeleportCheck"     -> "Unexplained teleport is not allowed.";
+            case "MaceSmashCheck"    -> "Illegal mace smash is not allowed.";
+            case "WindChargeAbuseCheck" -> "Wind Charge abuse is not allowed.";
             default                  -> "Suspicious behaviour detected.";
         };
     }

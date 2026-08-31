@@ -34,6 +34,10 @@ public class ElytraFlyCheck extends AbstractCheck {
         if (player.getAbilities().mayfly) return;
         if (player.isDeadOrDying()) return;
         if (data.joinGraceTicks > 0) return;
+        if (Praxic.getImpulseEngine() != null && Praxic.getImpulseEngine().isActive(player.getUUID())) {
+            data.elytraBuffer = 0;
+            return;
+        }
 
         if (!player.isFallFlying()) {
             data.elytraBuffer = Math.max(0, data.elytraBuffer - BUFFER_DECAY);

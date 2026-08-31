@@ -2,6 +2,80 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.16.0 - Impact
+
+### Added
+- **Packet mitigation**: illegal move, reach, air-place and Wind Charge packets are cancelled on the server thread before vanilla applies them. Movement setback rubberbands the client to `lastSafe`. Skips Impulse windows, join grace, creative, spectator and whitelist. A 2-packet buffer fires before the first rubberband. Timer, AutoClicker, Inventory and AimAssist are never cancelled this way. Toggle: `enableMitigation`.
+- **MaceSmashCheck**: flags a mace attack that claims smash damage while hovering (airborne, not falling, `fallDistance` below vanilla 1.5). A real smash records an Impulse MACE window. Jump-peak hits are not flagged.
+- **WindChargeAbuseCheck**: cancels a Wind Charge use while the vanilla 10-tick cooldown is active; flags a burst of charges used as hover fuel.
+
+### Changed
+- Config schema v5 (`enableMitigation`, mace and wind-charge check fields); v7 migrates leftover Timer 55 pkt/s to 32.
+- `/praxic status` and the dashboard list 35 checks.
+- Movement packet handlers no longer defer via `server.execute()`; cancellation must happen on the calling server thread.
+
+### Fixed
+- **TeleportCheck** reseeds its packet baseline on elytra / passenger / Impulse skips, so a long elytra flight no longer flags `Moved 8.8 blocks in one packet`. Blink is no longer treated as a connection stall.
+- **JesusCheck** no longer requires `!isInWater` (water-walk keeps the AABB in water). Flags onGround water-walk with no solid floor, after a short buffer.
+- **BoatFlyCheck** ignores spoofed `onGround` / `isInWater` and looks at real liquid/solid support. Hover threshold 12 ticks.
+- **SpeedCheck** flags against a sprint-jump cap (~0.72 b/t, attribute-scaled) instead of the 1.3 teleport ceiling, so Speed / BunnyHop modules are visible.
+- **FlyCheck** records and can cancel `flying=true` ability packets; creative-style Fly was previously only kicked by vanilla (`Flying is not enabled`) with PRAXIC VL=0.
+- **FastBreakCheck** needs two consecutive impossible breaks before a flag (Nuker still trips; a single 0 ms packet does not).
+- **TeleportCheck** compares each move packet to the tick-start origin. Blink dumps many small packets in one tick (vanilla `moved too quickly`) which consecutive-packet distance never saw.
+- **FlyCheck** uses collision support instead of `onGround` / airTicks, so Flight with anti-kick is flagged in ~1.5 s instead of waiting for vanilla `floating too long`.
+- **JesusCheck** matches the in-liquid `vy=0.11` hop and onGround spoof above water, including lava.
+- **BoatFlyCheck** only treats the hull AABB as supported; water one block below is not support. Hover threshold 8 ticks.
+- **SpeedCheck** grounded cap 0.50 b/t so ground speed cheats (cap ~0.66) are visible.
+- **JesusCheck** packet path requires an `onGround=true` spoof while not in water; surface swimming and water-exit are ignored. Water-exit grace restored.
+- **BoatFlyCheck** ignores duplicate vehicle packets and real freefall (`dy < -0.08`); hull fluid is sampled at the boat Y, so landing on water is not a hover.
+- **AutoTotemCheck** timestamps vanilla totem pops and flags inventory clicks within 150 ms (instant re-equip). Tick polling missed same-tick re-equip.
+- **NoFallCheck** tracks peak Y vs current Y and only treats the block at the feet as landed. StatusOnly `onGround` packets no longer zero the fall, and `onGround=false` movement packets no longer cancel the spoof counter.
+- **AutoTotemCheck** flags offhand/totem inventory clicks within 400 ms of damage or a totem pop (slot 45, carried totem, F-swap).
+- **GroundSpoofCheck** uses packet onGround plus foot collision (including StatusOnly). Tick airTicks / server onGround are ignored.
+- **VehicleFlyCheck** reads vehicle-move packets like BoatFly.
+- **StepCheck** flags a single packet climb above 0.75 (vanilla jump is ~0.42). Vertical 10-block steps are not TeleportCheck.
+- **NoSlowCheck** treats use-item speed above ~0.16 or sprint-while-using as NoSlowdown (the 0.30 cap was full sprint).
+- **ScaffoldCheck** uses the placed block (clicked face + direction), not the clicked neighbour.
+- **GroundSpoofCheck** ignores StatusOnly packets (NoFall / standing still). Standing on the block below is not a spoof.
+- **TimerCheck** compares packet count to elapsed seconds, not a fixed 5s quota (x2.0 was always under 55*5).
+- **NoSlowCheck** requires an active use-item on the ground; sprint after eating and eating while falling are ignored.
+- **NoFallCheck** does not treat onGround packets as spoof when water is within 4 blocks below (vanilla water landings).
+- **TimerCheck** treats leftover `timerMaxPacketsPerSecond` 55 as 32 (schema v7). Evaluates after 2s of walking. Timer x2.0 is extra position packets (~40/s vs vanilla ~20/s); standing still does not send them.
+- **TimerCheck** no longer uses packets/sec. Timer x2.0 delivers two position packets in the same server tick with the same millisecond, so the 5s average stayed at ~20. Flags a 50ms-per-packet balance (client ahead ~600ms) or 10 ticks in a row with 2+ position packets.
+- **ScaffoldCheck** no longer flags vanilla run-and-place. Holding right-click while walking is the same rate as automated bridging. Requires under-foot places while last tick's pitch was not looking down (look spoof for the click).
+- **ScaffoldCheck** requires a rotation-only look packet in the 250ms before an under-foot place (look-then-click). Vanilla walking sends PosRot, not a bare Rot. Extra Rot packets are not Timer.
+- **TimerCheck** dropped the TPS-below-17 skip (a local server often sits there and the check never ran). Position packets only (look-only Rot from ScaffoldWalk is not Timer). Also flags ~9+ blocks of XZ in 20 ticks (vanilla sprint ~5.6, Timer x2 ~11).
+- **TimerCheck** grounded window: 6.6 blocks over 20 on-ground ticks (vanilla sprint 5.6). Jump ticks are ignored so sprint-jump is not Timer. Walking with Timer x2.0 (~8.6) is visible without a sprint.
+- **ScaffoldCheck** no longer uses per-tick `prevX` (place packets often arrive before movement, so dx was 0). Flags 3 near-feet places in 2s whose player XZ moved. Automated scaffold may place up to 2 blocks out.
+
+## 0.15.0 - Impulse
+
+### Added
+- **Impulse engine**: short-lived exemptions for vanilla knockback that is not gravity-only: damage, explosions, wind charges, riptide, and mace smash. Movement checks skip while an impulse is active.
+- **XZ friction prediction** in PhysicsEngine (ground 0.6, air 0.91, water 0.8). Completes the placeholder left since 0.7.0.
+- **AimAssistCheck**: flags abnormally low yaw entropy during combat while the player is still rotating.
+- **VehicleFlyCheck**: hovering horses, pigs, striders and minecarts (off rails). BoatFlyCheck is unchanged.
+- **FastUseCheck**: eat/drink finishing in far fewer ticks than vanilla (32).
+- **AirPlaceCheck**: placements against air or beyond block interaction range.
+- Ghost honeypot **v2**: marker ArmorStand, no collision, at most one per player, spawn packets hidden from other players via ChunkMap tracker filter.
+
+### Fixed
+- `/praxic tp` now changes dimension to the world stored in the evidence packet.
+- `/praxic whitelist add|remove` works for offline players via the profile cache.
+- `TimerCheck` ignored `timerMaxPacketsPerSecond` and used a hardcoded window; it now reads config (default 55 pkt/s) and uses CheckManager TPS instead of per-packet reflection.
+- `ReachCheck` now uses `entityInteractionRange()` so attribute modifiers are respected.
+- `SpeedCheck` scales with the live `MOVEMENT_SPEED` attribute and skips soul sand / soul soil.
+- `JesusCheck` no longer flags bubble columns.
+- `FlyCheck` / `YPredictionCheck` / `StepCheck` / `GroundSpoofCheck` / `TeleportCheck` skip during riptide and Impulse windows (wind charge, mace, explosions).
+- Debug recordings leaked if the player disconnected mid-capture.
+- Web dashboard thread pool was not shut down on server stop.
+- Ghost ArmorStands were broadcast to every player and had full collision.
+
+### Changed
+- Config schema v4. Stale `timerMaxPacketsPerSecond: 24` is migrated to 55.
+- `/praxic status` and the dashboard list 33 checks.
+- Discord embeds distinguish freeze, setback and warn actions.
+
 ## 0.14.0 - Polish
 
 ### Added

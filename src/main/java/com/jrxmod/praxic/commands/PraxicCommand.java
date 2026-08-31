@@ -19,8 +19,13 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 
 import java.util.List;
 import java.util.Map;
@@ -161,6 +166,7 @@ public class PraxicCommand {
         send(source, row("StepCheck",         cfg.stepCheckEnabled));
         send(source, row("GroundSpoofCheck",  cfg.groundSpoofCheckEnabled));
         send(source, row("TeleportCheck",    cfg.teleportCheckEnabled));
+        send(source, row("VehicleFlyCheck",  cfg.vehicleFlyCheckEnabled));
 
         send(source, " §8§oCombat");
         send(source, row("ReachCheck",        cfg.reachCheckEnabled));
@@ -170,6 +176,9 @@ public class PraxicCommand {
         send(source, row("VelocityCheck",     cfg.velocityCheckEnabled));
         send(source, row("RotationCheck",     cfg.rotationCheckEnabled));
         send(source, row("PostKillSnapCheck", cfg.postKillSnapCheckEnabled));
+        send(source, row("AimAssistCheck",    cfg.aimAssistCheckEnabled));
+        send(source, row("MaceSmashCheck",    cfg.maceSmashCheckEnabled));
+        send(source, row("WindChargeAbuseCheck", cfg.windChargeAbuseCheckEnabled));
 
         send(source, " §8§oWorld");
         send(source, row("ScaffoldCheck",     cfg.scaffoldCheckEnabled));
@@ -177,6 +186,7 @@ public class PraxicCommand {
         send(source, row("FastPlaceCheck",    cfg.fastPlaceCheckEnabled));
         send(source, row("TowerCheck",        cfg.towerCheckEnabled));
         send(source, row("NoFallCheck",       cfg.noFallCheckEnabled));
+        send(source, row("AirPlaceCheck",     cfg.airPlaceCheckEnabled));
 
         send(source, " §8§oClient");
         send(source, row("AutoClickerCheck",  cfg.autoClickerCheckEnabled));
@@ -184,12 +194,14 @@ public class PraxicCommand {
         send(source, row("InventoryCheck",    cfg.inventoryCheckEnabled));
         send(source, row("TimerCheck",        cfg.timerCheckEnabled));
         send(source, row("BadPacketsCheck",   cfg.badPacketsCheckEnabled));
+        send(source, row("FastUseCheck",      cfg.fastUseCheckEnabled));
 
         send(source, " §8§oSystem");
         send(source, row("Logging",           cfg.enableLogging));
         send(source, row("StaffAlerts",       cfg.enableStaffAlerts));
         send(source, row("Discord",           cfg.enableDiscordWebhook));
         send(source, row("WebDashboard",      cfg.enableWebDashboard));
+        send(source, row("Mitigation",        cfg.enableMitigation));
 
         if (cfg.enableWebDashboard) {
             send(source, BULLET + "§8» §7Dashboard: §bhttp://127.0.0.1:" + cfg.webDashboardPort + "/");
@@ -433,8 +445,23 @@ public class PraxicCommand {
             return 0;
         }
         EvidenceManager.EvidenceEntry last = entries.get(0);
-        executor.connection.teleport(last.x, last.y, last.z,
-                executor.getYRot(), executor.getXRot(), Set.of());
+        float yaw = executor.getYRot();
+        float pitch = executor.getXRot();
+        boolean changedDim = false;
+        if (last.world != null && !last.world.isBlank()) {
+            try {
+                ResourceLocation loc = ResourceLocation.parse(last.world);
+                ResourceKey<Level> key = ResourceKey.create(Registries.DIMENSION, loc);
+                ServerLevel targetLevel = executor.getServer().getLevel(key);
+                if (targetLevel != null && executor.serverLevel() != targetLevel) {
+                    executor.teleportTo(targetLevel, last.x, last.y, last.z, Set.of(), yaw, pitch);
+                    changedDim = true;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (!changedDim) {
+            executor.connection.teleport(last.x, last.y, last.z, yaw, pitch, Set.of());
+        }
         send(source, "§6[PRAXIC] §fTeleported to last flag location for §e" + name +
                 " §8(" + String.format("%.1f %.1f %.1f", last.x, last.y, last.z) +
                 " §8in §7" + last.world + "§8)");
@@ -452,13 +479,13 @@ public class PraxicCommand {
     private static int cmdWhitelistAdd(CommandContext<CommandSourceStack> ctx) {
         String name = StringArgumentType.getString(ctx, "player");
         CommandSourceStack source = ctx.getSource();
-        ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(name);
-        if (target == null) {
+        UUID uuid = findUuid(source, name);
+        if (uuid == null) {
             source.sendFailure(Component.literal("§c[PRAXIC] Player not found: §e" + name));
             return 0;
         }
         WhitelistManager wl = Praxic.getWhitelistManager();
-        boolean added = wl.add(target.getUUID());
+        boolean added = wl.add(uuid);
         if (added) {
             send(source, "§6[PRAXIC] §e" + name + " §fadded to whitelist.");
             PraxicLogger.logInfo(name + " added to whitelist by " + source.getTextName());
@@ -471,13 +498,13 @@ public class PraxicCommand {
     private static int cmdWhitelistRemove(CommandContext<CommandSourceStack> ctx) {
         String name = StringArgumentType.getString(ctx, "player");
         CommandSourceStack source = ctx.getSource();
-        ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(name);
-        if (target == null) {
+        UUID uuid = findUuid(source, name);
+        if (uuid == null) {
             source.sendFailure(Component.literal("§c[PRAXIC] Player not found: §e" + name));
             return 0;
         }
         WhitelistManager wl = Praxic.getWhitelistManager();
-        boolean removed = wl.remove(target.getUUID());
+        boolean removed = wl.remove(uuid);
         if (removed) {
             send(source, "§6[PRAXIC] §e" + name + " §fremoved from whitelist.");
             PraxicLogger.logInfo(name + " removed from whitelist by " + source.getTextName());

@@ -16,13 +16,13 @@ import com.jrxmod.praxic.engine.analysis.TimingProfile;
 import com.jrxmod.praxic.engine.data.PlayerSnapshot;
 import com.jrxmod.praxic.engine.data.SnapshotBuilder;
 import com.jrxmod.praxic.engine.decision.AnomalyScoreEngine;
+import com.jrxmod.praxic.engine.physics.ImpulseEngine;
 import com.jrxmod.praxic.engine.physics.PhysicsEngine;
 import com.jrxmod.praxic.engine.physics.PhysicsResult;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
 
 import java.util.*;
 
@@ -44,15 +44,31 @@ public class CheckManager {
     // Direct references to event-driven checks — avoids stream filtering in mixins
     // -------------------------------------------------------------------------
 
-    private final BadPacketsCheck   badPacketsCheck   = new BadPacketsCheck();
-    private final TimerCheck        timerCheck        = new TimerCheck();
-    private final TeleportCheck     teleportCheck     = new TeleportCheck();
-    private final FastBreakCheck    fastBreakCheck    = new FastBreakCheck();
-    private final CriticalsCheck    criticalsCheck    = new CriticalsCheck();
-    private final ReachCheck        reachCheck        = new ReachCheck();
-    private final KillAuraCheck     killAuraCheck     = new KillAuraCheck();
-    private final AutoClickerCheck  autoClickerCheck  = new AutoClickerCheck();
-    private final InventoryCheck    inventoryCheck    = new InventoryCheck();
+    private final FlyCheck              flyCheck              = new FlyCheck();
+    private final SpeedCheck            speedCheck            = new SpeedCheck();
+    private final BadPacketsCheck       badPacketsCheck       = new BadPacketsCheck();
+    private final TimerCheck            timerCheck            = new TimerCheck();
+    private final TeleportCheck         teleportCheck         = new TeleportCheck();
+    private final FastBreakCheck        fastBreakCheck        = new FastBreakCheck();
+    private final CriticalsCheck        criticalsCheck        = new CriticalsCheck();
+    private final ReachCheck            reachCheck            = new ReachCheck();
+    private final KillAuraCheck         killAuraCheck         = new KillAuraCheck();
+    private final AutoClickerCheck      autoClickerCheck      = new AutoClickerCheck();
+    private final InventoryCheck        inventoryCheck        = new InventoryCheck();
+    private final FastPlaceCheck        fastPlaceCheck        = new FastPlaceCheck();
+    private final ScaffoldCheck         scaffoldCheck         = new ScaffoldCheck();
+    private final TowerCheck            towerCheck            = new TowerCheck();
+    private final AirPlaceCheck         airPlaceCheck         = new AirPlaceCheck();
+    private final MaceSmashCheck        maceSmashCheck        = new MaceSmashCheck();
+    private final WindChargeAbuseCheck  windChargeAbuseCheck  = new WindChargeAbuseCheck();
+    private final JesusCheck            jesusCheck            = new JesusCheck();
+    private final BoatFlyCheck          boatFlyCheck          = new BoatFlyCheck();
+    private final AutoTotemCheck        autoTotemCheck        = new AutoTotemCheck();
+    private final NoFallCheck           noFallCheck           = new NoFallCheck();
+    private final GroundSpoofCheck      groundSpoofCheck      = new GroundSpoofCheck();
+    private final VehicleFlyCheck       vehicleFlyCheck       = new VehicleFlyCheck();
+    private final StepCheck             stepCheck             = new StepCheck();
+    private final NoSlowCheck           noSlowCheck           = new NoSlowCheck();
 
     // -------------------------------------------------------------------------
     // Performance monitoring
@@ -88,42 +104,60 @@ public class CheckManager {
     private static final int WATER_EXIT_GRACE_TICKS = 15;
 
     public CheckManager() {
-        checks.add(new FlyCheck());
+        checks.add(flyCheck);
         checks.add(new YPredictionCheck());
-        checks.add(new SpeedCheck());
+        checks.add(speedCheck);
         checks.add(new PhaseCheck());
-        checks.add(new NoSlowCheck());
-        checks.add(new NoFallCheck());
+        checks.add(noSlowCheck);
+        checks.add(noFallCheck);
         checks.add(reachCheck);
         checks.add(killAuraCheck);
         checks.add(new GhostTrapCheck());
         checks.add(criticalsCheck);
-        checks.add(new ScaffoldCheck());
-        checks.add(new AutoTotemCheck());
+        checks.add(scaffoldCheck);
+        checks.add(autoTotemCheck);
         checks.add(inventoryCheck);
         checks.add(autoClickerCheck);
         checks.add(timerCheck);
         checks.add(badPacketsCheck);
         checks.add(fastBreakCheck);
-        checks.add(new JesusCheck());
+        checks.add(jesusCheck);
         checks.add(new VelocityCheck());
         checks.add(new RotationCheck());
         checks.add(new SprintCheck());
-        checks.add(new BoatFlyCheck());
+        checks.add(boatFlyCheck);
         checks.add(new PostKillSnapCheck());
         // New in 0.12.0
         checks.add(new ElytraFlyCheck());
-        checks.add(new StepCheck());
-        checks.add(new TowerCheck());
-        checks.add(new GroundSpoofCheck());
-        checks.add(new FastPlaceCheck());
+        checks.add(stepCheck);
+        checks.add(towerCheck);
+        checks.add(groundSpoofCheck);
+        checks.add(fastPlaceCheck);
         // New in 0.13.0
         checks.add(teleportCheck);
+        // New in 0.15.0
+        checks.add(new AimAssistCheck());
+        checks.add(vehicleFlyCheck);
+        checks.add(new FastUseCheck());
+        checks.add(airPlaceCheck);
+        // New in 0.16.0
+        checks.add(maceSmashCheck);
+        checks.add(windChargeAbuseCheck);
 
         // Kill event — notify RotationAnalyzer to open post-kill snap window
         ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
             if (killer instanceof ServerPlayer player) {
                 rotationAnalyzer.onKill(player.getUUID());
+            }
+        });
+
+        ServerTickEvents.START_SERVER_TICK.register(server -> {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerData data = getOrCreateData(player);
+                data.tickOriginX = player.getX();
+                data.tickOriginY = player.getY();
+                data.tickOriginZ = player.getZ();
+                data.tickOriginSet = true;
             }
         });
 
@@ -146,6 +180,12 @@ public class CheckManager {
             for (ServerPlayer player : players) {
                 PlayerData data = getOrCreateData(player);
                 UUID uuid = player.getUUID();
+
+                ImpulseEngine impulse = Praxic.getImpulseEngine();
+                if (impulse != null) {
+                    impulse.tick(uuid);
+                    recordImpulses(player, data, impulse);
+                }
 
                 // Enforce freeze punishment — hold the player at the frozen
                 // position for the remaining freeze ticks.
@@ -173,7 +213,17 @@ public class CheckManager {
                     data.fastPlaceCount = 0;
                     data.stepBuffer = 0;
                     data.elytraBuffer = 0;
+                    data.vehicleFlyTicks = 0;
+                    data.aimAssistBuffer = 0;
+                    data.fastUseTicks = 0;
+                    data.airPlaceBuffer = 0;
+                    data.mitigateMoveBuffer = 0;
+                    data.maceSmashBuffer = 0;
+                    data.windChargeUseTimes.clear();
                     physicsEngine.reset(uuid);
+                    if (Praxic.getImpulseEngine() != null) {
+                        Praxic.getImpulseEngine().reset(uuid);
+                    }
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
                     continue;
                 }
@@ -289,6 +339,10 @@ public class CheckManager {
             playerProfiler.reset(uuid);
             Praxic.getConfidenceEngine().reset(uuid);
             Praxic.getAnomalyScoreEngine().reset(uuid);
+            if (Praxic.getImpulseEngine() != null) {
+                Praxic.getImpulseEngine().reset(uuid);
+            }
+            DebugRecorder.cancel(uuid);
             ViolationManager.cleanup(uuid);
             if (Praxic.getGhostEntityManager() != null) {
                 Praxic.getGhostEntityManager().resetPlayer(uuid);
@@ -384,6 +438,32 @@ public class CheckManager {
     // Internal helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Records vanilla motion impulses that movement checks must ignore.
+     * Damage-type matching uses the resource path so mappings stay stable.
+     */
+    private void recordImpulses(ServerPlayer player, PlayerData data, ImpulseEngine impulse) {
+        UUID uuid = player.getUUID();
+        if (player.isAutoSpinAttack()) {
+            impulse.record(uuid, ImpulseEngine.Kind.RIPTIDE);
+        }
+        if (data.prevHurtTime == 0 && player.hurtTime > 0) {
+            impulse.record(uuid, ImpulseEngine.Kind.KNOCKBACK);
+            var src = player.getLastDamageSource();
+            if (src != null) {
+                String path = src.getMsgId();
+                if (path.contains("wind_charge") || path.contains("wind_burst")) {
+                    impulse.record(uuid, ImpulseEngine.Kind.WIND);
+                } else if (path.contains("explosion") || path.contains("bad_respawn") || path.contains("fireworks")) {
+                    impulse.record(uuid, ImpulseEngine.Kind.EXPLOSION);
+                } else if (path.contains("mace") || path.contains("smash")) {
+                    impulse.record(uuid, ImpulseEngine.Kind.MACE);
+                }
+            }
+        }
+        data.prevHurtTime = player.hurtTime;
+    }
+
     private void runChecks(ServerPlayer player, PlayerData data) {
         for (AbstractCheck check : checks) check.check(player, data);
     }
@@ -431,6 +511,22 @@ public class CheckManager {
     public KillAuraCheck     getKillAuraCheck()     { return killAuraCheck; }
     public AutoClickerCheck  getAutoClickerCheck()  { return autoClickerCheck; }
     public InventoryCheck    getInventoryCheck()    { return inventoryCheck; }
+    public FastPlaceCheck    getFastPlaceCheck()    { return fastPlaceCheck; }
+    public ScaffoldCheck     getScaffoldCheck()     { return scaffoldCheck; }
+    public TowerCheck        getTowerCheck()        { return towerCheck; }
+    public AirPlaceCheck         getAirPlaceCheck()         { return airPlaceCheck; }
+    public FlyCheck              getFlyCheck()              { return flyCheck; }
+    public SpeedCheck            getSpeedCheck()            { return speedCheck; }
+    public MaceSmashCheck        getMaceSmashCheck()        { return maceSmashCheck; }
+    public WindChargeAbuseCheck  getWindChargeAbuseCheck()  { return windChargeAbuseCheck; }
+    public JesusCheck            getJesusCheck()            { return jesusCheck; }
+    public BoatFlyCheck          getBoatFlyCheck()          { return boatFlyCheck; }
+    public AutoTotemCheck        getAutoTotemCheck()        { return autoTotemCheck; }
+    public NoFallCheck           getNoFallCheck()           { return noFallCheck; }
+    public GroundSpoofCheck      getGroundSpoofCheck()      { return groundSpoofCheck; }
+    public VehicleFlyCheck       getVehicleFlyCheck()       { return vehicleFlyCheck; }
+    public StepCheck             getStepCheck()             { return stepCheck; }
+    public NoSlowCheck           getNoSlowCheck()           { return noSlowCheck; }
 
     // -------------------------------------------------------------------------
     // Performance monitoring accessors

@@ -17,7 +17,7 @@ public class PraxicConfig {
      * Current configuration schema version. Incremented when a release adds,
      * removes, or renames fields, and matched by stepwise blocks in migrate().
      */
-    public static final int CURRENT_CONFIG_VERSION = 3;
+    public static final int CURRENT_CONFIG_VERSION = 7;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
 
@@ -101,8 +101,10 @@ public class PraxicConfig {
     public String autoClickerAction = "kick";
 
     // TimerCheck settings
+    // Vanilla moving is ~20 pos packets/s. Timer x2.0 is ~40. 32 catches x2
+    // after ~2s. Values >= 50 are the stale 55 default and miss x2.0.
     public boolean timerCheckEnabled = true;
-    public int timerMaxPacketsPerSecond = 24;
+    public int timerMaxPacketsPerSecond = 32;
     public int timerMaxViolations = 5;
     public String timerAction = "kick";
 
@@ -192,6 +194,43 @@ public class PraxicConfig {
     public int teleportMaxViolations = 3;
     public String teleportAction = "warn";
 
+    // AimAssistCheck settings
+    public boolean aimAssistCheckEnabled = true;
+    public int aimAssistMaxViolations = 8;
+    public String aimAssistAction = "warn";
+
+    // VehicleFlyCheck settings
+    public boolean vehicleFlyCheckEnabled = true;
+    public int vehicleFlyMaxViolations = 5;
+    public String vehicleFlyAction = "kick";
+
+    // FastUseCheck settings
+    public boolean fastUseCheckEnabled = true;
+    public int fastUseMaxViolations = 5;
+    public String fastUseAction = "warn";
+
+    // AirPlaceCheck settings
+    public boolean airPlaceCheckEnabled = true;
+    public int airPlaceMaxViolations = 5;
+    public String airPlaceAction = "warn";
+
+    // MaceSmashCheck settings
+    public boolean maceSmashCheckEnabled = true;
+    public int maceSmashMaxViolations = 5;
+    public String maceSmashAction = "kick";
+
+    // WindChargeAbuseCheck settings
+    public boolean windChargeAbuseCheckEnabled = true;
+    public int windChargeAbuseMaxViolations = 5;
+    public String windChargeAbuseAction = "warn";
+
+    /**
+     * When true, illegal move / attack / air-place / wind-charge packets are
+     * cancelled before vanilla applies them. Timer, AutoClicker, Inventory and
+     * AimAssist are never cancelled this way.
+     */
+    public boolean enableMitigation = true;
+
     // UpdateChecker settings
     public boolean enableUpdateChecker = true;
 
@@ -261,9 +300,18 @@ public class PraxicConfig {
      * rewritten on every load.
      */
     private void migrate() {
-        // No migrations are required below CURRENT_CONFIG_VERSION yet.
-        // Future example, from v4 to v5:
-        // if (configVersion < 5) { ...normalise...; configVersion = 5; }
+        // v3 -> v4: timerMaxPacketsPerSecond was unused and defaulted to 24,
+        // which is below vanilla sprint-jump packet rates. Lift the stale default.
+        if (configVersion < 4 && timerMaxPacketsPerSecond == 24) {
+            timerMaxPacketsPerSecond = 55;
+        }
+        if (configVersion < 6 && timerMaxPacketsPerSecond == 55) {
+            timerMaxPacketsPerSecond = 38;
+        }
+        // v6 configs kept 55 because schema was already 6 before the 38 migrate.
+        if (configVersion < 7 && timerMaxPacketsPerSecond >= 50) {
+            timerMaxPacketsPerSecond = 32;
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -290,6 +338,7 @@ public class PraxicConfig {
         warnings += clampPositive("freezeDurationTicks", freezeDurationTicks, v -> freezeDurationTicks = v, 1);
         warnings += clampInt("webDashboardPort", webDashboardPort, v -> webDashboardPort = v, 1024, 65535);
         warnings += clampDouble("fastBreakSpeedMultiplier", fastBreakSpeedMultiplier, v -> fastBreakSpeedMultiplier = v, 0.05, 2.0);
+        warnings += clampInt("timerMaxPacketsPerSecond", timerMaxPacketsPerSecond, v -> timerMaxPacketsPerSecond = v, 30, 200);
         if (warnings > 0) {
             Praxic.LOGGER.warn("[PRAXIC] Config: {} value(s) were out of range and clamped.", warnings);
         }

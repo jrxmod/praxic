@@ -29,12 +29,16 @@ public class DiscordWebhook {
         int color = switch (action.toLowerCase()) {
             case "kick" -> COLOR_KICK;
             case "ban"  -> COLOR_BAN;
+            case "freeze" -> 0x3B82F6;
             default     -> COLOR_FLAG;
         };
 
         String actionLabel = switch (action.toLowerCase()) {
             case "kick" -> "Kicked";
             case "ban"  -> "Banned";
+            case "freeze" -> "Frozen";
+            case "setback" -> "Set back";
+            case "warn" -> "Warned";
             default     -> "Flagged";
         };
 

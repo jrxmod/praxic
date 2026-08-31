@@ -13,7 +13,7 @@ import java.util.UUID;
  * Produces PhysicsResult consumed by detection checks.
  *
  * Y-prediction logic migrated from YPredictionCheck.
- * XZ-collision prediction is a placeholder for post-0.7.0.
+ * XZ prediction applies ground / air / water friction to last tick speed.
  */
 public class PhysicsEngine {
 
@@ -51,7 +51,7 @@ public class PhysicsEngine {
     private final Map<UUID, Integer> graceTicks       = new HashMap<>();
 
     // -------------------------------------------------------------------------
-    // Per-player horizontal predictor state (placeholder)
+    // Per-player horizontal predictor state
     // -------------------------------------------------------------------------
 
     private final Map<UUID, Double> prevSpeed = new HashMap<>();
@@ -81,10 +81,15 @@ public class PhysicsEngine {
 
     /** Removes all state for a player on disconnect or death reset. */
     public void reset(UUID uuid) {
+        resetY(uuid);
+        prevSpeed.remove(uuid);
+    }
+
+    /** Clears vertical predictor only so XZ friction state survives ground ticks. */
+    private void resetY(UUID uuid) {
         predictedVY.remove(uuid);
         predictionActive.remove(uuid);
         graceTicks.remove(uuid);
-        prevSpeed.remove(uuid);
     }
 
     // -------------------------------------------------------------------------
@@ -110,7 +115,7 @@ public class PhysicsEngine {
                           || data.joinGraceTicks > 0;
 
         if (shouldSkip) {
-            reset(uuid);
+            resetY(uuid);
             return inactiveResult(actualY, actualY, 0.0, 0.0);
         }
 
@@ -126,7 +131,7 @@ public class PhysicsEngine {
         if (curr == MovementState.GROUND
          || curr == MovementState.WATER
          || curr == MovementState.CLIMB) {
-            reset(uuid);
+            resetY(uuid);
             return inactiveResult(actualY, actualY, 0.0, 0.0);
         }
 
@@ -167,12 +172,21 @@ public class PhysicsEngine {
     }
 
     // -------------------------------------------------------------------------
-    // XZ simulation (placeholder — real XZ prediction post-0.7.0)
+    // XZ simulation
     // -------------------------------------------------------------------------
 
+    /**
+     * Predicts horizontal speed from last tick using vanilla-like friction.
+     * Ground 0.6, air 0.91, water 0.8. Input acceleration is not modelled;
+     * the value is a decay floor that SpeedCheck compares against.
+     */
     private PhysicsResult simulateXZ(UUID uuid, PlayerSnapshot snapshot) {
-        double actual    = snapshot.speed;
-        double predicted = prevSpeed.getOrDefault(uuid, actual);
+        double actual = snapshot.speed;
+        double prev = prevSpeed.getOrDefault(uuid, actual);
+        double friction = 0.91;
+        if (snapshot.inWater) friction = 0.8;
+        else if (snapshot.onGround) friction = 0.6;
+        double predicted = prev * friction;
         prevSpeed.put(uuid, actual);
 
         return new PhysicsResult(

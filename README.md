@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.14.0-orange)
+![Version](https://img.shields.io/badge/version-0.16.0-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
@@ -19,14 +19,14 @@ Server-side anticheat for Fabric. Your players install nothing.
 
 ## What it does
 
-29 checks across movement, combat, world interaction, protocol sanity, and client manipulation — powered by a physics-based prediction engine with lag compensation, confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
+35 checks across movement, combat, world interaction, protocol sanity, and client manipulation. Illegal move, reach, air-place and Wind Charge packets can be cancelled before vanilla applies them (rubberband to last safe ground). Powered by a physics-based prediction engine with lag compensation, an Impulse layer for 1.21 knockback (wind charge, riptide, mace, explosions), confidence scoring, behavioural baselines, and evidence packets. Violations decay over time, thresholds adapt to ping, and actions are configurable per check.
 
 ## Checks
 
-- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · ElytraFly · Step · GroundSpoof · Teleport (Blink) · Y-Prediction (physics-based)
-- **Combat** — Reach (incl. through-wall raycast) · KillAura · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap
-- **World** — Scaffold · Tower · FastBreak · FastPlace · NoFall
-- **Client / Protocol** — AutoClicker · AutoTotem · Inventory · Timer · BadPackets
+- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · VehicleFly · ElytraFly · Step · GroundSpoof · Teleport (Blink) · Y-Prediction (physics-based)
+- **Combat** — Reach (incl. through-wall raycast) · KillAura · AimAssist · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap · MaceSmash · WindChargeAbuse
+- **World** — Scaffold · Tower · FastBreak · FastPlace · AirPlace · NoFall
+- **Client / Protocol** — AutoClicker · AutoTotem · Inventory · Timer · FastUse · BadPackets
 
 ## Actions
 

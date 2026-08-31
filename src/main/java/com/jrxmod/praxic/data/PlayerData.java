@@ -127,11 +127,21 @@ public class PlayerData {
     /** Timestamp of the last firework rocket use, for ElytraFlyCheck. */
     public long lastRocketUseTime = 0;
 
+    /** Wall-clock time of last use-item packet, for NoSlowCheck. */
+    public long lastItemUseTime = 0;
+
     /** Counter for blocks placed under feet within window for ScaffoldCheck. */
     public int scaffoldBlocksPlaced = 0;
 
     /** Timestamp of scaffold detection window start. */
     public long scaffoldWindowStart = 0;
+
+    /** Player XZ at the start of the current scaffold window. */
+    public double scaffoldStartX;
+    public double scaffoldStartZ;
+
+    /** Wall-clock of the last rotation-only move packet (look spoof). */
+    public long lastLookOnlyMs = 0L;
 
     /** True if player had totem in hand last tick for AutoTotemCheck. */
     public boolean hadTotemInHand = false;
@@ -158,11 +168,33 @@ public class PlayerData {
     /** Sliding window of movement packet timestamps (ms) for TimerCheck. */
     public final Deque<Long> movePacketTimestamps = new ArrayDeque<>();
 
+    /** Position packets seen during the current server tick (TimerCheck). */
+    public int timerPacketsThisTick = 0;
+
+    /** Consecutive server ticks that received 2+ position packets. */
+    public int timerFastStreak = 0;
+
+    /** Wall-clock of the last position packet, for Timer balance. */
+    public long timerLastMs = 0L;
+
+    /** Claimed client time minus real time, in ms (TimerCheck). */
+    public int timerBalanceMs = 0;
+
+    /** Accumulated XZ metres over recent server ticks (TimerCheck). */
+    public double timerSpeedMeters = 0;
+    public int timerSpeedSamples = 0;
+
     /** Timestamp when player started breaking a block for FastBreakCheck. */
     public long breakStartTime = 0;
 
     /** Position of block being broken for FastBreakCheck. */
     public BlockPos breakingBlockPos = null;
+
+    /** Consecutive impossible-fast breaks (Nuker). */
+    public int fastBreakBuffer = 0;
+
+    /** Consecutive water-walk ticks (JesusCheck). */
+    public int jesusBuffer = 0;
 
     // -------------------------------------------------------------------------
     // Velocity / Knockback
@@ -234,6 +266,32 @@ public class PlayerData {
      */
     public int boatAirTicks = 0;
 
+    /**
+     * Consecutive hover ticks for non-boat vehicles (VehicleFlyCheck).
+     */
+    public int vehicleFlyTicks = 0;
+
+    /** Consecutive suspicious low-entropy combat ticks (AimAssistCheck). */
+    public int aimAssistBuffer = 0;
+
+    /** Ticks the current eat/drink animation has been held (FastUseCheck). */
+    public int fastUseTicks = 0;
+    public int fastUseBuffer = 0;
+    public boolean wasUsingItem = false;
+    public boolean fastUseWasConsumable = false;
+
+    /** Consecutive suspicious air-place events (AirPlaceCheck). */
+    public int airPlaceBuffer = 0;
+
+    /** Consecutive illegal move packets before the first rubberband. */
+    public int mitigateMoveBuffer = 0;
+
+    /** Consecutive hover-smash mace attacks (MaceSmashCheck). */
+    public int maceSmashBuffer = 0;
+
+    /** Recent Wind Charge use timestamps for burst / fly-fuel detection. */
+    public final Deque<Long> windChargeUseTimes = new ArrayDeque<>();
+
     // -------------------------------------------------------------------------
     // ElytraFlyCheck
     // -------------------------------------------------------------------------
@@ -286,6 +344,30 @@ public class PlayerData {
 
     /** Wall-clock time (ms) of the last move packet, for stall detection. */
     public long lastPacketTime;
+
+    /**
+     * Player position at the start of the current server tick. Blink dumps a
+     * burst of packets in one tick; each step is small but the distance from
+     * this origin is not.
+     */
+    public double tickOriginX;
+    public double tickOriginY;
+    public double tickOriginZ;
+    public boolean tickOriginSet;
+
+    /** Consecutive ticks with no solid/liquid support (FlyCheck). */
+    public int unsupportedAirTicks = 0;
+
+    public double lastVehicleX;
+    public double lastVehicleY;
+    public double lastVehicleZ;
+    public long lastVehicleTime;
+
+    /** Last Y used by NoFallCheck packet tracking. */
+    public double noFallLastY;
+    public double noFallPeakY;
+    public boolean noFallYSet;
+    public int noFallSpoofTicks;
 
     // -------------------------------------------------------------------------
     // Misc

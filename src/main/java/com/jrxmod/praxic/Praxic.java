@@ -5,6 +5,8 @@ import com.jrxmod.praxic.commands.PraxicCommand;
 import com.jrxmod.praxic.config.PraxicConfig;
 import com.jrxmod.praxic.engine.decision.AnomalyScoreEngine;
 import com.jrxmod.praxic.engine.decision.ConfidenceEngine;
+import com.jrxmod.praxic.engine.decision.MitigationEngine;
+import com.jrxmod.praxic.engine.physics.ImpulseEngine;
 import com.jrxmod.praxic.engine.trap.GhostEntityManager;
 import com.jrxmod.praxic.logger.PraxicLogger;
 import com.jrxmod.praxic.manager.CheckManager;
@@ -21,7 +23,7 @@ import org.slf4j.LoggerFactory;
 public class Praxic implements ModInitializer {
 
     public static final String MOD_ID = "praxic";
-    public static final String VERSION = "0.14.0";
+    public static final String VERSION = "0.16.0";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static PraxicConfig       config;
@@ -33,6 +35,8 @@ public class Praxic implements ModInitializer {
     private static AnomalyScoreEngine anomalyScoreEngine;
     private static PraxicWebServer    webServer;
     private static GhostEntityManager ghostEntityManager;
+    private static ImpulseEngine      impulseEngine;
+    private static MitigationEngine   mitigationEngine;
 
     @Override
     public void onInitialize() {
@@ -46,6 +50,8 @@ public class Praxic implements ModInitializer {
         confidenceEngine   = new ConfidenceEngine();
         anomalyScoreEngine = new AnomalyScoreEngine();
         ghostEntityManager = new GhostEntityManager();
+        impulseEngine      = new ImpulseEngine();
+        mitigationEngine   = new MitigationEngine();
         Praxic.LOGGER.info("[PRAXIC] GhostEntityManager initialized");
         checkManager       = new CheckManager();
         webServer          = new PraxicWebServer();
@@ -88,4 +94,6 @@ public class Praxic implements ModInitializer {
     public static AnomalyScoreEngine getAnomalyScoreEngine() { return anomalyScoreEngine; }
     public static PraxicWebServer    getWebServer()          { return webServer; }
     public static GhostEntityManager getGhostEntityManager() { return ghostEntityManager; }
+    public static ImpulseEngine      getImpulseEngine()      { return impulseEngine; }
+    public static MitigationEngine   getMitigationEngine()   { return mitigationEngine; }
 }

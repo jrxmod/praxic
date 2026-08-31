@@ -7,7 +7,7 @@ import com.jrxmod.praxic.manager.ViolationManager;
 import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 
@@ -42,6 +42,8 @@ public class SpeedCheck extends AbstractCheck {
         if (player.isPassenger()) return;
         if (player.isInWater() || player.isInLava()) return;
         if (player.isFallFlying()) return;
+        if (player.isAutoSpinAttack()) return;
+        // Impulse is not skipped: SpeedHack is a ground mini-jump, not knockback.
 
         // Skip if player was recently hit — knockback causes false positives
         if (player.hurtTime > 0) return;
@@ -70,14 +72,23 @@ public class SpeedCheck extends AbstractCheck {
 
         int ping = player.connection.latency();
 
-        // Base threshold from config, scaled with latency and server TPS
-        double maxSpeed = (Praxic.getConfig().speedMaxBlocksPerTick
-                + LagCompensation.extraSpeed(ping)) * LagCompensation.tpsSensitivity();
+        // Speed cheats multiply ground speed (often ~1.8, cap ~0.66).
+        // Vanilla sprint is ~0.286, sprint-jump air peaks ~0.55. A 0.72 cap
+        // therefore never sees them. Use a tighter grounded cap.
+        double attr = player.getAttributeValue(Attributes.MOVEMENT_SPEED);
+        double attrScale = attr > 0.1 ? (attr / 0.1) : 1.0;
+        boolean grounded = isSolidFloor(player, below);
+        double base = grounded ? 0.50 : 0.70;
+        double predicted = (base * attrScale + LagCompensation.extraSpeed(ping))
+                * LagCompensation.tpsSensitivity();
+        double maxSpeed = Math.min(Praxic.getConfig().speedMaxBlocksPerTick, predicted);
 
-        // Scale threshold with speed effect
-        if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
-            int amplifier = player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
-            maxSpeed *= (1.0 + 0.2 * (amplifier + 1));
+        // Soul sand / soul soil with Soul Speed produces bursts above sprint speed.
+        BlockPos feet = player.blockPosition();
+        if (isSoulTerrain(player.level().getBlockState(feet).getBlock())
+                || isSoulTerrain(player.level().getBlockState(below).getBlock())) {
+            data.speedBuffer = 0;
+            return;
         }
 
         if (distancePerTick > maxSpeed) {
@@ -99,5 +110,51 @@ public class SpeedCheck extends AbstractCheck {
                 || block == Blocks.PACKED_ICE
                 || block == Blocks.BLUE_ICE
                 || block == Blocks.FROSTED_ICE;
+    }
+
+    private boolean isSoulTerrain(net.minecraft.world.level.block.Block block) {
+        return block == Blocks.SOUL_SAND || block == Blocks.SOUL_SOIL;
+    }
+
+    private static boolean isSolidFloor(ServerPlayer player, BlockPos pos) {
+        return !player.level().getBlockState(pos).getCollisionShape(player.level(), pos).isEmpty();
+    }
+
+    /**
+     * Packet-level speed. Ground speed cheats often cap near 0.66 b/packet.
+     * Uses last move packet, not the tick snapshot vanilla may already have
+     * rubberbanded.
+     */
+    public void onMovePacket(ServerPlayer player,
+                             net.minecraft.network.protocol.game.ServerboundMovePlayerPacket packet,
+                             PlayerData data) {
+        if (!Praxic.getConfig().speedCheckEnabled) return;
+        if (!packet.hasPosition()) return;
+        if (player.isSpectator() || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
+        if (player.isDeadOrDying() || player.isPassenger() || player.isFallFlying()) return;
+        if (data.joinGraceTicks > 0 || data.lastPacketTime == 0L) return;
+
+        double x = packet.getX(player.getX());
+        double z = packet.getZ(player.getZ());
+        double horiz = Math.sqrt(
+                (x - data.lastPacketX) * (x - data.lastPacketX)
+                        + (z - data.lastPacketZ) * (z - data.lastPacketZ));
+        if (horiz > TELEPORT_THRESHOLD || horiz < 0.01) return;
+
+        BlockPos below = BlockPos.containing(x, packet.getY(player.getY()) - 0.2, z).below();
+        if (isIce(player.level().getBlockState(below).getBlock())) return;
+
+        boolean grounded = isSolidFloor(player, below) || packet.isOnGround();
+        double max = grounded ? 0.48 : 0.70;
+        if (horiz <= max) {
+            data.speedBuffer = Math.max(0, data.speedBuffer - 1);
+            return;
+        }
+        data.speedBuffer++;
+        if (data.speedBuffer >= REQUIRED_BUFFER && data.canFlag(getName(), 1500)) {
+            ViolationManager.flag(player, data, this,
+                    String.format("Packet speed %.3f (max %.3f grounded=%s)", horiz, max, grounded));
+            data.speedBuffer = 0;
+        }
     }
 }

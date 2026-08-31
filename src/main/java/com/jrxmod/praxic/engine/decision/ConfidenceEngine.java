@@ -44,6 +44,10 @@ public class ConfidenceEngine {
         WEIGHTS.put("StepCheck",        0.18);
         WEIGHTS.put("GroundSpoofCheck", 0.28);
         WEIGHTS.put("TeleportCheck",   0.30);
+        WEIGHTS.put("VehicleFlyCheck",  0.20);
+        WEIGHTS.put("AimAssistCheck",   0.18);
+        WEIGHTS.put("MaceSmashCheck",   0.22);
+        WEIGHTS.put("WindChargeAbuseCheck", 0.18);
         // Combat — moderate to high evidence
         WEIGHTS.put("KillAuraCheck",    0.25);
         WEIGHTS.put("GhostTrapCheck",   0.85);
@@ -56,6 +60,8 @@ public class ConfidenceEngine {
         WEIGHTS.put("FastBreakCheck",   0.15);
         WEIGHTS.put("TowerCheck",       0.18);
         WEIGHTS.put("FastPlaceCheck",   0.12);
+        WEIGHTS.put("AirPlaceCheck",    0.16);
+        WEIGHTS.put("FastUseCheck",     0.15);
         // Client automation — high precision checks
         WEIGHTS.put("AutoClickerCheck", 0.25);
         WEIGHTS.put("TimerCheck",       0.25);
@@ -280,6 +286,8 @@ public class ConfidenceEngine {
         if (checks.contains("ReachCheck")) combat++;
         if (checks.contains("RotationCheck")) combat++;
         if (checks.contains("AutoClickerCheck")) combat++;
+        if (checks.contains("AimAssistCheck")) combat++;
+        if (checks.contains("MaceSmashCheck")) combat++;
         return combat >= 2;
     }
 

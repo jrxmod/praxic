@@ -100,4 +100,40 @@ class PhysicsEngineTest {
         assertEquals(1.0, atZero.yTolerance, DELTA);
         assertEquals(1.4, atCap.yTolerance, DELTA);
     }
+
+    @Test
+    void xzPredictionAppliesGroundFriction() {
+        PhysicsEngine engine = new PhysicsEngine();
+        UUID uuid = UUID.randomUUID();
+        PlayerData data = new PlayerData(0.0, 64.0, 0.0);
+        data.joinGraceTicks = 0;
+
+        PlayerSnapshot first = new PlayerSnapshot(
+                0L,
+                1.0, 64.0, 0.0,
+                0.0, 64.0, 0.0,
+                0f, 0f, 0f, 0f,
+                true, false, false,
+                false, false,
+                MovementState.GROUND, MovementState.GROUND,
+                0, 20f,
+                0
+        );
+        engine.simulate(uuid, first, data);
+
+        PlayerSnapshot second = new PlayerSnapshot(
+                1L,
+                1.3, 64.0, 0.0,
+                1.0, 64.0, 0.0,
+                0f, 0f, 0f, 0f,
+                true, false, false,
+                false, false,
+                MovementState.GROUND, MovementState.GROUND,
+                0, 20f,
+                0
+        );
+        PhysicsResult result = engine.simulate(uuid, second, data);
+        assertEquals(1.0 * 0.6, result.predictedSpeed, DELTA);
+        assertEquals(0.3, result.actualSpeed, DELTA);
+    }
 }

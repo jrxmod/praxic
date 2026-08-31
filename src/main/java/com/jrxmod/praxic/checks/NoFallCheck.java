@@ -4,198 +4,165 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SweetBerryBushBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
+/**
+ * Fall length is peakY minus current Y. Client onGround / fallDistance are
+ * ignored: NoFall sends StatusOnly(onGround=true) which zeroes both.
+ */
 public class NoFallCheck extends AbstractCheck {
 
-    // Minimum fall distance to start tracking
-    private static final double MIN_FALL_DISTANCE = 6.0;
-
-    // Feather Falling adds 2 blocks of buffer per enchantment level
-    private static final double FEATHER_FALLING_BUFFER_PER_LEVEL = 2.0;
-
-    /**
-     * Fall damage is considered suppressed when less than half of the expected
-     * damage (after armor, enchantment and effect reductions) was actually dealt.
-     */
-    private static final double SUPPRESSION_RATIO = 0.5;
-
-    /**
-     * If player.fallDistance drops to less than this fraction of our tracked max
-     * while still airborne, the fall was interrupted (vine, climbable, water).
-     * Reset tracker to avoid flagging on the remainder of the fall.
-     */
-    private static final float FALL_INTERRUPT_RATIO = 0.5f;
-
-    private static final ResourceKey<Enchantment> FEATHER_FALLING_KEY = ResourceKey.create(
-            Registries.ENCHANTMENT,
-            ResourceLocation.withDefaultNamespace("feather_falling")
-    );
+    private static final double MIN_FALL = 4.0;
+    private static final int SPOOF_THRESHOLD = 3;
 
     @Override
     public String getName() {
         return "NoFallCheck";
     }
 
+    public void onMovePacket(ServerPlayer player, ServerboundMovePlayerPacket packet, PlayerData data) {
+        if (!Praxic.getConfig().noFallCheckEnabled) return;
+        if (exempt(player)) {
+            resetFall(data, player.getY());
+            return;
+        }
+        if (data.joinGraceTicks > 0) return;
+
+        double x = packet.hasPosition() ? packet.getX(player.getX()) : player.getX();
+        double y = packet.hasPosition() ? packet.getY(player.getY()) : player.getY();
+        double z = packet.hasPosition() ? packet.getZ(player.getZ()) : player.getZ();
+        tickFall(player, data, x, y, z, packet.isOnGround(), true);
+    }
+
     @Override
     public void check(ServerPlayer player, PlayerData data) {
         if (!Praxic.getConfig().noFallCheckEnabled) return;
-
-        // Servers may disable fall damage globally via the fallDamage gamerule.
-        if (!player.serverLevel().getGameRules().getBoolean(GameRules.RULE_FALL_DAMAGE)) {
-            resetFallData(data);
+        if (exempt(player)) {
+            resetFall(data, player.getY());
             return;
         }
 
-        if (player.isSpectator() || player.isCreative() || player.isDeadOrDying() ||
-            player.isPassenger() || player.isInWater() || player.isInLava() ||
-            player.hasEffect(MobEffects.SLOW_FALLING) || player.hasEffect(MobEffects.JUMP) ||
-            player.isFallFlying() || player.getAbilities().flying || player.onClimbable()) {
-            resetFallData(data);
-            return;
-        }
-
-        // ── Pending check: evaluate damage one tick after landing ────────────
         if (data.pendingFallCheck) {
             data.pendingFallCheck = false;
-            float healthNow    = player.getHealth() + player.getAbsorptionAmount();
+            float healthNow = player.getHealth() + player.getAbsorptionAmount();
             float healthBefore = data.totalHealthBeforeLanding;
-            double fallDist    = data.pendingFallDistance;
-
-            if (healthBefore > 0 && data.canFlag(getName(), 3000)
-                    && !isOnSafeLandingBlock(player, data.pendingFallPos)) {
-                float expectedDamage = expectedFallDamage(player, fallDist);
-
-                // Flag only when the dealt damage is clearly below the expected
-                // amount. Vanilla reductions are accounted for beforehand, so a
-                // legitimate landing keeps health within the expected range.
-                if (expectedDamage >= 1.0f
-                        && healthNow > healthBefore - expectedDamage * (float) SUPPRESSION_RATIO) {
-                    ViolationManager.flag(player, data, this,
-                            String.format("Suppressed fall damage: fall=%.2f blocks, " +
-                                    "expected HP=%.1f actual HP=%.1f (before=%.1f)",
-                                    fallDist, healthBefore - expectedDamage, healthNow, healthBefore));
-                }
+            double fallDist = data.pendingFallDistance;
+            if (healthBefore > 0 && fallDist >= MIN_FALL && data.canFlag(getName(), 2500)
+                    && !isOnSafeLandingBlock(player, data.pendingFallPos)
+                    && healthNow > healthBefore - 0.5f) {
+                ViolationManager.flag(player, data, this,
+                        String.format("No fall damage after %.2f block drop (hp %.1f -> %.1f)",
+                                fallDist, healthBefore, healthNow));
             }
-            resetFallData(data);
+            data.totalHealthBeforeLanding = -1;
+            data.pendingFallDistance = 0;
+            data.pendingFallPos = null;
+        }
+
+        tickFall(player, data, player.getX(), player.getY(), player.getZ(), false, false);
+    }
+
+    /**
+     * @param countSpoof true for move packets (onGround bit is meaningful)
+     */
+    private void tickFall(ServerPlayer player, PlayerData data,
+                          double x, double y, double z,
+                          boolean packetOnGround, boolean countSpoof) {
+        if (player.isInWater() || player.isInLava() || player.onClimbable()) {
+            resetFall(data, y);
             return;
         }
 
-        // ── Track fall distance and snapshot health while airborne ───────────
-        if (!player.onGround()) {
-            float fallDistance = player.fallDistance;
+        if (!data.noFallYSet) {
+            data.noFallPeakY = y;
+            data.noFallLastY = y;
+            data.noFallYSet = true;
+        }
+        if (y > data.noFallPeakY) {
+            data.noFallPeakY = y;
+        }
+        double fall = data.noFallPeakY - y;
+        data.maxFallDistance = fall;
+        data.noFallLastY = y;
 
-            // Detect interrupted fall: vine, ladder, climbable, water exit, etc.
-            // If server-side fallDistance dropped significantly below our tracked max,
-            // the fall was broken mid-air — reset tracker to avoid false positives.
-            if (data.wasInAir
-                    && data.maxFallDistance > MIN_FALL_DISTANCE
-                    && fallDistance < data.maxFallDistance * FALL_INTERRUPT_RATIO) {
-                data.maxFallDistance          = fallDistance;
-                data.totalHealthBeforeLanding = -1;
+        boolean support = standingOnBlock(player, x, y, z);
+
+        if (!support) {
+            data.wasInAir = true;
+            if (fall >= MIN_FALL && data.totalHealthBeforeLanding < 0) {
+                data.totalHealthBeforeLanding = player.getHealth() + player.getAbsorptionAmount();
             }
-
-            if (fallDistance > data.maxFallDistance) {
-                data.maxFallDistance = fallDistance;
-            }
-
-            double effectiveMinFall = MIN_FALL_DISTANCE
-                    + getFeatherFallingLevel(player) * FEATHER_FALLING_BUFFER_PER_LEVEL;
-
-            if (data.maxFallDistance >= effectiveMinFall) {
-                // Snapshot health once when threshold is first crossed
-                if (data.totalHealthBeforeLanding < 0) {
-                    data.totalHealthBeforeLanding = player.getHealth() + player.getAbsorptionAmount();
+            if (countSpoof && packetOnGround && fall >= MIN_FALL) {
+                if (liquidBelow(player, x, y, z, 4)) {
+                    data.noFallSpoofTicks = 0;
+                } else {
+                    data.noFallSpoofTicks++;
+                    if (data.noFallSpoofTicks >= SPOOF_THRESHOLD && data.canFlag(getName(), 2500)) {
+                        ViolationManager.flag(player, data, this,
+                                String.format("onGround spoof in air after %.2f block drop", fall));
+                    }
                 }
             }
-            data.wasInAir = true;
-        } else if (data.wasInAir) {
-            // Player just landed
-            double effectiveMinFall = MIN_FALL_DISTANCE
-                    + getFeatherFallingLevel(player) * FEATHER_FALLING_BUFFER_PER_LEVEL;
+            return;
+        }
 
-            if (data.maxFallDistance >= effectiveMinFall && data.totalHealthBeforeLanding > 0) {
-                data.pendingFallCheck    = true;
-                data.pendingFallDistance = data.maxFallDistance;
-                data.pendingFallPos      = player.blockPosition();
+        if (data.wasInAir && fall >= MIN_FALL) {
+            if (data.totalHealthBeforeLanding < 0) {
+                data.totalHealthBeforeLanding = player.getHealth() + player.getAbsorptionAmount();
             }
-            data.wasInAir        = false;
-            data.maxFallDistance = 0;
+            data.pendingFallCheck = true;
+            data.pendingFallDistance = fall;
+            data.pendingFallPos = BlockPos.containing(x, y, z);
         }
+        data.wasInAir = false;
+        data.noFallPeakY = y;
+        data.maxFallDistance = 0;
+        data.noFallSpoofTicks = 0;
+    }
+
+    private static boolean exempt(ServerPlayer player) {
+        if (!player.serverLevel().getGameRules().getBoolean(GameRules.RULE_FALL_DAMAGE)) return true;
+        if (player.isSpectator()) return true;
+        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return true;
+        if (player.isDeadOrDying() || player.isPassenger()) return true;
+        if (player.isFallFlying() || player.getAbilities().flying || player.getAbilities().mayfly) return true;
+        return player.hasEffect(MobEffects.SLOW_FALLING);
     }
 
     /**
-     * Computes the damage vanilla would deal for the given fall distance,
-     * applying armor, protection enchantments (Protection / Feather Falling)
-     * and the Resistance effect.
+     * True only when the block at the feet (not one block below) has collision
+     * or fluid. Checking below() treats the last block of a fall as already landed.
      */
-    private float expectedFallDamage(ServerPlayer player, double fallDist) {
-        // Vanilla damage: fall distance minus 3, rounded up.
-        float damage = (float) Math.ceil(fallDist - 3.0);
-        if (damage < 1.0f) return 0.0f;
+    private static boolean standingOnBlock(ServerPlayer player, double x, double y, double z) {
+        BlockPos feet = BlockPos.containing(x, y - 0.07, z);
+        if (!player.level().getFluidState(feet).isEmpty()) return true;
+        BlockState state = player.level().getBlockState(feet);
+        return !state.getCollisionShape(player.level(), feet).isEmpty();
+    }
 
-        // Armor reduces fall damage in vanilla: 4% per armor point, capped at 80%.
-        float armorReduction = Math.min(20.0f, player.getArmorValue()) / 25.0f;
-        damage *= 1.0f - armorReduction;
-
-        // Protection and Feather Falling points from the vanilla protection system.
-        DamageSource fallSource = player.damageSources().fall();
-        float protection = EnchantmentHelper.getDamageProtection(
-                player.serverLevel(), player, fallSource);
-        float protectionReduction = Math.min(20.0f, protection) / 25.0f;
-        damage *= 1.0f - protectionReduction;
-
-        // Resistance reduces all damage by 20% per level.
-        if (player.hasEffect(MobEffects.DAMAGE_RESISTANCE)) {
-            int amplifier = player.getEffect(MobEffects.DAMAGE_RESISTANCE).getAmplifier();
-            damage *= Math.max(0.0f, 1.0f - 0.2f * (amplifier + 1));
+    private static boolean liquidBelow(ServerPlayer player, double x, double y, double z, int depth) {
+        for (int i = 0; i <= depth; i++) {
+            BlockPos pos = BlockPos.containing(x, y - i, z);
+            if (!player.level().getFluidState(pos).isEmpty()) return true;
         }
-
-        return damage;
+        return false;
     }
 
-    // ── Enchantment helpers ──────────────────────────────────────────────────
-
-    private int getFeatherFallingLevel(ServerPlayer player) {
-        ItemStack boots = player.getItemBySlot(EquipmentSlot.FEET);
-        if (boots.isEmpty()) return 0;
-        ItemEnchantments enchantments = boots.get(DataComponents.ENCHANTMENTS);
-        if (enchantments == null) return 0;
-        var registry = player.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
-        return registry.get(FEATHER_FALLING_KEY).map(enchantments::getLevel).orElse(0);
-    }
-
-    // ── Safe block detection ─────────────────────────────────────────────────
-
-    /**
-     * Checks the block the player landed on (and blocks below it) for vanilla
-     * blocks that reduce or negate fall damage: slime, honey, hay, cobweb,
-     * powder snow, scaffolding, beds, wool carpets, wool and sweet berry bushes.
-     */
-    private boolean isOnSafeLandingBlock(ServerPlayer player, BlockPos landingPos) {
+    private static boolean isOnSafeLandingBlock(ServerPlayer player, BlockPos landingPos) {
         if (landingPos == null) return false;
-        BlockPos pos = landingPos.below();
+        BlockPos pos = landingPos;
         var level = player.level();
-        // Check 2 blocks below as well because player eye height can shift
         for (int i = 0; i < 2; i++) {
             var state = level.getBlockState(pos);
             Block block = state.getBlock();
-            // Exact checks for common safe landing blocks
             if (block == net.minecraft.world.level.block.Blocks.HAY_BLOCK
                     || block == net.minecraft.world.level.block.Blocks.SLIME_BLOCK
                     || block == net.minecraft.world.level.block.Blocks.HONEY_BLOCK
@@ -208,7 +175,6 @@ public class NoFallCheck extends AbstractCheck {
                     || state.is(net.minecraft.tags.BlockTags.WOOL)) {
                 return true;
             }
-            // Moss and honeycomb via string fallback for mod compat
             String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
             if (id.contains("moss") || id.contains("honeycomb")) return true;
             pos = pos.below();
@@ -216,14 +182,16 @@ public class NoFallCheck extends AbstractCheck {
         return false;
     }
 
-    // ── Reset helper ─────────────────────────────────────────────────────────
-
-    private void resetFallData(PlayerData data) {
-        data.maxFallDistance          = 0;
+    private static void resetFall(PlayerData data, double y) {
+        data.maxFallDistance = 0;
         data.totalHealthBeforeLanding = -1;
-        data.wasInAir                 = false;
-        data.pendingFallCheck         = false;
-        data.pendingFallDistance      = 0;
-        data.pendingFallPos           = null;
+        data.wasInAir = false;
+        data.pendingFallCheck = false;
+        data.pendingFallDistance = 0;
+        data.pendingFallPos = null;
+        data.noFallSpoofTicks = 0;
+        data.noFallPeakY = y;
+        data.noFallLastY = y;
+        data.noFallYSet = true;
     }
 }

@@ -39,7 +39,7 @@ public final class PhysicsResult {
     public final double yTolerance;
 
     // -------------------------------------------------------------------------
-    // Horizontal prediction (placeholder — XZ physics added post-0.7.0)
+    // Horizontal prediction
     // -------------------------------------------------------------------------
 
     /** Predicted horizontal speed this tick based on last tick's actual speed. */

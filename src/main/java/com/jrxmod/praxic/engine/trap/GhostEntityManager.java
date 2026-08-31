@@ -8,17 +8,27 @@ import com.jrxmod.praxic.manager.ViolationManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GhostEntityManager {
 
     private static final GhostTrapCheck GHOST_TRAP_CHECK = new GhostTrapCheck();
 
+    /** At most one live honeypot per player. */
+    private static final int MAX_GHOSTS_PER_PLAYER = 1;
+
     private final Map<UUID, List<GhostEntity>> activeGhosts = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> entityToOwner = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastSpawnTime = new ConcurrentHashMap<>();
     private final Random random = new Random();
 
@@ -36,6 +46,7 @@ public class GhostEntityManager {
                 if (!isEligibleForTrap(player)) continue;
                 if (Praxic.getWhitelistManager() != null
                         && Praxic.getWhitelistManager().isWhitelisted(uuid)) continue;
+                if (getActiveGhostCount(uuid) >= MAX_GHOSTS_PER_PLAYER) continue;
 
                 double chance = Math.max(0.0, Math.min(1.0, cfg.ghostTrapSpawnChance));
                 if (shouldSpawnGhost(uuid, now, cfg.ghostTrapSpawnCooldownMs)
@@ -68,6 +79,7 @@ public class GhostEntityManager {
         while (it.hasNext()) {
             GhostEntity ghost = it.next();
             if (!ghost.isActive() || (now - ghost.getSpawnTime()) > maxLifetime) {
+                unregister(ghost);
                 ghost.despawn();
                 it.remove();
             }
@@ -76,18 +88,40 @@ public class GhostEntityManager {
     }
 
     public void spawnGhostNearPlayer(ServerPlayer player) {
-        if (player.level() instanceof ServerLevel level) {
-            Vec3 pos = player.position().add(
-                    (random.nextDouble() - 0.5) * 2.5,
-                    1.2,
-                    (random.nextDouble() - 0.5) * 2.5
-            );
+        if (!(player.level() instanceof ServerLevel level)) return;
 
-            GhostEntity ghost = new GhostEntity(level, pos);
-            activeGhosts.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(ghost);
+        // Offset stays inside typical KillAura scan range but off the player's
+        // own hitbox so a legitimate swing at the air is unlikely to connect.
+        double angle = random.nextDouble() * Math.PI * 2.0;
+        double radius = 1.6 + random.nextDouble() * 1.2;
+        Vec3 pos = player.position().add(
+                Math.cos(angle) * radius,
+                0.9 + random.nextDouble() * 0.6,
+                Math.sin(angle) * radius
+        );
 
-            Praxic.LOGGER.info("[PRAXIC] Spawned ghost honeypot near {}", player.getName().getString());
+        GhostEntity ghost = new GhostEntity(level, pos, player.getUUID());
+        activeGhosts.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(ghost);
+        UUID entityUuid = ghost.getEntityUuid();
+        if (entityUuid != null) {
+            entityToOwner.put(entityUuid, player.getUUID());
         }
+        Praxic.LOGGER.debug("[PRAXIC] Spawned ghost honeypot near {}", player.getName().getString());
+    }
+
+    /**
+     * True when {@code entity} is a honeypot that must not be sent to {@code viewer}.
+     * The owner still receives spawn/track packets so KillAura can interact.
+     */
+    public boolean shouldHideFrom(Entity entity, ServerPlayer viewer) {
+        if (entity == null || viewer == null) return false;
+        UUID owner = entityToOwner.get(entity.getUUID());
+        if (owner == null) return false;
+        return !owner.equals(viewer.getUUID());
+    }
+
+    public boolean isGhostEntity(UUID entityUuid) {
+        return entityUuid != null && entityToOwner.containsKey(entityUuid);
     }
 
     public boolean onPlayerAttack(ServerPlayer player, UUID targetUuid, PlayerData data) {
@@ -102,6 +136,7 @@ public class GhostEntityManager {
             if (ghost.getEntity() != null && ghost.getEntity().getUUID().equals(targetUuid)) {
                 Praxic.LOGGER.warn("[PRAXIC] Ghost honeypot hit by {} — definitive KillAura evidence",
                         player.getName().getString());
+                unregister(ghost);
                 ghost.despawn();
                 it.remove();
                 ViolationManager.flag(player, data, GHOST_TRAP_CHECK,
@@ -120,7 +155,17 @@ public class GhostEntityManager {
 
     public void resetPlayer(UUID uuid) {
         List<GhostEntity> ghosts = activeGhosts.remove(uuid);
-        if (ghosts != null) for (GhostEntity g : ghosts) g.despawn();
+        if (ghosts != null) {
+            for (GhostEntity g : ghosts) {
+                unregister(g);
+                g.despawn();
+            }
+        }
         lastSpawnTime.remove(uuid);
+    }
+
+    private void unregister(GhostEntity ghost) {
+        UUID entityUuid = ghost.getEntityUuid();
+        if (entityUuid != null) entityToOwner.remove(entityUuid);
     }
 }

@@ -123,10 +123,16 @@ public class FastBreakCheck extends AbstractCheck {
         double minBreakMs = (hardness * divisor / speed) * 50.0
                 * Praxic.getConfig().fastBreakSpeedMultiplier;
 
-        if (elapsed < minBreakMs && data.canFlag(getName(), 2000)) {
-            ViolationManager.flag(player, data, this,
-                    String.format("Block: %s | Hardness: %.1f | Elapsed: %dms | Min: %.0fms",
-                            state.getBlock().getDescriptionId(), hardness, elapsed, minBreakMs));
+        if (elapsed < minBreakMs) {
+            data.fastBreakBuffer++;
+            if (data.fastBreakBuffer >= 2 && data.canFlag(getName(), 2000)) {
+                ViolationManager.flag(player, data, this,
+                        String.format("Block: %s | Hardness: %.1f | Elapsed: %dms | Min: %.0fms",
+                                state.getBlock().getDescriptionId(), hardness, elapsed, minBreakMs));
+                data.fastBreakBuffer = 0;
+            }
+        } else {
+            data.fastBreakBuffer = 0;
         }
     }
 }

@@ -39,6 +39,11 @@ public class StepCheck extends AbstractCheck {
         if (data.joinGraceTicks > 0) return;
         if (player.hasEffect(MobEffects.JUMP)) return;
         if (player.hasEffect(MobEffects.LEVITATION)) return;
+        if (player.isAutoSpinAttack()) return;
+        if (Praxic.getImpulseEngine() != null && Praxic.getImpulseEngine().isActive(player.getUUID())) {
+            data.stepBuffer = 0;
+            return;
+        }
 
         double dy = player.getY() - data.prevY;
         if (dy <= VANILLA_STEP) {
@@ -73,6 +78,35 @@ public class StepCheck extends AbstractCheck {
             ViolationManager.flag(player, data, this,
                     String.format("Step height %.3f (max %.2f) buffer %d", dy, maxStep, data.stepBuffer));
             data.stepBuffer = 0;
+        }
+    }
+
+    /**
+     * Packet dy from the last move packet. Step cheats climb 1+ blocks in one
+     * packet; vanilla jump is ~0.42.
+     */
+    public void onMovePacket(ServerPlayer player,
+                             net.minecraft.network.protocol.game.ServerboundMovePlayerPacket packet,
+                             PlayerData data) {
+        if (!Praxic.getConfig().stepCheckEnabled) return;
+        if (!packet.hasPosition() || data.lastPacketTime == 0L) return;
+        if (player.isSpectator() || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
+        if (player.getAbilities().mayfly || player.isDeadOrDying() || player.isPassenger()) return;
+        if (player.isInWater() || player.isInLava() || player.onClimbable() || player.isFallFlying()) return;
+        if (data.joinGraceTicks > 0) return;
+        if (player.hasEffect(MobEffects.JUMP) || player.hasEffect(MobEffects.LEVITATION)) return;
+
+        double y = packet.getY(player.getY());
+        double dy = y - data.lastPacketY;
+        double maxStep = Praxic.getConfig().stepMaxHeight > 0
+                ? Praxic.getConfig().stepMaxHeight : VANILLA_STEP + STEP_BUFFER_MULT;
+        if (dy <= maxStep) {
+            data.stepBuffer = Math.max(0, data.stepBuffer - 1);
+            return;
+        }
+        if (data.canFlag(getName(), 1500)) {
+            ViolationManager.flag(player, data, this,
+                    String.format("Packet step %.3f (max %.2f)", dy, maxStep));
         }
     }
 }

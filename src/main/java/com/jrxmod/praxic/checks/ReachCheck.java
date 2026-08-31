@@ -8,7 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.GameType;
+
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -51,14 +51,18 @@ public class ReachCheck extends AbstractCheck {
         // Event-driven check — called from ServerGamePacketListenerMixin
     }
 
-    public void checkAttack(ServerPlayer attacker, Entity target, PlayerData data) {
-        if (!Praxic.getConfig().reachCheckEnabled) return;
-        if (attacker.isSpectator()) return;
-        if (attacker.isDeadOrDying()) return;
+    /**
+     * @return true if the attack packet should be cancelled
+     */
+    public boolean checkAttack(ServerPlayer attacker, Entity target, PlayerData data) {
+        if (!Praxic.getConfig().reachCheckEnabled) return false;
+        if (attacker.isSpectator()) return false;
+        if (attacker.isDeadOrDying()) return false;
 
-        boolean isCreative = attacker.gameMode.getGameModeForPlayer() == GameType.CREATIVE;
-        double maxReach = isCreative ? MAX_REACH_CREATIVE : MAX_REACH_SURVIVAL;
-        maxReach += LagCompensation.extraReach(attacker.connection.latency());
+        // Vanilla 1.20.5+ attack range is the entity_interaction_range attribute
+        // (3.0 survival, 5.0 creative). The extra 0.5 covers tick timing.
+        double maxReach = attacker.entityInteractionRange() + 0.5
+                + LagCompensation.extraReach(attacker.connection.latency());
 
         Vec3 eye = attacker.getEyePosition();
         AABB box = target.getBoundingBox();
@@ -69,14 +73,16 @@ public class ReachCheck extends AbstractCheck {
         );
         double distance = eye.distanceTo(closest);
 
-        if (distance > maxReach && data.canFlag(getName(), 1500)) {
-            ViolationManager.flag(attacker, data, this,
-                    String.format("Attack distance: %.2f blocks (max: %.2f, ping: %dms)",
-                            distance, maxReach, attacker.connection.latency()));
-            return;
+        if (distance > maxReach) {
+            if (data.canFlag(getName(), 1500)) {
+                ViolationManager.flag(attacker, data, this,
+                        String.format("Attack distance: %.2f blocks (max: %.2f, ping: %dms)",
+                                distance, maxReach, attacker.connection.latency()));
+            }
+            return Praxic.getConfig().enableMitigation;
         }
 
-        checkThroughWall(attacker, data, eye, closest, distance);
+        return checkThroughWall(attacker, data, eye, closest, distance);
     }
 
     /**
@@ -84,7 +90,7 @@ public class ReachCheck extends AbstractCheck {
      * solid block. Thin blocks (fences, panes, bars) are ignored because they
      * are legitimately attackable through.
      */
-    private void checkThroughWall(ServerPlayer attacker, PlayerData data,
+    private boolean checkThroughWall(ServerPlayer attacker, PlayerData data,
                                   Vec3 eye, Vec3 closest, double distance) {
         ClipContext ctx = new ClipContext(eye, closest,
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, attacker);
@@ -92,14 +98,14 @@ public class ReachCheck extends AbstractCheck {
 
         if (hit.getType() != HitResult.Type.BLOCK) {
             data.reachWallBuffer = Math.max(0, data.reachWallBuffer - 1);
-            return;
+            return false;
         }
 
         double blockDistance = hit.getLocation().distanceTo(eye);
         if (blockDistance >= distance - WALL_EPSILON) {
             // The block is flush with the target surface, not between them.
             data.reachWallBuffer = Math.max(0, data.reachWallBuffer - 1);
-            return;
+            return false;
         }
 
         BlockPos pos = hit.getBlockPos();
@@ -107,7 +113,7 @@ public class ReachCheck extends AbstractCheck {
         VoxelShape shape = state.getCollisionShape(attacker.level(), pos);
         if (!Block.isShapeFullBlock(shape)) {
             data.reachWallBuffer = Math.max(0, data.reachWallBuffer - 1);
-            return;
+            return false;
         }
 
         data.reachWallBuffer++;
@@ -116,7 +122,9 @@ public class ReachCheck extends AbstractCheck {
                     String.format("Attack through wall at %d,%d,%d (%.2f blocks)",
                             pos.getX(), pos.getY(), pos.getZ(), blockDistance));
             data.reachWallBuffer = 0;
+            return Praxic.getConfig().enableMitigation;
         }
+        return false;
     }
 
     private static double clamp(double value, double min, double max) {

@@ -22,6 +22,16 @@ Which check is triggering incorrectly?
 - [ ] AutoClickerCheck
 - [ ] TimerCheck
 - [ ] FastBreakCheck
+- [ ] TimerCheck
+- [ ] PhaseCheck
+- [ ] NoSlowCheck
+- [ ] ElytraFlyCheck
+- [ ] TeleportCheck
+- [ ] AimAssistCheck
+- [ ] VehicleFlyCheck
+- [ ] FastUseCheck
+- [ ] AirPlaceCheck
+- [ ] Other
 
 ## Steps to Reproduce
 1. 

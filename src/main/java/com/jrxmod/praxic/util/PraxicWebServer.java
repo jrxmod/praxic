@@ -25,6 +25,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
@@ -37,6 +38,7 @@ public class PraxicWebServer {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private HttpServer      httpServer;
+    private ExecutorService executor;
     private MinecraftServer mcServer;
     private String          dashboardTemplate = "<h1>Dashboard failed to load.</h1>";
 
@@ -49,7 +51,8 @@ public class PraxicWebServer {
         loadTemplate();
         try {
             httpServer = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
-            httpServer.setExecutor(Executors.newFixedThreadPool(4));
+            executor = Executors.newFixedThreadPool(4);
+            httpServer.setExecutor(executor);
             httpServer.createContext("/",              this::handleDashboard);
             httpServer.createContext("/api/players",   this::handlePlayers);
             httpServer.createContext("/api/player/",   this::handlePlayer);
@@ -73,6 +76,10 @@ public class PraxicWebServer {
         if (httpServer != null) {
             httpServer.stop(0);
             Praxic.LOGGER.info("[PRAXIC] Web dashboard stopped.");
+        }
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
         }
     }
 
@@ -273,6 +280,10 @@ public class PraxicWebServer {
         checks.addProperty("StepCheck",         cfg.stepCheckEnabled);
         checks.addProperty("GroundSpoofCheck",  cfg.groundSpoofCheckEnabled);
         checks.addProperty("TeleportCheck",     cfg.teleportCheckEnabled);
+        checks.addProperty("VehicleFlyCheck",   cfg.vehicleFlyCheckEnabled);
+        checks.addProperty("AimAssistCheck",    cfg.aimAssistCheckEnabled);
+        checks.addProperty("FastUseCheck",      cfg.fastUseCheckEnabled);
+        checks.addProperty("AirPlaceCheck",     cfg.airPlaceCheckEnabled);
         checks.addProperty("ReachCheck",        cfg.reachCheckEnabled);
         checks.addProperty("KillAuraCheck",     cfg.killAuraCheckEnabled);
         checks.addProperty("GhostTrapCheck",    cfg.ghostTrapCheckEnabled);
@@ -290,7 +301,10 @@ public class PraxicWebServer {
         checks.addProperty("InventoryCheck",    cfg.inventoryCheckEnabled);
         checks.addProperty("TimerCheck",        cfg.timerCheckEnabled);
         checks.addProperty("BadPacketsCheck",   cfg.badPacketsCheckEnabled);
+        checks.addProperty("MaceSmashCheck",    cfg.maceSmashCheckEnabled);
+        checks.addProperty("WindChargeAbuseCheck", cfg.windChargeAbuseCheckEnabled);
         obj.add("checks", checks);
+        obj.addProperty("mitigation", cfg.enableMitigation);
         sendJson(ex, 200, GSON.toJson(obj));
     }
 

@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
 
 import java.io.IOException;
 import java.io.Writer;
@@ -128,6 +128,14 @@ public class DebugRecorder {
         } catch (IOException e) {
             Praxic.LOGGER.error("[PRAXIC] Failed to save debug recording.", e);
         }
+    }
+
+    /**
+     * Drops an in-progress recording without writing a file.
+     * Used on disconnect so the map does not leak.
+     */
+    public static void cancel(UUID uuid) {
+        active.remove(uuid);
     }
 
     /** Returns ticks remaining for an active recording, or -1 if not recording. */

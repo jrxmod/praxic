@@ -36,6 +36,8 @@ public class YPredictionCheck extends AbstractCheck {
         // Skip effects that alter gravity — PhysicsEngine does not import MobEffects
         if (player.hasEffect(MobEffects.LEVITATION))   return;
         if (player.hasEffect(MobEffects.SLOW_FALLING)) return;
+        if (player.isAutoSpinAttack()) return;
+        if (Praxic.getImpulseEngine() != null && Praxic.getImpulseEngine().isActive(player.getUUID())) return;
 
         // Read physics result produced by PhysicsEngine this tick
         PhysicsResult physics = Praxic.getCheckManager()

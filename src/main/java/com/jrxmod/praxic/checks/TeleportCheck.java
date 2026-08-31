@@ -8,24 +8,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 
 /**
- * Detects Blink / Teleport cheats by inspecting the position declared in move
- * packets before the vanilla server validates or corrects it.
+ * Detects Blink / Teleport cheats.
  *
- * The distance is measured between the position claimed by the current packet
- * and the position claimed by the previous accepted packet. Smooth movement is
- * therefore never flagged, including a burst of packets arriving after a
- * network stall, because the client's own stream stays continuous. A jump
- * above the threshold with no recent server-initiated teleport is the
- * signature of a Blink / Teleport module.
+ * Blink does not send one giant packet. It holds every move packet and
+ * dumps them in a burst when disabled. Consecutive packets stay small, but
+ * vanilla still kicks {@code moved too quickly} because the sum in one tick
+ * exceeds ~10 blocks. Comparing each packet to the tick-start origin catches
+ * that burst. Elytra / passengers reseed without flagging.
  */
 public class TeleportCheck extends AbstractCheck {
-
-    /**
-     * Maximum gap (ms) between movement packets before the baseline resets.
-     * A larger gap means the client paused or the connection stalled, so a
-     * resulting catch-up jump is legitimate and the baseline is reseeded.
-     */
-    private static final long MAX_PACKET_GAP_MS = 1000L;
 
     @Override
     public String getName() {
@@ -38,65 +29,62 @@ public class TeleportCheck extends AbstractCheck {
     }
 
     public void onMovePacket(ServerPlayer player, ServerboundMovePlayerPacket packet, PlayerData data) {
-        if (!Praxic.getConfig().teleportCheckEnabled) return;
         if (!packet.hasPosition()) return;
-        if (player.isSpectator()) return;
-        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.isDeadOrDying()) return;
-        if (player.isPassenger()) return;
-        if (player.isFallFlying()) return;
-        if (data.joinGraceTicks > 0) return;
 
         double x = packet.getX(player.getX());
         double y = packet.getY(player.getY());
         double z = packet.getZ(player.getZ());
         long now = System.currentTimeMillis();
 
-        // A server-initiated teleport (ender pearl, chorus fruit, /tp, portal,
-        // respawn) is confirmed by the client, which grants a grace window that
-        // exempts the resulting position jump. The baseline is reseeded here so
-        // the next packet measures from the new position.
-        if (data.teleportGraceTicks > 0) {
-            data.teleportGraceTicks--;
-            data.lastPacketX = x;
-            data.lastPacketY = y;
-            data.lastPacketZ = z;
-            data.lastPacketTime = now;
+        if (!Praxic.getConfig().teleportCheckEnabled
+                || player.isSpectator()
+                || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE
+                || player.isDeadOrDying()
+                || player.isPassenger()
+                || player.isFallFlying()
+                || player.isAutoSpinAttack()
+                || data.joinGraceTicks > 0
+                || data.teleportGraceTicks > 0
+                || (Praxic.getImpulseEngine() != null
+                    && Praxic.getImpulseEngine().isActive(player.getUUID()))) {
+            if (data.teleportGraceTicks > 0) data.teleportGraceTicks--;
+            reseed(data, x, y, z, now);
             return;
         }
 
         if (data.lastPacketTime == 0L) {
-            // First position packet — seed the baseline, nothing to compare.
-            data.lastPacketX = x;
-            data.lastPacketY = y;
-            data.lastPacketZ = z;
-            data.lastPacketTime = now;
+            reseed(data, x, y, z, now);
             return;
         }
 
-        long gap = now - data.lastPacketTime;
-        double dx = x - data.lastPacketX;
+        double max = Praxic.getConfig().teleportMaxBlocksPerTick;
+        double fromLast = dist(x, y, z, data.lastPacketX, data.lastPacketY, data.lastPacketZ);
+        double fromPlayer = dist(x, y, z, player.getX(), player.getY(), player.getZ());
+        double fromTick = data.tickOriginSet
+                ? dist(x, y, z, data.tickOriginX, data.tickOriginY, data.tickOriginZ)
+                : 0.0;
+
+        double worst = Math.max(fromLast, Math.max(fromPlayer, fromTick));
         double dy = y - data.lastPacketY;
-        double dz = z - data.lastPacketZ;
-        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        if (gap > MAX_PACKET_GAP_MS) {
-            // Client paused or connection stalled — a large jump here is a
-            // legitimate catch-up, not a cheat. Reseed without flagging.
-            data.lastPacketX = x;
-            data.lastPacketY = y;
-            data.lastPacketZ = z;
-            data.lastPacketTime = now;
-            return;
-        }
-
-        double maxDistance = Praxic.getConfig().teleportMaxBlocksPerTick;
-        if (distance > maxDistance && data.canFlag(getName(), 2000)) {
+        // Vertical-only climbs are Step, not Blink.
+        boolean verticalStep = fromLast > 0.01 && Math.abs(dy) >= fromLast * 0.85 && fromLast < 12.0;
+        if (worst > max && !verticalStep && data.canFlag(getName(), 1500)) {
             ViolationManager.flag(player, data, this,
-                    String.format("Moved %.1f blocks in one packet (max: %.1f)",
-                            distance, maxDistance));
+                    String.format("Moved %.1f blocks (packet %.1f, tick %.1f, max %.1f)",
+                            worst, fromLast, fromTick, max));
         }
 
+        reseed(data, x, y, z, now);
+    }
+
+    private static double dist(double x1, double y1, double z1, double x2, double y2, double z2) {
+        double dx = x1 - x2;
+        double dy = y1 - y2;
+        double dz = z1 - z2;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private static void reseed(PlayerData data, double x, double y, double z, long now) {
         data.lastPacketX = x;
         data.lastPacketY = y;
         data.lastPacketZ = z;
