@@ -1,7 +1,6 @@
 package com.jrxmod.praxic.checks;
 
 import com.jrxmod.praxic.Praxic;
-import com.jrxmod.praxic.data.MovementState;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,7 +18,6 @@ import net.minecraft.world.level.GameType;
 public class CriticalsCheck extends AbstractCheck {
 
     private static final int BUFFER_THRESHOLD = 2;
-    private static final float MICRO_FALL_DISTANCE = 0.12f;
     private static final double FLAT_VERTICAL_DELTA = 0.006;
 
     @Override
@@ -54,13 +52,14 @@ public class CriticalsCheck extends AbstractCheck {
 
         double dy = attacker.getY() - data.prevY;
 
-        boolean microAirSpoof = data.airTicks <= 2 && attacker.fallDistance < MICRO_FALL_DISTANCE;
+        // Signature of the packet-spoof: the position returns to its pre-attack
+        // value (flat delta) while the server still credits a falling state.
+        // A genuine crit after stepping off a block moves down by roughly
+        // gravity per tick, so its delta is not flat.
         boolean flatSpoof = Math.abs(dy) <= FLAT_VERTICAL_DELTA
-                && attacker.fallDistance < MICRO_FALL_DISTANCE;
-        boolean stateMismatch = data.movementState == MovementState.GROUND
-                || data.prevMovementState == MovementState.GROUND && dy <= 0.0;
+                && attacker.fallDistance < 0.12f;
 
-        if (microAirSpoof || flatSpoof || stateMismatch) {
+        if (flatSpoof) {
             data.criticalsBuffer++;
         } else {
             data.criticalsBuffer = Math.max(0, data.criticalsBuffer - 1);
@@ -68,12 +67,9 @@ public class CriticalsCheck extends AbstractCheck {
 
         if (data.criticalsBuffer >= BUFFER_THRESHOLD && data.canFlag(getName(), 2000)) {
             ViolationManager.flag(attacker, data, this,
-                    String.format("Spoofed critical: airTicks=%d fall=%.3f dy=%.4f state=%s/%s target=%s",
-                            data.airTicks,
+                    String.format("Spoofed critical: fall=%.3f dy=%.4f target=%s",
                             attacker.fallDistance,
                             dy,
-                            data.prevMovementState,
-                            data.movementState,
                             target.getName().getString()));
             data.criticalsBuffer = 0;
         }

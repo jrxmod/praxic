@@ -48,22 +48,41 @@ public class FastUseCheck extends AbstractCheck {
             return;
         }
 
-        if (data.wasUsingItem && data.fastUseWasConsumable && data.fastUseTicks > 0) {
-            if (data.fastUseTicks < MIN_LEGIT_TICKS) {
-                data.fastUseBuffer++;
-                if (data.fastUseBuffer >= BUFFER_THRESHOLD && data.canFlag(getName(), 2500)) {
-                    ViolationManager.flag(player, data, this,
-                            String.format("Finished consumable in %d ticks (min %d)",
-                                    data.fastUseTicks, MIN_LEGIT_TICKS));
-                    data.fastUseBuffer = 0;
-                }
-            } else {
-                data.fastUseBuffer = Math.max(0, data.fastUseBuffer - 1);
+        // A use that ends without vanilla completeUsingItem() is a cancel
+        // (button released early, item switched, death, ...). FastUseCheck
+        // flags only when completeUsingItem() is actually reached, see
+        // onUseCompleted().
+        data.fastUseTicks = 0;
+        data.fastUseWasConsumable = false;
+        data.wasUsingItem = using;
+    }
+
+    /**
+     * Called from LivingEntity#completeUsingItem, which vanilla reaches only
+     * when the use timer ran out naturally. Interrupted uses (early release,
+     * item switch, attack while eating) do not reach it and are legitimate.
+     */
+    public void onUseCompleted(ServerPlayer player, PlayerData data) {
+        if (!Praxic.getConfig().fastUseCheckEnabled) return;
+        if (player.isSpectator()) return;
+        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
+        if (data.joinGraceTicks > 0) return;
+
+        if (!data.fastUseWasConsumable || data.fastUseTicks <= 0) return;
+
+        if (data.fastUseTicks < MIN_LEGIT_TICKS) {
+            data.fastUseBuffer++;
+            if (data.fastUseBuffer >= BUFFER_THRESHOLD && data.canFlag(getName(), 2500)) {
+                ViolationManager.flag(player, data, this,
+                        String.format("Finished consumable in %d ticks (min %d)",
+                                data.fastUseTicks, MIN_LEGIT_TICKS));
+                data.fastUseBuffer = 0;
             }
+        } else {
+            data.fastUseBuffer = Math.max(0, data.fastUseBuffer - 1);
         }
 
         data.fastUseTicks = 0;
         data.fastUseWasConsumable = false;
-        data.wasUsingItem = using;
     }
 }

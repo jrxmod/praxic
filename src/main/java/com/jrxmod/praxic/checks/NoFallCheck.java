@@ -4,128 +4,129 @@ import com.jrxmod.praxic.Praxic;
 import com.jrxmod.praxic.data.PlayerData;
 import com.jrxmod.praxic.manager.ViolationManager;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SweetBerryBushBlock;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 
 /**
- * Fall length is peakY minus current Y. Client onGround / fallDistance are
- * ignored: NoFall sends StatusOnly(onGround=true) which zeroes both.
+ * A no-fall module claims {@code onGround=true} while the player is still
+ * above the ground. The server trusts that bit, never accumulates
+ * fallDistance and never applies fall damage  -  the exploit. The claim can be
+ * carried by an injected status-only packet or by the ground bit of a
+ * position packet; both are detected the same way: an onGround claim whose
+ * distance to the nearest support (block, liquid or entity) exceeds a few
+ * centimetres.
+ *
+ * Legitimate onGround claims always have support at the feet (standing on a
+ * block, block edge, slab, boat, ...). A landing packet has support at
+ * distance ~0; a real fall carries onGround=false, so it never counts.
  */
 public class NoFallCheck extends AbstractCheck {
 
-    private static final double MIN_FALL = 4.0;
-    private static final int SPOOF_THRESHOLD = 3;
+    /** Spoofed ground packets required before flagging (~0.25 s at 20 TPS). */
+    private static final int SPOOF_THRESHOLD = 5;
+
+    /** Support must be at least this far below the feet to count as a spoof. */
+    private static final double MAX_GROUND_GAP = 0.35;
 
     @Override
     public String getName() {
         return "NoFallCheck";
     }
 
-    public void onMovePacket(ServerPlayer player, ServerboundMovePlayerPacket packet, PlayerData data) {
-        if (!Praxic.getConfig().noFallCheckEnabled) return;
-        if (exempt(player)) {
-            resetFall(data, player.getY());
-            return;
-        }
-        if (data.joinGraceTicks > 0) return;
-
-        double x = packet.hasPosition() ? packet.getX(player.getX()) : player.getX();
-        double y = packet.hasPosition() ? packet.getY(player.getY()) : player.getY();
-        double z = packet.hasPosition() ? packet.getZ(player.getZ()) : player.getZ();
-        tickFall(player, data, x, y, z, packet.isOnGround(), true);
-    }
-
     @Override
     public void check(ServerPlayer player, PlayerData data) {
         if (!Praxic.getConfig().noFallCheckEnabled) return;
         if (exempt(player)) {
-            resetFall(data, player.getY());
+            data.noFallSpoofTicks = 0;
+            return;
+        }
+        if (data.joinGraceTicks > 0 || data.teleportGraceTicks > 0) return;
+        if (player.isPassenger() || data.recentVehicleExit()) {
+            data.noFallSpoofTicks = 0;
             return;
         }
 
-        if (data.pendingFallCheck) {
-            data.pendingFallCheck = false;
-            float healthNow = player.getHealth() + player.getAbsorptionAmount();
-            float healthBefore = data.totalHealthBeforeLanding;
-            double fallDist = data.pendingFallDistance;
-            if (healthBefore > 0 && fallDist >= MIN_FALL && data.canFlag(getName(), 2500)
-                    && !isOnSafeLandingBlock(player, data.pendingFallPos)
-                    && healthNow > healthBefore - 0.5f) {
-                ViolationManager.flag(player, data, this,
-                        String.format("No fall damage after %.2f block drop (hp %.1f -> %.1f)",
-                                fallDist, healthBefore, healthNow));
+        // Mirror of the packet logic for the already-processed position:
+        // ground claims without support count, supported ground resets, and
+        // airborne is neutral (see onMovePacket).
+        if (player.onGround()) {
+            if (supportGap(player, player.getX(), player.getY(), player.getZ()) > MAX_GROUND_GAP) {
+                data.noFallSpoofTicks++;
+            } else {
+                data.noFallSpoofTicks = 0;
             }
-            data.totalHealthBeforeLanding = -1;
-            data.pendingFallDistance = 0;
-            data.pendingFallPos = null;
+        }
+        flagIfNeeded(player, data);
+    }
+
+    public void onMovePacket(ServerPlayer player, ServerboundMovePlayerPacket packet, PlayerData data) {
+        if (!Praxic.getConfig().noFallCheckEnabled) return;
+        if (exempt(player)) {
+            data.noFallSpoofTicks = 0;
+            return;
+        }
+        if (data.joinGraceTicks > 0 || data.teleportGraceTicks > 0) return;
+        if (player.isPassenger() || data.recentVehicleExit()) {
+            data.noFallSpoofTicks = 0;
+            return;
         }
 
-        tickFall(player, data, player.getX(), player.getY(), player.getZ(), false, false);
+        double x = packet.hasPosition() ? packet.getX(player.getX()) : player.getX();
+        double y = packet.hasPosition() ? packet.getY(player.getY()) : player.getY();
+        double z = packet.hasPosition() ? packet.getZ(player.getZ()) : player.getZ();
+
+        // A grounded claim is the no-fall signal; its absence (onGround=false)
+        // is not evidence either way  -  the module injects the spoof between
+        // the honest movement packets, so those packets must not cancel the
+        // counter. A grounded claim WITH support is a real landing and
+        // resets it.
+        double gap = supportGap(player, x, y, z);
+        if (packet.isOnGround() && gap > MAX_GROUND_GAP) {
+            data.noFallSpoofTicks++;
+        } else if (packet.isOnGround()) {
+            data.noFallSpoofTicks = 0;
+        }
+        flagIfNeeded(player, data);
+    }
+
+    private void flagIfNeeded(ServerPlayer player, PlayerData data) {
+        if (data.noFallSpoofTicks >= SPOOF_THRESHOLD && data.canFlag(getName(), 2000)) {
+            ViolationManager.flag(player, data, this,
+                    String.format("On-ground claim while airborne for %d packets", data.noFallSpoofTicks));
+            data.noFallSpoofTicks = 0;
+        }
     }
 
     /**
-     * @param countSpoof true for move packets (onGround bit is meaningful)
+     * Smallest vertical distance from the feet to a supporting surface below
+     * (block top, liquid surface) over the player's 3x3 footprint. Entity
+     * support is treated as distance 0. Returns infinity when no support
+     * exists within the scan range.
      */
-    private void tickFall(ServerPlayer player, PlayerData data,
-                          double x, double y, double z,
-                          boolean packetOnGround, boolean countSpoof) {
-        if (player.isInWater() || player.isInLava() || player.onClimbable()) {
-            resetFall(data, y);
-            return;
-        }
+    private static double supportGap(ServerPlayer player, double x, double y, double z) {
+        // Block support exactly under the feet, using the same query the
+        // server uses for landings (findSupportingBlock). Scanning 3x3 cells
+        // N blocks down misread walls / distant floors as support: any block
+        // below the feet produced a negative gap, so the check never fired.
+        AABB feetAabb = new AABB(x - 0.31, y - 0.02, z - 0.31, x + 0.31, y + 0.02, z + 0.31);
+        if (player.level().findSupportingBlock(player, feetAabb).isPresent()) return 0.0;
 
-        if (!data.noFallYSet) {
-            data.noFallPeakY = y;
-            data.noFallLastY = y;
-            data.noFallYSet = true;
-        }
-        if (y > data.noFallPeakY) {
-            data.noFallPeakY = y;
-        }
-        double fall = data.noFallPeakY - y;
-        data.maxFallDistance = fall;
-        data.noFallLastY = y;
+        // Liquid directly under the feet also neutralises a fall.
+        BlockPos foot = BlockPos.containing(x, y, z);
+        if (!player.level().getFluidState(foot).isEmpty()
+                || !player.level().getFluidState(foot.below()).isEmpty()) return 0.0;
 
-        boolean support = standingOnBlock(player, x, y, z);
-
-        if (!support) {
-            data.wasInAir = true;
-            if (fall >= MIN_FALL && data.totalHealthBeforeLanding < 0) {
-                data.totalHealthBeforeLanding = player.getHealth() + player.getAbsorptionAmount();
-            }
-            if (countSpoof && packetOnGround && fall >= MIN_FALL) {
-                if (liquidBelow(player, x, y, z, 4)) {
-                    data.noFallSpoofTicks = 0;
-                } else {
-                    data.noFallSpoofTicks++;
-                    if (data.noFallSpoofTicks >= SPOOF_THRESHOLD && data.canFlag(getName(), 2500)) {
-                        ViolationManager.flag(player, data, this,
-                                String.format("onGround spoof in air after %.2f block drop", fall));
-                    }
-                }
-            }
-            return;
+        AABB box = new AABB(x - 1.2, y - 1.3, z - 1.2, x + 1.2, y + 0.3, z + 1.2);
+        for (Entity entity : player.level().getEntitiesOfClass(Entity.class, box, e -> e != player)) {
+            if (!(entity instanceof ItemEntity)) return 0.0;
         }
-
-        if (data.wasInAir && fall >= MIN_FALL) {
-            if (data.totalHealthBeforeLanding < 0) {
-                data.totalHealthBeforeLanding = player.getHealth() + player.getAbsorptionAmount();
-            }
-            data.pendingFallCheck = true;
-            data.pendingFallDistance = fall;
-            data.pendingFallPos = BlockPos.containing(x, y, z);
-        }
-        data.wasInAir = false;
-        data.noFallPeakY = y;
-        data.maxFallDistance = 0;
-        data.noFallSpoofTicks = 0;
+        return Double.POSITIVE_INFINITY;
     }
 
     private static boolean exempt(ServerPlayer player) {
@@ -135,63 +136,5 @@ public class NoFallCheck extends AbstractCheck {
         if (player.isDeadOrDying() || player.isPassenger()) return true;
         if (player.isFallFlying() || player.getAbilities().flying || player.getAbilities().mayfly) return true;
         return player.hasEffect(MobEffects.SLOW_FALLING);
-    }
-
-    /**
-     * True only when the block at the feet (not one block below) has collision
-     * or fluid. Checking below() treats the last block of a fall as already landed.
-     */
-    private static boolean standingOnBlock(ServerPlayer player, double x, double y, double z) {
-        BlockPos feet = BlockPos.containing(x, y - 0.07, z);
-        if (!player.level().getFluidState(feet).isEmpty()) return true;
-        BlockState state = player.level().getBlockState(feet);
-        return !state.getCollisionShape(player.level(), feet).isEmpty();
-    }
-
-    private static boolean liquidBelow(ServerPlayer player, double x, double y, double z, int depth) {
-        for (int i = 0; i <= depth; i++) {
-            BlockPos pos = BlockPos.containing(x, y - i, z);
-            if (!player.level().getFluidState(pos).isEmpty()) return true;
-        }
-        return false;
-    }
-
-    private static boolean isOnSafeLandingBlock(ServerPlayer player, BlockPos landingPos) {
-        if (landingPos == null) return false;
-        BlockPos pos = landingPos;
-        var level = player.level();
-        for (int i = 0; i < 2; i++) {
-            var state = level.getBlockState(pos);
-            Block block = state.getBlock();
-            if (block == net.minecraft.world.level.block.Blocks.HAY_BLOCK
-                    || block == net.minecraft.world.level.block.Blocks.SLIME_BLOCK
-                    || block == net.minecraft.world.level.block.Blocks.HONEY_BLOCK
-                    || block == net.minecraft.world.level.block.Blocks.COBWEB
-                    || block == net.minecraft.world.level.block.Blocks.POWDER_SNOW
-                    || block == net.minecraft.world.level.block.Blocks.SCAFFOLDING
-                    || block instanceof SweetBerryBushBlock
-                    || state.is(net.minecraft.tags.BlockTags.BEDS)
-                    || state.is(net.minecraft.tags.BlockTags.WOOL_CARPETS)
-                    || state.is(net.minecraft.tags.BlockTags.WOOL)) {
-                return true;
-            }
-            String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
-            if (id.contains("moss") || id.contains("honeycomb")) return true;
-            pos = pos.below();
-        }
-        return false;
-    }
-
-    private static void resetFall(PlayerData data, double y) {
-        data.maxFallDistance = 0;
-        data.totalHealthBeforeLanding = -1;
-        data.wasInAir = false;
-        data.pendingFallCheck = false;
-        data.pendingFallDistance = 0;
-        data.pendingFallPos = null;
-        data.noFallSpoofTicks = 0;
-        data.noFallPeakY = y;
-        data.noFallLastY = y;
-        data.noFallYSet = true;
     }
 }

@@ -56,8 +56,14 @@ public class PlayerData {
     /** True if player was in WATER state last tick. */
     public boolean wasInWater = false;
 
+    /** True while the player is riding a vehicle (kept for dismount grace). */
+    public boolean wasPassenger = false;
+
+    /** Wall-clock time of the last vehicle dismount (0 = never). */
+    public long vehicleExitMs = 0;
+
     /**
-     * Grace ticks after leaving water — used by FlyCheck.
+     * Grace ticks after leaving water  -  used by FlyCheck.
      * Managed by CheckManager, not by individual checks.
      */
     public int waterExitTicks = 0;
@@ -83,33 +89,13 @@ public class PlayerData {
     public int joinGraceTicks = 40;
 
     // -------------------------------------------------------------------------
-    // Fall tracking
-    // -------------------------------------------------------------------------
-
-    /** Maximum fall distance tracked for NoFallCheck. */
-    public double maxFallDistance = 0;
-
-    /** Total health (health + absorption) snapshot. */
-    public float totalHealthBeforeLanding = -1;
-
-    /** True if player was in air last tick. */
-    public boolean wasInAir = false;
-
-    /** True if we need to verify fall damage on next tick. */
-    public boolean pendingFallCheck = false;
-
-    /** Fall distance pending verification. */
-    public double pendingFallDistance = 0;
-
-    /** Block position at the moment of landing, for safe-landing checks. */
-    public BlockPos pendingFallPos = null;
-
-    // -------------------------------------------------------------------------
     // Combat
     // -------------------------------------------------------------------------
 
     /** Timestamp of last attack for KillAuraCheck and RotationCheck. */
     public long lastAttackTime = 0;
+    /** Last attack that targeted a real (non-honeypot) entity. */
+    public long lastRealAttackTimeMs = 0;
 
     /** Counter for rapid attacks within time window. */
     public int rapidAttackCount = 0;
@@ -130,6 +116,18 @@ public class PlayerData {
     /** Wall-clock time of last use-item packet, for NoSlowCheck. */
     public long lastItemUseTime = 0;
 
+    /** Arrival time of the previous position packet (0 = none). */
+    public long lastMovePacketMs = 0;
+
+    /** Gap between the last two position packets  -  detects low-FPS clients. */
+    public long lastMoveGapMs = 50;
+
+    /** Wall-clock time the player was last in water or lava. */
+    public long lastInWaterMs = 0;
+
+    /** Consecutive packets claiming onGround while airborne (NoFall). */
+    public int noFallSpoofTicks = 0;
+
     /** Counter for blocks placed under feet within window for ScaffoldCheck. */
     public int scaffoldBlocksPlaced = 0;
 
@@ -140,8 +138,20 @@ public class PlayerData {
     public double scaffoldStartX;
     public double scaffoldStartZ;
 
-    /** Wall-clock of the last rotation-only move packet (look spoof). */
-    public long lastLookOnlyMs = 0L;
+    /** Sliding window of under-foot placement timestamps (scaffold rate gate). */
+    public final Deque<Long> scaffoldPlaceTimes = new ArrayDeque<>();
+
+    /** Random-placement window state (ScaffoldCheck random-build heuristic). */
+    public int randomPlaceCount = 0;
+    public long randomPlaceWindowStart = 0;
+    /** Bitmask of placement height offsets (index = offsetY + 10) in the random-place window. */
+    public int randomPlaceYBits = 0;
+    /** Bitmask of placement direction octants in the random-place window. */
+    public int randomPlaceSectors = 0;
+    /** Last counted random-place position, for the non-adjacency chain check. */
+    public int randomPlacePrevX;
+    public int randomPlacePrevY;
+    public int randomPlacePrevZ;
 
     /** True if player had totem in hand last tick for AutoTotemCheck. */
     public boolean hadTotemInHand = false;
@@ -174,11 +184,8 @@ public class PlayerData {
     /** Consecutive server ticks that received 2+ position packets. */
     public int timerFastStreak = 0;
 
-    /** Wall-clock of the last position packet, for Timer balance. */
-    public long timerLastMs = 0L;
-
-    /** Claimed client time minus real time, in ms (TimerCheck). */
-    public int timerBalanceMs = 0;
+    /** Consecutive 1s windows whose packet rate exceeded the configured cap. */
+    public int timerRateStreak = 0;
 
     /** Accumulated XZ metres over recent server ticks (TimerCheck). */
     public double timerSpeedMeters = 0;
@@ -212,6 +219,11 @@ public class PlayerData {
 
     /** Ticks elapsed since knockback was registered. */
     public int knockbackTicksWaited = 0;
+
+    /** Horizontal knockback direction (from attacker to victim), for wall check. */
+    public double knockbackDirX;
+    public double knockbackDirZ;
+    public boolean knockbackDirSet = false;
 
     // -------------------------------------------------------------------------
     // Combat / Client buffers
@@ -266,12 +278,15 @@ public class PlayerData {
      */
     public int boatAirTicks = 0;
 
+    /** Consecutive vehicle-move packets with the boat hovering (packet path). */
+    public int boatPacketHoverTicks = 0;
+
     /**
      * Consecutive hover ticks for non-boat vehicles (VehicleFlyCheck).
      */
     public int vehicleFlyTicks = 0;
 
-    /** Consecutive suspicious low-entropy combat ticks (AimAssistCheck). */
+    /** Consecutive constant-rate combat rotation ticks (AimAssistCheck). */
     public int aimAssistBuffer = 0;
 
     /** Ticks the current eat/drink animation has been held (FastUseCheck). */
@@ -355,19 +370,22 @@ public class PlayerData {
     public double tickOriginZ;
     public boolean tickOriginSet;
 
-    /** Consecutive ticks with no solid/liquid support (FlyCheck). */
+    /** Consecutive ticks with no solid/liquid support (FlyCheck, server-tick path). */
     public int unsupportedAirTicks = 0;
+
+    /** Consecutive client packets with no solid/liquid support (FlyCheck, packet path). */
+    public int packetHoverTicks = 0;
+
+    /** Consecutive ticks of sustained upward motion without support (FlyCheck, Spider). */
+    public int climbTicks = 0;
 
     public double lastVehicleX;
     public double lastVehicleY;
     public double lastVehicleZ;
     public long lastVehicleTime;
 
-    /** Last Y used by NoFallCheck packet tracking. */
-    public double noFallLastY;
-    public double noFallPeakY;
-    public boolean noFallYSet;
-    public int noFallSpoofTicks;
+    /** Wall-clock of the last rotation-only move packet (random-place heuristic). */
+    public long lastLookOnlyMs = 0L;
 
     // -------------------------------------------------------------------------
     // Misc
@@ -426,6 +444,16 @@ public class PlayerData {
         this.prevY = y;
         this.prevZ = z;
         this.lastPositionUpdate = System.currentTimeMillis();
+    }
+
+    /**
+     * True while the player is still settling after leaving a boat / rideable.
+     * Dismount positions the player in water or at a block edge for a few
+     * ticks, which floating-water and hover checks would misread as cheating.
+     */
+    public boolean recentVehicleExit() {
+        return vehicleExitMs > 0
+                && System.currentTimeMillis() - vehicleExitMs < 1000L;
     }
 
     // -------------------------------------------------------------------------

@@ -37,6 +37,7 @@ public class StepCheck extends AbstractCheck {
         if (player.onClimbable()) return;
         if (player.isFallFlying()) return;
         if (data.joinGraceTicks > 0) return;
+        if (data.teleportGraceTicks > 0) return;
         if (player.hasEffect(MobEffects.JUMP)) return;
         if (player.hasEffect(MobEffects.LEVITATION)) return;
         if (player.isAutoSpinAttack()) return;
@@ -46,6 +47,20 @@ public class StepCheck extends AbstractCheck {
         }
 
         double dy = player.getY() - data.prevY;
+
+        // Ender pearl / portal / respawn teleports move the player several
+        // blocks over a single tick; measuring them as "steps" is a false
+        // positive. Step hacks never exceed ~2 blocks per tick.
+        if (Math.abs(dy) > 2.0) {
+            data.stepBuffer = 0;
+            return;
+        }
+        // Low-FPS client: one packet may carry two client ticks of jump
+        // rise; allow the same fold as SpeedCheck before flagging.
+        if (data.lastMoveGapMs > 80 && dy > 0.0) {
+            dy /= Math.min(3.0, data.lastMoveGapMs / 50.0);
+        }
+
         if (dy <= VANILLA_STEP) {
             data.stepBuffer = Math.max(0, data.stepBuffer - 1);
             return;
@@ -94,10 +109,26 @@ public class StepCheck extends AbstractCheck {
         if (player.getAbilities().mayfly || player.isDeadOrDying() || player.isPassenger()) return;
         if (player.isInWater() || player.isInLava() || player.onClimbable() || player.isFallFlying()) return;
         if (data.joinGraceTicks > 0) return;
+        if (data.teleportGraceTicks > 0) return;
         if (player.hasEffect(MobEffects.JUMP) || player.hasEffect(MobEffects.LEVITATION)) return;
 
         double y = packet.getY(player.getY());
         double dy = y - data.lastPacketY;
+
+        // A move packet can contain a server-side teleport (ender pearl,
+        // respawn, /tp or a pearled player glued into a block): the "step"
+        // then measures the teleport distance, not a climb. Step hacks never
+        // exceed ~2 blocks per tick.
+        if (Math.abs(dy) > 2.0) {
+            data.stepBuffer = 0;
+            return;
+        }
+        // Low-FPS client fold (two client ticks per packet) also applies to
+        // the jump rise; a legit 10-FPS jump reaches 0.82 and must not flag.
+        if (data.lastMoveGapMs > 80 && dy > 0.0) {
+            dy /= Math.min(3.0, data.lastMoveGapMs / 50.0);
+        }
+
         double maxStep = Praxic.getConfig().stepMaxHeight > 0
                 ? Praxic.getConfig().stepMaxHeight : VANILLA_STEP + STEP_BUFFER_MULT;
         if (dy <= maxStep) {

@@ -70,26 +70,44 @@ public class ServerGamePacketListenerMixin {
         cm.getNoFallCheck().onMovePacket(player, packet, data);
         cm.getGroundSpoofCheck().onMovePacket(player, packet, data);
 
+        // Rotation-only packets precede each placement of random-place
+        // modules; used by the ScaffoldCheck random-placement heuristic.
         if (!packet.hasPosition() && packet.hasRotation()) {
             data.lastLookOnlyMs = System.currentTimeMillis();
         }
 
         if (!packet.hasPosition()) return;
 
+        // Count position packets per server tick unconditionally. TimerCheck
+        // owns the counter, but SpeedCheck needs a multi-packet tick signal
+        // even when TimerCheck is disabled, so the increments live here.
+        data.timerPacketsThisTick++;
+        // Inter-packet gap: a low-FPS client sends one packet with several
+        // client ticks of movement inside it. SpeedCheck uses this to tell a
+        // legitimately slow client from an actual speed multiplier.
+        long nowMs = System.currentTimeMillis();
+        if (data.lastMovePacketMs > 0) {
+            data.lastMoveGapMs = nowMs - data.lastMovePacketMs;
+        }
+        data.lastMovePacketMs = nowMs;
         cm.getTimerCheck().onMovePacket(player, data);
         cm.getFlyCheck().onMovePacket(player, packet, data);
         cm.getSpeedCheck().onMovePacket(player, packet, data);
         cm.getNoSlowCheck().onMovePacket(player, packet, data);
         cm.getJesusCheck().onMovePacket(player, packet, data);
         cm.getStepCheck().onMovePacket(player, packet, data);
-        cm.getTeleportCheck().onMovePacket(player, packet, data);
 
+        // Mitigation must read data.lastPacket* before TeleportCheck reseeds
+        // them with the current packet. After a rejection rubberband() grants
+        // teleportGraceTicks, so the next packet makes TeleportCheck reseed.
         if (Praxic.getMitigationEngine() != null
                 && Praxic.getMitigationEngine().tryRejectMove(
                         player, data, packet,
                         cm.getFlyCheck(), cm.getSpeedCheck(), cm.getTeleportCheck())) {
             ci.cancel();
         }
+
+        cm.getTeleportCheck().onMovePacket(player, packet, data);
     }
 
     @Inject(method = "handleMoveVehicle", at = @At("HEAD"), cancellable = true)
@@ -114,8 +132,6 @@ public class ServerGamePacketListenerMixin {
         var pos = packet.getPos();
         if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
             Praxic.getCheckManager().getFastBreakCheck().onStartBreak(player, pos, data);
-        } else if (action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) {
-            Praxic.getCheckManager().getFastBreakCheck().onStopBreak(player, pos, data);
         } else if (action == ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND) {
             Praxic.getCheckManager().getAutoTotemCheck().onOffhandSwap(player, data);
         }

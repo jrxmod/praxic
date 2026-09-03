@@ -17,7 +17,12 @@ import net.minecraft.world.phys.AABB;
  */
 public class BoatFlyCheck extends AbstractCheck {
 
+    /** Server-tick-path threshold: 12 ticks of unsupported hover. */
     private static final int HOVER_TICKS_THRESHOLD = 12;
+
+    /** Packet-path threshold: 12 vehicle-move packets (~0.6 s at 20 TPS). */
+    private static final int PACKET_HOVER_TICKS = 12;
+
     private static final double FREEFALL_DY_THRESHOLD = -0.08;
 
     @Override
@@ -29,34 +34,42 @@ public class BoatFlyCheck extends AbstractCheck {
     public void check(ServerPlayer player, PlayerData data) {
         if (!Praxic.getConfig().boatFlyCheckEnabled) return;
 
-        if (player.isSpectator()) return;
-        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.getAbilities().mayfly) return;
+        if (player.isSpectator() || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE
+                || player.getAbilities().mayfly) {
+            data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
+            return;
+        }
 
         if (data.joinGraceTicks > 0) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return;
         }
 
         if (!player.isPassenger()) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return;
         }
 
         Entity vehicle = player.getVehicle();
         if (!(vehicle instanceof Boat)) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return;
         }
 
         if (hullHasSupport(vehicle) || vehicle.onGround() || vehicle.isInWater()) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return;
         }
 
         double dy = player.getY() - data.prevY;
         if (dy < FREEFALL_DY_THRESHOLD) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return;
         }
 
@@ -67,6 +80,10 @@ public class BoatFlyCheck extends AbstractCheck {
                             data.boatAirTicks, vehicle.getY(), dy));
         }
     }
+
+    // Keep the packet path from sharing the tick counter (see FlyCheck): a
+    // jump onto a boat can feed both paths and would otherwise reach the
+    // threshold twice as fast.
 
     private static boolean hullHasSupport(Entity vehicle) {
         AABB box = vehicle.getBoundingBox();
@@ -93,15 +110,23 @@ public class BoatFlyCheck extends AbstractCheck {
         if (!Praxic.getConfig().boatFlyCheckEnabled) return false;
         if (!player.isPassenger()) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return false;
         }
         Entity vehicle = player.getVehicle();
         if (!(vehicle instanceof Boat)) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return false;
         }
-        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return false;
-        if (data.joinGraceTicks > 0) return false;
+        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) {
+            data.boatPacketHoverTicks = 0;
+            return false;
+        }
+        if (data.joinGraceTicks > 0) {
+            data.boatPacketHoverTicks = 0;
+            return false;
+        }
 
         double x = packet.getX();
         double y = packet.getY();
@@ -133,17 +158,19 @@ public class BoatFlyCheck extends AbstractCheck {
 
         if (inFluid || solid || vehicle.onGround()) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return false;
         }
         if (dy < FREEFALL_DY_THRESHOLD) {
             data.boatAirTicks = 0;
+            data.boatPacketHoverTicks = 0;
             return false;
         }
-        data.boatAirTicks++;
-        if (data.boatAirTicks >= HOVER_TICKS_THRESHOLD && data.canFlag(getName(), 1500)) {
+        data.boatPacketHoverTicks++;
+        if (data.boatPacketHoverTicks >= PACKET_HOVER_TICKS && data.canFlag(getName(), 1500)) {
             ViolationManager.flag(player, data, this,
                     String.format("Vehicle packet hover %d at Y=%.2f dy=%.3f",
-                            data.boatAirTicks, y, dy));
+                            data.boatPacketHoverTicks, y, dy));
             return Praxic.getConfig().enableMitigation;
         }
         return false;

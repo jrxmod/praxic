@@ -8,7 +8,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ClipContext;
-
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -20,19 +19,30 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 /**
  * Detects extended attack reach and attacks through solid blocks.
  *
- * Distance is measured to the closest point of the target's bounding box rather
- * than its centre, matching vanilla semantics and removing the hitbox-size bias
- * that previously forced a loose threshold. A separate raycast flags attacks
- * where a full solid block lies between the attacker and the target, which is
- * the signature of reach-through-wall modules.
+ * The server validates an attack packet in 1.21.1 with
+ * {@code player.canInteractWithEntity(aabb, 1.0)} (ServerGamePacketListenerImpl
+ * .handleInteract): the eye-to-closest-AABB-point distance must be below
+ * {@code entityInteractionRange + 1.0}, i.e. up to 4.0 blocks in survival.
+ * A measured distance of 3.0-3.9 is therefore vanilla-legal regardless of
+ * jumping, spam clicking or a moving target; old builds that flagged 3.1-3.5
+ * produced false positives. Only values above the vanilla cap are cheats.
+ *
+ * Distance is measured to the closest point of the target's bounding box from
+ * the attacker's eye, matching vanilla semantics. A small margin plus the
+ * forward component of the last-tick movement covers client/server frame
+ * skew, and the target box is rewound by its own motion during the processing
+ * delay (a knocked-back or running mob was attacked at an earlier position).
+ *
+ * A ray-based distance measurement was abandoned: the look ray can hit the
+ * far face of a target hitbox, producing a false overshoot.
  */
 public class ReachCheck extends AbstractCheck {
 
-    // Vanilla attack reach is 3.0 (survival) and 5.0 (creative). The small
-    // buffers cover server tick timing and hitbox rounding; latency is added
-    // on top via LagCompensation.
-    private static final double MAX_REACH_SURVIVAL = 3.5;
-    private static final double MAX_REACH_CREATIVE = 5.5;
+    /** Fixed allowance on top of the vanilla cap (range + 1.0). */
+    private static final double REACH_MARGIN = 0.05;
+
+    /** Forward movement allowance cap (frame skew while moving). */
+    private static final double MAX_FORWARD_ALLOWANCE = 0.10;
 
     // A block must lie at least this far in front of the target before it is
     // treated as a wall, so a block flush with the target surface is ignored.
@@ -58,14 +68,27 @@ public class ReachCheck extends AbstractCheck {
         if (!Praxic.getConfig().reachCheckEnabled) return false;
         if (attacker.isSpectator()) return false;
         if (attacker.isDeadOrDying()) return false;
+        if (target == null || target.isRemoved()) return false;
 
-        // Vanilla 1.20.5+ attack range is the entity_interaction_range attribute
-        // (3.0 survival, 5.0 creative). The extra 0.5 covers tick timing.
-        double maxReach = attacker.entityInteractionRange() + 0.5
-                + LagCompensation.extraReach(attacker.connection.latency());
+        double allowance = forwardMovementAllowance(attacker, data);
+        // Vanilla validation: canInteractWithEntity(aabb, 1.0)  -  eye to the
+        // closest box point must stay below entityInteractionRange + 1.0.
+        double maxReach = attacker.entityInteractionRange() + 1.0 + REACH_MARGIN
+                + LagCompensation.extraReach(attacker.connection.latency())
+                + allowance;
 
         Vec3 eye = attacker.getEyePosition();
+        // The client attacks against its own view of the entity; the server
+        // processes the packet a moment later, so a moving target (knockback,
+        // sprinting mob) is measured from its later position. Rewind the box
+        // by the motion covered by the processing delay, capped at safe value.
         AABB box = target.getBoundingBox();
+        Vec3 vel = target.getDeltaMovement();
+        double windowSec = 0.05 + attacker.connection.latency() / 1000.0;
+        double motion = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z) * windowSec;
+        if (motion > 0.01 && motion < 0.45) {
+            box = box.move(-vel.x * windowSec, -vel.y * windowSec, -vel.z * windowSec);
+        }
         Vec3 closest = new Vec3(
                 clamp(eye.x, box.minX, box.maxX),
                 clamp(eye.y, box.minY, box.maxY),
@@ -76,13 +99,39 @@ public class ReachCheck extends AbstractCheck {
         if (distance > maxReach) {
             if (data.canFlag(getName(), 1500)) {
                 ViolationManager.flag(attacker, data, this,
-                        String.format("Attack distance: %.2f blocks (max: %.2f, ping: %dms)",
-                                distance, maxReach, attacker.connection.latency()));
+                        String.format("Attack distance: %.2f blocks (max: %.2f, move allow: %.2f, ping: %dms)",
+                                distance, maxReach, allowance,
+                                attacker.connection.latency()));
             }
             return Praxic.getConfig().enableMitigation;
         }
 
         return checkThroughWall(attacker, data, eye, closest, distance);
+    }
+
+    /**
+     * Forward projection of the last-tick movement onto the current look
+     * direction: a moving attacker is legitimately closer than the position
+     * the server last saw when the attack packet is processed.
+     */
+    private static double forwardMovementAllowance(ServerPlayer attacker, PlayerData data) {
+        double mx = attacker.getX() - data.prevX;
+        double my = attacker.getY() - data.prevY;
+        double mz = attacker.getZ() - data.prevZ;
+        double horizontal = Math.sqrt(mx * mx + mz * mz);
+        if (horizontal < 0.01) return 0.0;
+
+        Vec3 look = lookFrom(attacker.getYRot(), attacker.getXRot());
+        double forward = mx * look.x + my * look.y + mz * look.z;
+        return Math.max(0.0, Math.min(MAX_FORWARD_ALLOWANCE, forward));
+    }
+
+    /** Vanilla calculateViewVector, in degrees. */
+    private static Vec3 lookFrom(float yawDeg, float pitchDeg) {
+        double yaw = Math.toRadians(-yawDeg);
+        double pitch = Math.toRadians(pitchDeg);
+        double cosPitch = Math.cos(pitch);
+        return new Vec3(Math.sin(yaw) * cosPitch, -Math.sin(pitch), Math.cos(yaw) * cosPitch);
     }
 
     /**

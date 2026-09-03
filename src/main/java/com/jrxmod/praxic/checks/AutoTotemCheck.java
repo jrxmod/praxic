@@ -51,11 +51,16 @@ public class AutoTotemCheck extends AbstractCheck {
         if (!popWindow && !hurtWindow) return;
 
         int slot = packet.getSlotNum();
-        boolean totemClick = slot == OFFHAND_SLOT
-                || packet.getCarriedItem().is(Items.TOTEM_OF_UNDYING)
-                || packet.getClickType() == ClickType.SWAP && slot == OFFHAND_SLOT;
-        if (!totemClick && slot < 0) return;
-        if (!totemClick && !popWindow) return;
+
+        // Damage carries no reference to a totem; only clicks that actually
+        // move a totem toward the offhand are evidence. A plain offhand click
+        // on a non-totem item after ordinary damage is a legitimate inventory
+        // action and must not be flagged.
+        boolean totemInvolved = packet.getCarriedItem().is(Items.TOTEM_OF_UNDYING)
+                || player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)
+                || (packet.getClickType() == ClickType.SWAP && slot == OFFHAND_SLOT
+                    && player.getMainHandItem().is(Items.TOTEM_OF_UNDYING));
+        if (!totemInvolved) return;
 
         long start = data.lastTotemUseTime > 0 ? data.lastTotemUseTime : data.lastDamageTime;
         long delta = now - start;
@@ -70,6 +75,10 @@ public class AutoTotemCheck extends AbstractCheck {
     public void onOffhandSwap(ServerPlayer player, PlayerData data) {
         if (!Praxic.getConfig().autoTotemCheckEnabled) return;
         if (data.lastTotemUseTime <= 0 && data.lastDamageTime <= 0) return;
+        // SWAP_ITEM_WITH_OFFHAND exchanges main hand and offhand; without a
+        // totem on either side the swap is unrelated to auto-totem.
+        if (!player.getMainHandItem().is(Items.TOTEM_OF_UNDYING)
+                && !player.getOffhandItem().is(Items.TOTEM_OF_UNDYING)) return;
         long now = System.currentTimeMillis();
         long start = data.lastTotemUseTime > 0 ? data.lastTotemUseTime : data.lastDamageTime;
         long delta = now - start;

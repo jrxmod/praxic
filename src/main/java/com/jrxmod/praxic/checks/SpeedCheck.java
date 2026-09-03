@@ -45,13 +45,21 @@ public class SpeedCheck extends AbstractCheck {
         if (player.isAutoSpinAttack()) return;
         // Impulse is not skipped: SpeedHack is a ground mini-jump, not knockback.
 
-        // Skip if player was recently hit — knockback causes false positives
+        // Skip if player was recently hit  -  knockback causes false positives
         if (player.hurtTime > 0) return;
 
-        // Skip on server lag — smoothed MSPT from CheckManager tick monitor
+        // Wall / ceiling contact resets momentum and produces movement
+        // bursts that exceed a per-tick cap at vanilla speed (head-bump
+        // sprint-jumping). Never a speed-multiplier signal.
+        if (player.verticalCollision || player.horizontalCollision) {
+            data.speedBuffer = Math.max(0, data.speedBuffer - 1);
+            return;
+        }
+
+        // Skip on server lag  -  smoothed MSPT from CheckManager tick monitor
         if (CheckManager.getCurrentMspt() > MAX_SERVER_MSPT) return;
 
-        // Skip on ice — high slipperiness causes natural speed buildup.
+        // Skip on ice - high slipperiness causes natural speed buildup.
         // Check not only directly below but also 1 block ahead in movement direction and below.
         BlockPos below = player.blockPosition().below();
         if (isIce(player.level().getBlockState(below).getBlock())
@@ -60,6 +68,15 @@ public class SpeedCheck extends AbstractCheck {
                 || isIce(player.level().getBlockState(below.east()).getBlock())
                 || isIce(player.level().getBlockState(below.west()).getBlock())) {
             data.speedBuffer = 0;
+            return;
+        }
+
+        // Several move packets processed in one server tick measure the sum of
+        // more than one client step, so the per-tick speed is not comparable
+        // to vanilla caps (common when jump-spamming or on a loaded local
+        // server). Skip such ticks entirely.
+        if (data.timerPacketsThisTick > 1) {
+            data.speedBuffer = Math.max(0, data.speedBuffer - 1);
             return;
         }
 
@@ -77,11 +94,28 @@ public class SpeedCheck extends AbstractCheck {
         // therefore never sees them. Use a tighter grounded cap.
         double attr = player.getAttributeValue(Attributes.MOVEMENT_SPEED);
         double attrScale = attr > 0.1 ? (attr / 0.1) : 1.0;
-        boolean grounded = isSolidFloor(player, below);
+        // Server truth, not a block scan: during a jump (including a
+        // head-bump under a ceiling) the scan below picks up the ground cell
+        // and wrongly applies the grounded cap. The ground state comes from
+        // the last accepted packet.
+        boolean grounded = player.onGround();
         double base = grounded ? 0.50 : 0.70;
         double predicted = (base * attrScale + LagCompensation.extraSpeed(ping))
                 * LagCompensation.tpsSensitivity();
-        double maxSpeed = Math.min(Praxic.getConfig().speedMaxBlocksPerTick, predicted);
+        // A low-FPS client folds several client ticks into one packet: each
+        // step legitimately exceeds the per-tick cap. Scale the cap by the
+        // inter-packet gap (capped at 3x) so vanilla speed survives at 10-20
+        // FPS while a real speed multiplier still exceeds it at 20 FPS.
+        if (data.lastMoveGapMs > 80) {
+            double timeScale = Math.min(3.0, data.lastMoveGapMs / 50.0);
+            predicted *= timeScale;
+        }
+        // The configured cap is a grounded cap: sprint-jump arcs legitimately
+        // reach ~0.66-0.70 while airborne, so only grounded movement is
+        // clamped to it.
+        double maxSpeed = grounded
+                ? Math.min(Praxic.getConfig().speedMaxBlocksPerTick, predicted)
+                : predicted;
 
         // Soul sand / soul soil with Soul Speed produces bursts above sprint speed.
         BlockPos feet = player.blockPosition();
@@ -116,10 +150,6 @@ public class SpeedCheck extends AbstractCheck {
         return block == Blocks.SOUL_SAND || block == Blocks.SOUL_SOIL;
     }
 
-    private static boolean isSolidFloor(ServerPlayer player, BlockPos pos) {
-        return !player.level().getBlockState(pos).getCollisionShape(player.level(), pos).isEmpty();
-    }
-
     /**
      * Packet-level speed. Ground speed cheats often cap near 0.66 b/packet.
      * Uses last move packet, not the tick snapshot vanilla may already have
@@ -131,8 +161,20 @@ public class SpeedCheck extends AbstractCheck {
         if (!Praxic.getConfig().speedCheckEnabled) return;
         if (!packet.hasPosition()) return;
         if (player.isSpectator() || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.isDeadOrDying() || player.isPassenger() || player.isFallFlying()) return;
+        if (player.isDeadOrDying() || player.isPassenger()
+                || player.isFallFlying() || data.wasFallFlying) return;
         if (data.joinGraceTicks > 0 || data.lastPacketTime == 0L) return;
+        // Same packet-burst guard as the tick path.
+        if (data.timerPacketsThisTick > 1) {
+            data.speedBuffer = Math.max(0, data.speedBuffer - 1);
+            return;
+        }
+        // Same wall / ceiling guard as the tick path (elytra wall impacts,
+        // head bumps).
+        if (player.verticalCollision || player.horizontalCollision) {
+            data.speedBuffer = Math.max(0, data.speedBuffer - 1);
+            return;
+        }
 
         double x = packet.getX(player.getX());
         double z = packet.getZ(player.getZ());
@@ -144,8 +186,13 @@ public class SpeedCheck extends AbstractCheck {
         BlockPos below = BlockPos.containing(x, packet.getY(player.getY()) - 0.2, z).below();
         if (isIce(player.level().getBlockState(below).getBlock())) return;
 
-        boolean grounded = isSolidFloor(player, below) || packet.isOnGround();
+        // Packet ground bit (same reasoning as the tick path).
+        boolean grounded = packet.isOnGround();
         double max = grounded ? 0.48 : 0.70;
+        // Same low-FPS allowance as the tick path.
+        if (data.lastMoveGapMs > 80) {
+            max *= Math.min(3.0, data.lastMoveGapMs / 50.0);
+        }
         if (horiz <= max) {
             data.speedBuffer = Math.max(0, data.speedBuffer - 1);
             return;

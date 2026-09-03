@@ -59,6 +59,7 @@ public class CheckManager {
     private final ScaffoldCheck         scaffoldCheck         = new ScaffoldCheck();
     private final TowerCheck            towerCheck            = new TowerCheck();
     private final AirPlaceCheck         airPlaceCheck         = new AirPlaceCheck();
+    private final VelocityCheck         velocityCheck         = new VelocityCheck();
     private final MaceSmashCheck        maceSmashCheck        = new MaceSmashCheck();
     private final WindChargeAbuseCheck  windChargeAbuseCheck  = new WindChargeAbuseCheck();
     private final JesusCheck            jesusCheck            = new JesusCheck();
@@ -67,6 +68,7 @@ public class CheckManager {
     private final NoFallCheck           noFallCheck           = new NoFallCheck();
     private final GroundSpoofCheck      groundSpoofCheck      = new GroundSpoofCheck();
     private final VehicleFlyCheck       vehicleFlyCheck       = new VehicleFlyCheck();
+    private final FastUseCheck          fastUseCheck          = new FastUseCheck();
     private final StepCheck             stepCheck             = new StepCheck();
     private final NoSlowCheck           noSlowCheck           = new NoSlowCheck();
 
@@ -122,7 +124,7 @@ public class CheckManager {
         checks.add(badPacketsCheck);
         checks.add(fastBreakCheck);
         checks.add(jesusCheck);
-        checks.add(new VelocityCheck());
+        checks.add(velocityCheck);
         checks.add(new RotationCheck());
         checks.add(new SprintCheck());
         checks.add(boatFlyCheck);
@@ -138,7 +140,7 @@ public class CheckManager {
         // New in 0.15.0
         checks.add(new AimAssistCheck());
         checks.add(vehicleFlyCheck);
-        checks.add(new FastUseCheck());
+        checks.add(fastUseCheck);
         checks.add(airPlaceCheck);
         // New in 0.16.0
         checks.add(maceSmashCheck);
@@ -181,6 +183,21 @@ public class CheckManager {
                 PlayerData data = getOrCreateData(player);
                 UUID uuid = player.getUUID();
 
+                // Vehicle dismount grace: exiting a boat can place the player
+                // on water or a block edge for a few ticks. Record the moment
+                // so water/hover checks can skip that settling window.
+                boolean passengerNow = player.isPassenger();
+                if (data.wasPassenger && !passengerNow) {
+                    data.vehicleExitMs = System.currentTimeMillis();
+                }
+                data.wasPassenger = passengerNow;
+
+                // Water contact timestamp  -  velocity checks skip shortly after
+                // touching water (knockback is absorbed by the fluid).
+                if (player.isInWater() || player.isInLava()) {
+                    data.lastInWaterMs = nowMs;
+                }
+
                 ImpulseEngine impulse = Praxic.getImpulseEngine();
                 if (impulse != null) {
                     impulse.tick(uuid);
@@ -207,9 +224,22 @@ public class CheckManager {
                 if (player.getHealth() <= 0) {
                     data.airTicks = 0;
                     data.boatAirTicks = 0;
+                    data.boatPacketHoverTicks = 0;
                     data.elytraAirTicks = 0;
+                    data.packetHoverTicks = 0;
+                    data.climbTicks = 0;
+                    data.randomPlaceCount = 0;
+                    data.randomPlaceYBits = 0;
+                    data.randomPlaceSectors = 0;
+                    data.randomPlacePrevY = 0;
+                    data.wasPassenger = false;
+                    data.vehicleExitMs = 0;
+                    data.noFallSpoofTicks = 0;
+                    data.lastInWaterMs = 0;
                     data.groundSpoofTicks = 0;
                     data.towerBlockCount = 0;
+                    data.scaffoldBlocksPlaced = 0;
+                    data.scaffoldPlaceTimes.clear();
                     data.fastPlaceCount = 0;
                     data.stepBuffer = 0;
                     data.elytraBuffer = 0;
@@ -219,6 +249,9 @@ public class CheckManager {
                     data.airPlaceBuffer = 0;
                     data.mitigateMoveBuffer = 0;
                     data.maceSmashBuffer = 0;
+                    data.timerFastStreak = 0;
+                    data.timerRateStreak = 0;
+                    data.movePacketTimestamps.clear();
                     data.windChargeUseTimes.clear();
                     physicsEngine.reset(uuid);
                     if (Praxic.getImpulseEngine() != null) {
@@ -365,10 +398,11 @@ public class CheckManager {
         } else if (player.onGround()) {
             next = MovementState.GROUND;
         } else {
-            boolean risingFromGround =
-                (data.movementState == MovementState.GROUND ||
-                 data.movementState == MovementState.JUMP) && dy > 0.0;
-            if (risingFromGround) {
+            // Any upward motion is a jump phase. Restricting this to
+            // GROUND/JUMP left a gap: a landing + immediate jump processed in
+            // one server tick was seen as FALLING -> AIR, and the Y predictor
+            // then compared a falling prediction against a rising actual Y.
+            if (dy > 0.0) {
                 next = MovementState.JUMP;
             } else if (dy < -0.001) {
                 next = MovementState.FALLING;
@@ -520,6 +554,7 @@ public class CheckManager {
     public MaceSmashCheck        getMaceSmashCheck()        { return maceSmashCheck; }
     public WindChargeAbuseCheck  getWindChargeAbuseCheck()  { return windChargeAbuseCheck; }
     public JesusCheck            getJesusCheck()            { return jesusCheck; }
+    public VelocityCheck         getVelocityCheck()         { return velocityCheck; }
     public BoatFlyCheck          getBoatFlyCheck()          { return boatFlyCheck; }
     public AutoTotemCheck        getAutoTotemCheck()        { return autoTotemCheck; }
     public NoFallCheck           getNoFallCheck()           { return noFallCheck; }
@@ -527,6 +562,7 @@ public class CheckManager {
     public VehicleFlyCheck       getVehicleFlyCheck()       { return vehicleFlyCheck; }
     public StepCheck             getStepCheck()             { return stepCheck; }
     public NoSlowCheck           getNoSlowCheck()           { return noSlowCheck; }
+    public FastUseCheck          getFastUseCheck()          { return fastUseCheck; }
 
     // -------------------------------------------------------------------------
     // Performance monitoring accessors

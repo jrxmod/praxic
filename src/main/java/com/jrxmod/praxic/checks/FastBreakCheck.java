@@ -22,10 +22,8 @@ public class FastBreakCheck extends AbstractCheck {
         return "FastBreakCheck";
     }
 
-    // Tick-based check not used — fully event-driven via onStartBreak / onStopBreak
-    @Override
-    public void check(ServerPlayer player, PlayerData data) {}
-
+    // Fully event-driven via onStartBreak / onBlockDestroyed; the tick-based
+    // check only expires stale break tracking.
     public void onStartBreak(ServerPlayer player, BlockPos pos, PlayerData data) {
         if (!Praxic.getConfig().fastBreakCheckEnabled) return;
         if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
@@ -34,17 +32,21 @@ public class FastBreakCheck extends AbstractCheck {
         data.breakingBlockPos = pos;
     }
 
-    public void onStopBreak(ServerPlayer player, BlockPos pos, PlayerData data) {
+    /**
+     * Called from ServerPlayerGameMode#destroyBlock on the player's own
+     * vanilla destruction path only. That method is reached for a real break
+     * (insta-mine, STOP_DESTROY_BLOCK at >=70% progress, or delayed destroy);
+     * it is never reached when the player cancels or switches blocks, and it
+     * is not called when another player breaks the block. Purely packet-based
+     * STOP_DESTROY_BLOCK observations cannot distinguish those cases.
+     */
+    public void onBlockDestroyed(ServerPlayer player, BlockPos pos, PlayerData data) {
         if (!Praxic.getConfig().fastBreakCheckEnabled) return;
         if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
         if (data.breakStartTime == 0 || data.breakingBlockPos == null) return;
 
-        // Only evaluate if stop matches the block we started breaking
-        if (!pos.equals(data.breakingBlockPos)) {
-            data.breakStartTime = 0;
-            data.breakingBlockPos = null;
-            return;
-        }
+        // Only evaluate if this destruction belongs to the tracked break.
+        if (!pos.equals(data.breakingBlockPos)) return;
 
         long elapsed = System.currentTimeMillis() - data.breakStartTime;
         data.breakStartTime = 0;
@@ -133,6 +135,19 @@ public class FastBreakCheck extends AbstractCheck {
             }
         } else {
             data.fastBreakBuffer = 0;
+        }
+    }
+
+    /**
+     * Expire the tracked break when vanilla never finishes it (cancel, block
+     * switched mid-break, or another player breaking the block first).
+     */
+    @Override
+    public void check(ServerPlayer player, PlayerData data) {
+        if (data.breakStartTime == 0) return;
+        if (System.currentTimeMillis() - data.breakStartTime > 5000L) {
+            data.breakStartTime = 0;
+            data.breakingBlockPos = null;
         }
     }
 }

@@ -27,13 +27,27 @@ public class YPredictionCheck extends AbstractCheck {
         // Skip creative / spectator
         if (player.getAbilities().mayfly) return;
 
-        // Skip passengers — vehicle physics differ entirely
+        // Skip passengers  -  vehicle physics differ entirely
         if (player.isPassenger()) return;
 
-        // Skip elytra gliding — trajectory is not gravity-driven
+        // Water entry/resurface and hurt (knockback, totem pop) disrupt the
+        // trajectory in ways the predictor is not seeded for. The fluid check
+        // also covers the surface: there the feet block is air but the block
+        // below is water, and bobbing / a push (e.g. a mob) keeps the player
+        // level while the predictor expects a fall.
+        if (player.isInWater() || player.isInLava() || data.wasInWater
+                || atFluidSurface(player)) return;
+        if (data.lastInWaterMs > 0
+                && System.currentTimeMillis() - data.lastInWaterMs < 3000L) return;
+        if (player.hurtTime > 0) return;
+        // Entity pushes (players, mobs, water creatures) alter the trajectory
+        // without setting hurtTime; skip while something touches nearby.
+        if (touchedByEntity(player)) return;
+
+        // Skip elytra gliding  -  trajectory is not gravity-driven
         if (player.isFallFlying()) return;
 
-        // Skip effects that alter gravity — PhysicsEngine does not import MobEffects
+        // Skip effects that alter gravity - PhysicsEngine does not import MobEffects
         if (player.hasEffect(MobEffects.LEVITATION))   return;
         if (player.hasEffect(MobEffects.SLOW_FALLING)) return;
         if (player.isAutoSpinAttack()) return;
@@ -59,5 +73,23 @@ public class YPredictionCheck extends AbstractCheck {
                     physics.yTolerance,
                     Math.min(player.connection.latency(), 500)));
         }
+    }
+
+    /** True when liquid occupies the feet block or the block below it. */
+    private static boolean atFluidSurface(net.minecraft.server.level.ServerPlayer player) {
+        net.minecraft.core.BlockPos feet = player.blockPosition();
+        return !player.level().getFluidState(feet).isEmpty()
+                || !player.level().getFluidState(feet.below()).isEmpty();
+    }
+
+    /** True when a non-item entity touches the player's bounding box vicinity. */
+    private static boolean touchedByEntity(net.minecraft.server.level.ServerPlayer player) {
+        net.minecraft.world.phys.AABB box = player.getBoundingBox().inflate(2.5);
+        for (net.minecraft.world.entity.Entity e : player.level()
+                .getEntitiesOfClass(net.minecraft.world.entity.Entity.class,
+                        box, e -> e != player)) {
+            if (!(e instanceof net.minecraft.world.entity.item.ItemEntity)) return true;
+        }
+        return false;
     }
 }

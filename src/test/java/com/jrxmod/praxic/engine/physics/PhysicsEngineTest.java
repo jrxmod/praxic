@@ -64,15 +64,18 @@ class PhysicsEngineTest {
                 data);
 
         // Burn 10 grace ticks; each reseeds vy from the constant dy.
+        // Any upward motion reseeds (jump), never compares against a falling
+        // prediction.
         for (int i = 0; i < 10; i++) {
             engine.simulate(uuid,
                     snapshot(MovementState.AIR, MovementState.AIR, 100.5, 100.0, 0.5, 0),
                     data);
         }
 
-        // First active tick: nextVY = (0.5 - 0.08) * 0.98.
+        // First active tick after the upward motion has ended: falling with
+        // dy=-0.4. Gravity step: nextVY = (0.5 - 0.08) * 0.98.
         PhysicsResult result = engine.simulate(uuid,
-                snapshot(MovementState.AIR, MovementState.AIR, 100.4, 100.0, 0.4, 0),
+                snapshot(MovementState.AIR, MovementState.AIR, 99.6, 100.0, -0.4, 0),
                 data);
 
         double expectedVy = (0.5 - 0.08) * 0.98;

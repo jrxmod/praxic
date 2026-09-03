@@ -12,9 +12,12 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -25,6 +28,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(ServerPlayerGameMode.class)
 public class ServerPlayerGameModeMixin {
+
+    @Shadow
+    @Final
+    protected ServerPlayer player;
+
+    /**
+     * Vanilla destroys a block only through destroyAndAck: insta-mine, a
+     * STOP_DESTROY_BLOCK with completed progress, or a delayed destroy. The
+     * packet-only STOP handler in ServerGamePacketListenerMixin also fires for
+     * cancels, block switches and other players' breaks, so FastBreakCheck is
+     * evaluated here, on the real destruction path.
+     */
+    @Inject(method = "destroyAndAck", at = @At("HEAD"))
+    private void praxic$onBlockDestroyed(BlockPos pos, int sequence, String message, CallbackInfo ci) {
+        CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
+        PlayerData data = cm.getPlayerData(player.getUUID());
+        if (data == null) return;
+        cm.getFastBreakCheck().onBlockDestroyed(player, pos, data);
+    }
 
     @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
     private void praxic$mitigateUseItemOn(ServerPlayer player, Level level, ItemStack stack,

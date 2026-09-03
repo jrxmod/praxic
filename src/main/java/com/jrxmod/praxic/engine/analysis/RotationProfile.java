@@ -16,12 +16,24 @@ public final class RotationProfile {
     /** Max snap angle observed in the last 20 ticks (absolute deltaYaw). */
     public final double maxSnapAngle;
 
-    /** Average rotation speed (sqrt(deltaYaw² + deltaPitch²)) over the window. */
+    /** Average rotation speed (sqrt(deltaYaw^2 + deltaPitch^2)) over the window. */
     public final double avgRotationSpeed;
 
     /**
+     * Coefficient of variation of per-tick rotation speed over the window
+     * (stddev / mean). Aim-assist modules that rotate with a constant per-tick
+     * step (e.g. slowlyTurnTowards) produce values close to 0; hand mouse
+     * input is bursty and produces values above ~0.3.
+     * -1.0 if the window is too small or the mean speed is ~0.
+     */
+    public final double rotationSpeedCV;
+
+    /** Ticks in the window with a >320deg yaw delta (modulo-360 wrap artifact). */
+    public final int largeSnapCount;
+
+    /**
      * Snap angle in the first 3 ticks after a kill event.
-     * Human: 10–30°. Kill Aura: 90°+.
+     * Human: 10-30deg. Kill Aura: 90deg+.
      * -1.0 if no recent kill event.
      */
     public final double postKillSnapAngle;
@@ -33,12 +45,16 @@ public final class RotationProfile {
             double entropy,
             double maxSnapAngle,
             double avgRotationSpeed,
+            double rotationSpeedCV,
+            int largeSnapCount,
             double postKillSnapAngle,
             int sampleCount
     ) {
         this.entropy           = entropy;
         this.maxSnapAngle      = maxSnapAngle;
         this.avgRotationSpeed  = avgRotationSpeed;
+        this.rotationSpeedCV   = rotationSpeedCV;
+        this.largeSnapCount    = largeSnapCount;
         this.postKillSnapAngle = postKillSnapAngle;
         this.sampleCount       = sampleCount;
     }

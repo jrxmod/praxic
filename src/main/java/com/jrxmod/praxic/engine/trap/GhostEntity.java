@@ -12,10 +12,12 @@ import java.util.UUID;
 /**
  * Honeypot entity for KillAura / AimAssist detection.
  *
- * Invisible marker ArmorStand: no collision, no gravity, silent. Marker and
- * small flags are applied through reflection because both setters are private
- * under official Mojang mappings for 1.21.1. Visibility to other players is
- * filtered by ChunkMapTrackedEntityMixin.
+ * Invisible small ArmorStand: no collision, no gravity, silent. Marker mode
+ * is intentionally not used: marker stands have a zero-size hitbox and reject
+ * interaction in vanilla, so a kill-aura attack never registers. The small
+ * flag is applied through reflection to keep behavior independent of mapping
+ * access level; failure leaves a normal-size stand, which remains attackable.
+ * Visibility to other players is filtered by ChunkMapTrackedEntityMixin.
  */
 public class GhostEntity {
 
@@ -24,6 +26,8 @@ public class GhostEntity {
     private ArmorStand entity;
     private long spawnTime;
     private boolean active = true;
+    /** true = placed in front of the player, false = behind (combat). */
+    private boolean frontPlaced;
 
     public GhostEntity(ServerLevel level, Vec3 position, UUID ownerUuid) {
         this.ownerUuid = ownerUuid;
@@ -43,7 +47,6 @@ public class GhostEntity {
         entity.setInvulnerable(false);
         entity.noPhysics = true;
 
-        invokeBooleanSetter(entity, "setMarker", true);
         invokeBooleanSetter(entity, "setSmall", true);
         try {
             entity.setNoBasePlate(true);
@@ -85,6 +88,14 @@ public class GhostEntity {
 
     public UUID getOwnerUuid() {
         return ownerUuid;
+    }
+
+    public boolean isFrontPlaced() {
+        return frontPlaced;
+    }
+
+    public void setFrontPlaced(boolean frontPlaced) {
+        this.frontPlaced = frontPlaced;
     }
 
     public long getSpawnTime() {

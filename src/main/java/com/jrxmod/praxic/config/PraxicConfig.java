@@ -17,62 +17,57 @@ public class PraxicConfig {
      * Current configuration schema version. Incremented when a release adds,
      * removes, or renames fields, and matched by stepwise blocks in migrate().
      */
-    public static final int CURRENT_CONFIG_VERSION = 7;
+    public static final int CURRENT_CONFIG_VERSION = 9;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
 
     // FlyCheck settings
     public boolean flyCheckEnabled = true;
     public int flyMaxAirTicks = 80;
-    public int flyMaxViolations = 5;
     public String flyAction = "kick";
 
     // SpeedCheck settings
     public boolean speedCheckEnabled = true;
     public double speedMaxBlocksPerTick = 1.3;
-    public int speedMaxViolations = 8;
     public String speedAction = "warn";
 
     // PhaseCheck settings
     public boolean phaseCheckEnabled = true;
     public double phaseMinHorizontalMove = 0.03;
     public int phaseMaxTicksInBlock = 8;
-    public int phaseMaxViolations = 5;
     public String phaseAction = "setback";
 
     // NoSlowCheck settings
-    // 0.30 covers vanilla sprinting while eating (0.286 b/t) plus lag margin.
+    // Vanilla walk is ~0.215 b/t; sprinting while using an item (cheat) is
+    // ~0.286. The cap sits between them: the first-use grace covers the
+    // sprint-to-walk transition ticks.
     public boolean noSlowCheckEnabled = true;
-    public double noSlowMaxBlocksPerTick = 0.30;
-    public int noSlowMaxViolations = 5;
+    public double noSlowMaxBlocksPerTick = 0.24;
     public String noSlowAction = "warn";
 
     // NoFallCheck settings
     public boolean noFallCheckEnabled = true;
-    public int noFallMaxViolations = 3;
     public String noFallAction = "kick";
 
     // ReachCheck settings
     public boolean reachCheckEnabled = true;
-    public int reachMaxViolations = 5;
     public String reachAction = "kick";
 
     // KillAuraCheck settings
     public boolean killAuraCheckEnabled = true;
-    public int killAuraCheckMaxViolations = 5;
     public String killAuraCheckAction = "kick";
 
     // GhostTrapCheck settings (invisible honeypot entities)
     public boolean ghostTrapCheckEnabled = true;
-    public int ghostTrapMaxViolations = 1;
     public String ghostTrapAction = "kick";
     public long ghostTrapLifetimeMs = 25_000L;
     public long ghostTrapSpawnCooldownMs = 40_000L;
     public double ghostTrapSpawnChance = 0.07;
+    /** Minimum confidence score before a honeypot is spawned for a player. */
+    public double ghostTrapConfidenceThreshold = 0.40;
 
     // CriticalsCheck settings
     public boolean criticalsCheckEnabled = true;
-    public int criticalsMaxViolations = 5;
     public String criticalsAction = "warn";
 
     // ScaffoldCheck settings
@@ -80,24 +75,20 @@ public class PraxicConfig {
     // fast legitimate bridging while still catching automated bridging.
     public boolean scaffoldCheckEnabled = true;
     public int scaffoldMaxBlocksPerSecond = 12;
-    public int scaffoldMaxViolations = 5;
     public String scaffoldAction = "kick";
 
     // AutoTotemCheck settings
     public boolean autoTotemCheckEnabled = true;
-    public int autoTotemMaxViolations = 3;
     public String autoTotemAction = "kick";
 
     // InventoryCheck settings
     public boolean inventoryCheckEnabled = true;
     public int inventoryMaxClicksPerSecond = 20;
-    public int inventoryMaxViolations = 5;
     public String inventoryAction = "kick";
 
     // AutoClickerCheck settings
     public boolean autoClickerCheckEnabled = true;
     public int autoClickerMaxCps = 20;
-    public int autoClickerMaxViolations = 5;
     public String autoClickerAction = "kick";
 
     // TimerCheck settings
@@ -105,84 +96,69 @@ public class PraxicConfig {
     // after ~2s. Values >= 50 are the stale 55 default and miss x2.0.
     public boolean timerCheckEnabled = true;
     public int timerMaxPacketsPerSecond = 32;
-    public int timerMaxViolations = 5;
     public String timerAction = "kick";
 
     // BadPacketsCheck settings
     public boolean badPacketsCheckEnabled = true;
     public int badPacketsBufferThreshold = 2;
-    public int badPacketsMaxViolations = 3;
     public String badPacketsAction = "kick";
 
     // FastBreakCheck settings
     public boolean fastBreakCheckEnabled = true;
     public double fastBreakSpeedMultiplier = 0.4;
-    public int fastBreakMaxViolations = 5;
     public String fastBreakAction = "kick";
 
     // JesusCheck settings
     public boolean jesusCheckEnabled = true;
-    public int jesusMaxViolations = 5;
     public String jesusAction = "kick";
 
     // VelocityCheck settings
     public boolean velocityCheckEnabled = true;
-    public int velocityMaxViolations = 5;
     public String velocityAction = "kick";
 
     // YPredictionCheck settings
     public boolean yPredictionCheckEnabled = true;
-    public int yPredictionMaxViolations = 5;
     public String yPredictionAction = "setback";
 
     // RotationCheck settings
     public boolean rotationCheckEnabled = true;
-    public int rotationMaxViolations = 8;
     public String rotationAction = "warn";
 
     // SprintCheck settings
     public boolean sprintCheckEnabled = true;
-    public int sprintMaxViolations = 5;
     public String sprintAction = "warn";
 
     // BoatFlyCheck settings
     public boolean boatFlyCheckEnabled = true;
-    public int boatFlyMaxViolations = 5;
     public String boatFlyAction = "kick";
 
     // PostKillSnapCheck settings
     public boolean postKillSnapCheckEnabled = true;
     public double postKillSnapMaxAngle = 90.0;
-    public int postKillSnapMaxViolations = 5;
     public String postKillSnapAction = "warn";
 
     // ElytraFlyCheck settings
     public boolean elytraFlyCheckEnabled = true;
-    public int elytraFlyMaxViolations = 5;
     public String elytraFlyAction = "kick";
 
     // StepCheck settings
     public boolean stepCheckEnabled = true;
     public double stepMaxHeight = 0.75;
-    public int stepMaxViolations = 5;
     public String stepAction = "setback";
 
     // TowerCheck settings
     public boolean towerCheckEnabled = true;
     public int towerMaxBlocksPerSecond = 6;
-    public int towerMaxViolations = 5;
     public String towerAction = "warn";
 
     // GroundSpoofCheck settings
     public boolean groundSpoofCheckEnabled = true;
-    public int groundSpoofMaxViolations = 5;
     public String groundSpoofAction = "kick";
 
     // FastPlaceCheck settings
     // Vanilla ceiling is 1 placement per game tick (20 blocks/sec).
     public boolean fastPlaceCheckEnabled = true;
     public int fastPlaceMaxBlocksPerSecond = 20;
-    public int fastPlaceMaxViolations = 5;
     public String fastPlaceAction = "warn";
 
     // TeleportCheck settings
@@ -191,37 +167,30 @@ public class PraxicConfig {
     // teleports are exempt via teleport confirmations.
     public boolean teleportCheckEnabled = true;
     public double teleportMaxBlocksPerTick = 6.0;
-    public int teleportMaxViolations = 3;
     public String teleportAction = "warn";
 
     // AimAssistCheck settings
     public boolean aimAssistCheckEnabled = true;
-    public int aimAssistMaxViolations = 8;
     public String aimAssistAction = "warn";
 
     // VehicleFlyCheck settings
     public boolean vehicleFlyCheckEnabled = true;
-    public int vehicleFlyMaxViolations = 5;
     public String vehicleFlyAction = "kick";
 
     // FastUseCheck settings
     public boolean fastUseCheckEnabled = true;
-    public int fastUseMaxViolations = 5;
     public String fastUseAction = "warn";
 
     // AirPlaceCheck settings
     public boolean airPlaceCheckEnabled = true;
-    public int airPlaceMaxViolations = 5;
     public String airPlaceAction = "warn";
 
     // MaceSmashCheck settings
     public boolean maceSmashCheckEnabled = true;
-    public int maceSmashMaxViolations = 5;
     public String maceSmashAction = "kick";
 
     // WindChargeAbuseCheck settings
     public boolean windChargeAbuseCheckEnabled = true;
-    public int windChargeAbuseMaxViolations = 5;
     public String windChargeAbuseAction = "warn";
 
     /**
@@ -312,6 +281,14 @@ public class PraxicConfig {
         if (configVersion < 7 && timerMaxPacketsPerSecond >= 50) {
             timerMaxPacketsPerSecond = 32;
         }
+        // v7 -> v8: per-check *MaxViolations fields were removed. They were
+        // never read; actions are driven by the confidence engine. Unknown
+        // keys in existing files are ignored by Gson, so no code is needed.
+        // v8 -> v9: 0.30 sat at the sprint speed and let NoSlowDown pass
+        // unflagged; 0.24 sits above the vanilla walk speed still.
+        if (configVersion < 9 && noSlowMaxBlocksPerTick >= 0.29) {
+            noSlowMaxBlocksPerTick = 0.24;
+        }
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -323,7 +300,6 @@ public class PraxicConfig {
     private void validate() {
         int warnings = 0;
         warnings += clampPositive("flyMaxAirTicks", flyMaxAirTicks, v -> flyMaxAirTicks = v, 1);
-        warnings += clampPositive("speedMaxViolations", speedMaxViolations, v -> speedMaxViolations = v, 1);
         warnings += clampDouble("speedMaxBlocksPerTick", speedMaxBlocksPerTick, v -> speedMaxBlocksPerTick = v, 0.1, 10.0);
         warnings += clampDouble("noSlowMaxBlocksPerTick", noSlowMaxBlocksPerTick, v -> noSlowMaxBlocksPerTick = v, 0.05, 5.0);
         warnings += clampDouble("phaseMinHorizontalMove", phaseMinHorizontalMove, v -> phaseMinHorizontalMove = v, 0.001, 5.0);
@@ -331,6 +307,7 @@ public class PraxicConfig {
         warnings += clampDouble("teleportMaxBlocksPerTick", teleportMaxBlocksPerTick, v -> teleportMaxBlocksPerTick = v, 1.0, 100.0);
         warnings += clampDouble("postKillSnapMaxAngle", postKillSnapMaxAngle, v -> postKillSnapMaxAngle = v, 1.0, 180.0);
         warnings += clampDouble("ghostTrapSpawnChance", ghostTrapSpawnChance, v -> ghostTrapSpawnChance = v, 0.0, 1.0);
+        warnings += clampDouble("ghostTrapConfidenceThreshold", ghostTrapConfidenceThreshold, v -> ghostTrapConfidenceThreshold = v, 0.0, 1.0);
         warnings += clampDouble("confidenceWarnThreshold", confidenceWarnThreshold, v -> confidenceWarnThreshold = v, 0.0, 1.0);
         warnings += clampDouble("confidenceSetbackThreshold", confidenceSetbackThreshold, v -> confidenceSetbackThreshold = v, 0.0, 1.0);
         warnings += clampDouble("confidenceKickThreshold", confidenceKickThreshold, v -> confidenceKickThreshold = v, 0.0, 1.0);
@@ -339,6 +316,11 @@ public class PraxicConfig {
         warnings += clampInt("webDashboardPort", webDashboardPort, v -> webDashboardPort = v, 1024, 65535);
         warnings += clampDouble("fastBreakSpeedMultiplier", fastBreakSpeedMultiplier, v -> fastBreakSpeedMultiplier = v, 0.05, 2.0);
         warnings += clampInt("timerMaxPacketsPerSecond", timerMaxPacketsPerSecond, v -> timerMaxPacketsPerSecond = v, 30, 200);
+        warnings += clampInt("scaffoldMaxBlocksPerSecond", scaffoldMaxBlocksPerSecond, v -> scaffoldMaxBlocksPerSecond = v, 1, 20);
+        warnings += clampInt("inventoryMaxClicksPerSecond", inventoryMaxClicksPerSecond, v -> inventoryMaxClicksPerSecond = v, 1, 200);
+        warnings += clampInt("autoClickerMaxCps", autoClickerMaxCps, v -> autoClickerMaxCps = v, 1, 200);
+        warnings += clampInt("towerMaxBlocksPerSecond", towerMaxBlocksPerSecond, v -> towerMaxBlocksPerSecond = v, 1, 20);
+        warnings += clampInt("fastPlaceMaxBlocksPerSecond", fastPlaceMaxBlocksPerSecond, v -> fastPlaceMaxBlocksPerSecond = v, 1, 20);
         if (warnings > 0) {
             Praxic.LOGGER.warn("[PRAXIC] Config: {} value(s) were out of range and clamped.", warnings);
         }

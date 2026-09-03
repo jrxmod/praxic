@@ -19,7 +19,6 @@ public class NoSlowCheck extends AbstractCheck {
 
     private static final int BUFFER_THRESHOLD = 5;
     private static final int BUFFER_DECAY = 1;
-    private static final double MAX_USE_SPEED = 0.18;
 
     @Override
     public String getName() {
@@ -47,6 +46,16 @@ public class NoSlowCheck extends AbstractCheck {
             return;
         }
 
+        // The first ticks after pressing use still carry full sprint speed:
+        // the client applies the use-item slowdown after the use packet is
+        // processed. A single early flag on the "first bite" while eating on
+        // the run was a false positive.
+        if (data.lastItemUseTime > 0
+                && System.currentTimeMillis() - data.lastItemUseTime < 300L) {
+            data.noSlowBuffer = 0;
+            return;
+        }
+
         BlockPos below = player.blockPosition().below();
         if (isIce(player.level().getBlockState(below).getBlock())
                 || isIce(player.level().getBlockState(below.north()).getBlock())
@@ -61,11 +70,17 @@ public class NoSlowCheck extends AbstractCheck {
         double dz = player.getZ() - data.prevZ;
         double horizontal = Math.sqrt(dx * dx + dz * dz);
         int ping = player.connection.latency();
-        double maxSpeed = (MAX_USE_SPEED + LagCompensation.extraSpeed(ping) * 0.35)
+        double maxSpeed = (Praxic.getConfig().noSlowMaxBlocksPerTick
+                + LagCompensation.extraSpeed(ping) * 0.35)
                 * LagCompensation.tpsSensitivity();
         if (player.hasEffect(MobEffects.MOVEMENT_SPEED)) {
             int amplifier = player.getEffect(MobEffects.MOVEMENT_SPEED).getAmplifier();
             maxSpeed *= (1.0 + 0.2 * (amplifier + 1));
+        }
+        // Low-FPS clients fold several ticks into one packet (same allowance
+        // as SpeedCheck), otherwise a legit player at ~10 FPS is flagged.
+        if (data.lastMoveGapMs > 80) {
+            maxSpeed *= Math.min(3.0, data.lastMoveGapMs / 50.0);
         }
 
         if (horizontal > maxSpeed) {
@@ -91,13 +106,22 @@ public class NoSlowCheck extends AbstractCheck {
         if (!packet.isOnGround()) return;
         if (player.isSpectator() || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
         if (data.joinGraceTicks > 0) return;
+        // Same first-use grace as the tick path.
+        if (data.lastItemUseTime > 0
+                && System.currentTimeMillis() - data.lastItemUseTime < 300L) return;
 
         double x = packet.getX(player.getX());
         double z = packet.getZ(player.getZ());
         double horiz = Math.sqrt(
                 (x - data.lastPacketX) * (x - data.lastPacketX)
                         + (z - data.lastPacketZ) * (z - data.lastPacketZ));
-        if (horiz <= MAX_USE_SPEED) {
+        // Same configurable threshold as the tick path; the packet path also
+        // stays tolerant of the vanilla sprint-while-eating speed.
+        double max = Praxic.getConfig().noSlowMaxBlocksPerTick;
+        if (data.lastMoveGapMs > 80) {
+            max *= Math.min(3.0, data.lastMoveGapMs / 50.0);
+        }
+        if (horiz <= max) {
             data.noSlowBuffer = Math.max(0, data.noSlowBuffer - 1);
             return;
         }

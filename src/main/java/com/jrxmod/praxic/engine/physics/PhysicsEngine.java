@@ -135,7 +135,21 @@ public class PhysicsEngine {
             return inactiveResult(actualY, actualY, 0.0, 0.0);
         }
 
-        // Transition into air from ground/water/climb — seed and grace
+        // Upward motion  -  a jump, or a landing + jump pair processed in one
+        // server tick. The falling predictor must not compare against a rising
+        // actual Y; reseed and either keep the running transition grace
+        // (decrement it so it expires) or start a fresh one.
+        if (actualDY > 0.0) {
+            if (grace > 0) {
+                graceTicks.put(uuid, grace - 1);
+            } else {
+                graceTicks.put(uuid, TRANSITION_GRACE_TICKS);
+            }
+            reseed(uuid, actualDY);
+            return inactiveResult(prevY + actualDY, actualY, actualDY, toleranceFor(ping));
+        }
+
+        // Transition into air from ground/water/climb  -  seed and grace
         boolean transition = (prev == MovementState.GROUND
                            || prev == MovementState.WATER
                            || prev == MovementState.CLIMB)

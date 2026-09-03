@@ -2,6 +2,37 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.16.1 - Honey
+
+### Added
+- **Ghost honeypot v3**: the existing trap now adapts to player activity - it stays clear of normal combat and becomes reachable when the player is idle, so honest players are not flagged while automation is still caught. A single accidental touch never triggers a flag; a repeat contact on the same trap does.
+- **FlyCheck**: new wall-climb detection added to the existing check (sustained vertical movement without support).
+- **Rotation analysis**: two new indicators added - unusually steady rotation speed and rotation snaps.
+- Block breaking, item usage and damage checks now evaluate at the moment the action actually completes.
+
+### Changed
+- **AimAssistCheck**: reworked to look for unnaturally steady rotation while following a target; players who trace targets with a mouse are no longer flagged.
+- **AutoTotemCheck**: only inventory actions that involve a totem are considered.
+- **BoatFlyCheck**: hovering is measured independently on both the game loop and packet paths, so one hover cannot be counted twice.
+- **CriticalsCheck**: only the unmistakable spoof signature is flagged.
+- **ScaffoldCheck**: walking detection is rate-based; random-building modules are detected by placement scatter around the player.
+- **SpeedCheck**: uses the server's real ground state; collisions, multi-packet ticks and low-FPS clients are tolerated; sprint-jump arcs remain legal.
+- **StepCheck**: teleports and low-FPS clients no longer look like single-tick climbs.
+- **TimerCheck**: replaced the old timing-balance heuristic with a sustained packet-rate check; riding, dismounting and lag are ignored.
+- **VelocityCheck**: damage-driven detection; knockback-free damage types, water, mid-air falls and walls are handled correctly.
+- **NoSlowCheck**: configurable threshold, grace after starting to use an item, low-FPS tolerance.
+- **InventoryCheck**: only bursts clearly above the expected click rate are flagged.
+- Updated configuration defaults for no-slow and honeypot behaviour.
+- Internal movement state tracking consolidated in one place.
+
+### Fixed
+- **ReachCheck**: now follows vanilla attack validation, so jumping, spam-clicking and moving targets no longer produce false positives; genuine over-range attacks remain detected.
+- **NoFallCheck**: support detection matches vanilla landing rules, so the check no longer misses real no-fall use.
+- **JesusCheck**: sliding off a boat and legitimate jumps over water no longer flag.
+- **YPredictionCheck**: water surfaces, entity pushes and damage moments are no longer mistaken for flight.
+- **FlyCheck**: partial platforms (slabs, carpets, block edges) and vehicle-exit settling no longer flag.
+- **AimAssistCheck / TimerCheck / FastBreakCheck / FastUseCheck**: false-positive cases resolved.
+
 ## 0.16.0 - Impact
 
 ### Added

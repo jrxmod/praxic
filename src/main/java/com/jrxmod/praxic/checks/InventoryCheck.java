@@ -37,7 +37,9 @@ public class InventoryCheck extends AbstractCheck {
 
         int maxClicks = Praxic.getConfig().inventoryMaxClicksPerSecond;
 
-        if (data.inventoryClickCount >= maxClicks && data.canFlag(getName(), 2000)) {
+        // Strictly above the cap: a burst of exactly maxClicks (e.g. 20) is
+        // normal for a quick inventory sort, not a clicker.
+        if (data.inventoryClickCount > maxClicks && data.canFlag(getName(), 2000)) {
             ViolationManager.flag(player, data, this,
                     String.format("InventoryCheck: %d clicks/sec (max: %d)",
                             data.inventoryClickCount, maxClicks));

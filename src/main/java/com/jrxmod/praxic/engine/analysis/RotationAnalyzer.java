@@ -30,7 +30,7 @@ public class RotationAnalyzer {
     /** Window for max snap angle. */
     private static final int SNAP_WINDOW = 20;
 
-    /** Ticks after a kill event during which we track post-kill snap. */
+    /** Ticks after a kill event during which post-kill snap is tracked. */
     private static final int POST_KILL_WINDOW = 3;
 
     // -------------------------------------------------------------------------
@@ -77,10 +77,13 @@ public class RotationAnalyzer {
         double entropy        = computeEntropy(yawWindow.get(uuid));
         double maxSnap        = computeMax(snapWindow.get(uuid));
         double avgSpeed       = computeAvg(speedWindow.get(uuid));
+        double speedCV        = computeSpeedCV(speedWindow.get(uuid));
+        int    largeSnapCount = countLargeSnaps(yawWindow.get(uuid));
         double postKillSnap   = computePostKill(uuid, absDeltaYaw);
         int    sampleCount    = yawWindow.getOrDefault(uuid, new ArrayDeque<>()).size();
 
-        return new RotationProfile(entropy, maxSnap, avgSpeed, postKillSnap, sampleCount);
+        return new RotationProfile(entropy, maxSnap, avgSpeed, speedCV, largeSnapCount,
+                postKillSnap, sampleCount);
     }
 
     /**
@@ -153,6 +156,38 @@ public class RotationAnalyzer {
         double sum = 0.0;
         for (double v : window) sum += v;
         return sum / window.size();
+    }
+
+    /**
+     * Coefficient of variation (stddev / mean) of per-tick rotation speed.
+     * Constant-rate assisted rotation approaches 0; hand input is bursty.
+     * Returns -1.0 when there is no meaningful mean to normalize against.
+     */
+    private static double computeSpeedCV(Deque<Double> window) {
+        if (window == null || window.size() < 10) return -1.0;
+        double mean = 0.0;
+        int n = window.size();
+        for (double v : window) mean += v;
+        mean /= n;
+        if (mean < 1.0E-6) return -1.0;
+
+        double variance = 0.0;
+        for (double v : window) {
+            double d = v - mean;
+            variance += d * d;
+        }
+        variance /= n;
+        return Math.sqrt(variance) / mean;
+    }
+
+    /** Counts ticks whose absolute yaw delta exceeds 320deg (snap-around artifact). */
+    private static int countLargeSnaps(Deque<Float> window) {
+        if (window == null) return 0;
+        int count = 0;
+        for (float v : window) {
+            if (v > 320f) count++;
+        }
+        return count;
     }
 
     /**
