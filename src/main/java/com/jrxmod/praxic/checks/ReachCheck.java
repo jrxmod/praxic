@@ -7,6 +7,11 @@ import com.jrxmod.praxic.util.LagCompensation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.animal.horse.AbstractHorse;
+import net.minecraft.world.entity.monster.Strider;
+import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -58,7 +63,7 @@ public class ReachCheck extends AbstractCheck {
 
     @Override
     public void check(ServerPlayer player, PlayerData data) {
-        // Event-driven check — called from ServerGamePacketListenerMixin
+        // Event-driven check. Called from ServerGamePacketListenerMixin.
     }
 
     /**
@@ -69,9 +74,22 @@ public class ReachCheck extends AbstractCheck {
         if (attacker.isSpectator()) return false;
         if (attacker.isDeadOrDying()) return false;
         if (target == null || target.isRemoved()) return false;
+        // Riding a vehicle biases the attack distance: the server measures from
+        // the player position which is offset by the vehicle, so the measured
+        // distance is unreliable. Skip reach while a vehicle rider.
+        if (isRidingVehicle(attacker)) return false;
+        // Dead or already-killed entities are briefly attackable during the
+        // kill-tick; skip them so the last hit does not produce an overshoot.
+        if (!target.isAlive()) return false;
+        // Spectator or creative mode clients do not engage in combat; skip them.
+        if (target instanceof net.minecraft.server.level.ServerPlayer sp) {
+            if (sp.isSpectator()) return false;
+            if (sp.gameMode.getGameModeForPlayer()
+                    == net.minecraft.world.level.GameType.CREATIVE) return false;
+        }
 
         double allowance = forwardMovementAllowance(attacker, data);
-        // Vanilla validation: canInteractWithEntity(aabb, 1.0)  -  eye to the
+        // Server validation: canInteractWithEntity(aabb, 1.0). Eye to the
         // closest box point must stay below entityInteractionRange + 1.0.
         double maxReach = attacker.entityInteractionRange() + 1.0 + REACH_MARGIN
                 + LagCompensation.extraReach(attacker.connection.latency())
@@ -132,6 +150,21 @@ public class ReachCheck extends AbstractCheck {
         double pitch = Math.toRadians(pitchDeg);
         double cosPitch = Math.cos(pitch);
         return new Vec3(Math.sin(yaw) * cosPitch, -Math.sin(pitch), Math.cos(yaw) * cosPitch);
+    }
+
+    /**
+     * True when the attacker rides a vehicle whose position is offset from
+     * the player (boat, minecart, horse, pig, strider). Reach is not
+     * meaningful for vehicle riders.
+     */
+    private static boolean isRidingVehicle(ServerPlayer attacker) {
+        if (!attacker.isPassenger()) return false;
+        Entity vehicle = attacker.getVehicle();
+        return vehicle instanceof Boat
+                || vehicle instanceof AbstractMinecart
+                || vehicle instanceof AbstractHorse
+                || vehicle instanceof Pig
+                || vehicle instanceof Strider;
     }
 
     /**

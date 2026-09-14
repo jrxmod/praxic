@@ -253,11 +253,35 @@ public class CheckManager {
                     data.timerRateStreak = 0;
                     data.movePacketTimestamps.clear();
                     data.windChargeUseTimes.clear();
+                    // Buffers not reset above: clear them here so the post-respawn
+                    // first tick does not carry over state accumulated near the
+                    // moment of death.
+                    data.speedBuffer = 0;
+                    data.noSlowBuffer = 0;
+                    data.phaseTicks = 0;
+                    data.criticalsBuffer = 0;
+                    data.badPacketBuffer = 0;
+                    data.rotationSnapBuffer = 0;
+                    data.reachWallBuffer = 0;
+                    data.fastBreakBuffer = 0;
+                    data.jesusBuffer = 0;
+                    data.knockbackPending = false;
+                    data.knockbackDirSet = false;
+                    data.knockbackTicksWaited = 0;
+                    data.lastRealAttackTimeMs = 0;
+                    data.freezeTicksRemaining = 0;
+                    data.teleportGraceTicks = 0;
                     physicsEngine.reset(uuid);
                     if (Praxic.getImpulseEngine() != null) {
                         Praxic.getImpulseEngine().reset(uuid);
                     }
                     data.updatePosition(player.getX(), player.getY(), player.getZ());
+                    // Anchor lastSafe at the current position so any setback or
+                    // rubberband triggered before respawn completes does not
+                    // pull the player back to the death location.
+                    data.lastSafeX = player.getX();
+                    data.lastSafeY = player.getY();
+                    data.lastSafeZ = player.getZ();
                     continue;
                 }
 

@@ -39,7 +39,14 @@ public class VehicleFlyCheck extends AbstractCheck {
             data.vehicleFlyTicks = 0;
             return;
         }
-        if (Praxic.getImpulseEngine().isActive(player.getUUID())) {
+        // Dismounting can place the rider over water or on a block edge for
+        // a moment; that settling window is not vehicle flight.
+        if (data.recentVehicleExit()) {
+            data.vehicleFlyTicks = 0;
+            return;
+        }
+        if (Praxic.getImpulseEngine() != null
+                && Praxic.getImpulseEngine().isActive(player.getUUID())) {
             data.vehicleFlyTicks = 0;
             return;
         }
@@ -116,6 +123,8 @@ public class VehicleFlyCheck extends AbstractCheck {
         }
         if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
         if (data.joinGraceTicks > 0) return;
+        // Same dismount settling window as the tick path.
+        if (data.recentVehicleExit()) return;
         if (vehicle instanceof AbstractMinecart && isOnRail(vehicle)) {
             data.vehicleFlyTicks = 0;
             return;

@@ -219,6 +219,10 @@ public class ViolationManager {
             case "TeleportCheck"     -> "Unexplained teleport is not allowed.";
             case "MaceSmashCheck"    -> "Illegal mace smash is not allowed.";
             case "WindChargeAbuseCheck" -> "Wind Charge abuse is not allowed.";
+            case "AimAssistCheck"    -> "Suspicious aim assistance detected.";
+            case "VehicleFlyCheck"   -> "Vehicle flight is not allowed.";
+            case "FastUseCheck"      -> "Item usage speed limit exceeded.";
+            case "AirPlaceCheck"     -> "Block placement against air is not allowed.";
             default                  -> "Suspicious behaviour detected.";
         };
     }

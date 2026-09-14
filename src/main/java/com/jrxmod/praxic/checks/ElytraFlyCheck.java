@@ -34,7 +34,15 @@ public class ElytraFlyCheck extends AbstractCheck {
         if (player.getAbilities().mayfly) return;
         if (player.isDeadOrDying()) return;
         if (data.joinGraceTicks > 0) return;
+        // Riptide trident boost launches the player at high horizontal speed;
+        // the impulse engine already records it, so reset the buffer.
         if (Praxic.getImpulseEngine() != null && Praxic.getImpulseEngine().isActive(player.getUUID())) {
+            data.elytraBuffer = 0;
+            return;
+        }
+        // Auto-spin (riptide in progress) is checked separately as a belt
+        // and braces guard before the engine state expires.
+        if (player.isAutoSpinAttack()) {
             data.elytraBuffer = 0;
             return;
         }
