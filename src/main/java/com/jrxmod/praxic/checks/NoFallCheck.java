@@ -52,17 +52,12 @@ public class NoFallCheck extends AbstractCheck {
             return;
         }
 
-        // Mirror of the packet logic for the already-processed position:
-        // ground claims without support count, supported ground resets, and
-        // airborne is neutral (see onMovePacket).
-        if (player.onGround()) {
-            if (supportGap(player, player.getX(), player.getY(), player.getZ()) > MAX_GROUND_GAP) {
-                data.noFallSpoofTicks++;
-            } else {
-                data.noFallSpoofTicks = 0;
-            }
+        // Packet handling is the only source of spoof increments. The tick
+        // path only clears stale state after a real supported landing.
+        if (player.onGround()
+                && supportGap(player, player.getX(), player.getY(), player.getZ()) <= MAX_GROUND_GAP) {
+            data.noFallSpoofTicks = 0;
         }
-        flagIfNeeded(player, data);
     }
 
     public void onMovePacket(ServerPlayer player, ServerboundMovePlayerPacket packet, PlayerData data) {

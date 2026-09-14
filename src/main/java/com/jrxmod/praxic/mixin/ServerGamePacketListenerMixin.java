@@ -105,6 +105,7 @@ public class ServerGamePacketListenerMixin {
                         player, data, packet,
                         cm.getFlyCheck(), cm.getSpeedCheck(), cm.getTeleportCheck())) {
             ci.cancel();
+            return;
         }
 
         cm.getTeleportCheck().onMovePacket(player, packet, data);
@@ -126,14 +127,16 @@ public class ServerGamePacketListenerMixin {
     @Inject(method = "handlePlayerAction", at = @At("HEAD"))
     private void onHandlePlayerAction(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
         if (!praxic$onServerThread()) return;
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+        CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
+        PlayerData data = cm.getPlayerData(player.getUUID());
         if (data == null) return;
         ServerboundPlayerActionPacket.Action action = packet.getAction();
         var pos = packet.getPos();
         if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
-            Praxic.getCheckManager().getFastBreakCheck().onStartBreak(player, pos, data);
+            cm.getFastBreakCheck().onStartBreak(player, pos, data);
         } else if (action == ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND) {
-            Praxic.getCheckManager().getAutoTotemCheck().onOffhandSwap(player, data);
+            cm.getAutoTotemCheck().onOffhandSwap(player, data);
         }
     }
 
@@ -151,6 +154,7 @@ public class ServerGamePacketListenerMixin {
         if (!isAttack.get()) return;
 
         CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
         PlayerData data = cm.getPlayerData(player.getUUID());
         if (data == null) return;
         data.lastAttackTime = System.currentTimeMillis();
@@ -201,9 +205,10 @@ public class ServerGamePacketListenerMixin {
     @Inject(method = "handleContainerClick", at = @At("HEAD"))
     private void onHandleContainerClick(ServerboundContainerClickPacket packet, CallbackInfo ci) {
         if (!praxic$onServerThread()) return;
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
-        if (data == null) return;
         CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
+        PlayerData data = cm.getPlayerData(player.getUUID());
+        if (data == null) return;
         cm.getInventoryCheck().onInventoryClick(player, data);
         cm.getAutoTotemCheck().onContainerClick(player, data, packet);
     }
@@ -231,7 +236,9 @@ public class ServerGamePacketListenerMixin {
     @Inject(method = "handleAcceptTeleportPacket", at = @At("HEAD"))
     private void onHandleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket packet, CallbackInfo ci) {
         if (!praxic$onServerThread()) return;
-        PlayerData data = Praxic.getCheckManager().getPlayerData(player.getUUID());
+        CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
+        PlayerData data = cm.getPlayerData(player.getUUID());
         if (data != null) {
             data.teleportGraceTicks = TELEPORT_GRACE_TICKS;
         }

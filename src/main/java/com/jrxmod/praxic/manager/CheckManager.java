@@ -244,6 +244,7 @@ public class CheckManager {
                     data.stepBuffer = 0;
                     data.elytraBuffer = 0;
                     data.vehicleFlyTicks = 0;
+                    data.vehiclePacketHoverTicks = 0;
                     data.aimAssistBuffer = 0;
                     data.fastUseTicks = 0;
                     data.airPlaceBuffer = 0;
@@ -480,16 +481,9 @@ public class CheckManager {
         data.wasFallFlying = fallFlying;
         data.lastElytraY = player.getY();
 
-        // GroundSpoof: if packet says onGround but server says airborne for sustained ticks
-        if (data.lastPacketHasPos) {
-            boolean serverGround = curr == MovementState.GROUND;
-            boolean packetGround = data.lastPacketOnGround;
-            if (packetGround && !serverGround && data.airTicks > 5) {
-                data.groundSpoofTicks++;
-            } else {
-                data.groundSpoofTicks = Math.max(0, data.groundSpoofTicks - 1);
-            }
-        }
+        // GroundSpoofCheck is packet-driven. The tick state machine must not
+        // increment its buffer, otherwise one spoofed movement packet can be
+        // counted once on receipt and once again at END_SERVER_TICK.
     }
 
     // -------------------------------------------------------------------------

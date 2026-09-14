@@ -7,6 +7,8 @@ import com.jrxmod.praxic.Praxic;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.StandardCopyOption;
+import java.util.Locale;
+import java.util.function.Consumer;
 
 public class PraxicConfig {
 
@@ -321,6 +323,8 @@ public class PraxicConfig {
         warnings += clampInt("autoClickerMaxCps", autoClickerMaxCps, v -> autoClickerMaxCps = v, 1, 200);
         warnings += clampInt("towerMaxBlocksPerSecond", towerMaxBlocksPerSecond, v -> towerMaxBlocksPerSecond = v, 1, 20);
         warnings += clampInt("fastPlaceMaxBlocksPerSecond", fastPlaceMaxBlocksPerSecond, v -> fastPlaceMaxBlocksPerSecond = v, 1, 20);
+        warnings += validateActions();
+        warnings += validateConfidenceOrder();
         if (warnings > 0) {
             Praxic.LOGGER.warn("[PRAXIC] Config: {} value(s) were out of range and clamped.", warnings);
         }
@@ -361,6 +365,80 @@ public class PraxicConfig {
             return 1;
         }
         return 0;
+    }
+
+    private int validateActions() {
+        int warnings = 0;
+        warnings += clampAction("flyAction", flyAction, v -> flyAction = v, "kick");
+        warnings += clampAction("speedAction", speedAction, v -> speedAction = v, "warn");
+        warnings += clampAction("phaseAction", phaseAction, v -> phaseAction = v, "setback");
+        warnings += clampAction("noSlowAction", noSlowAction, v -> noSlowAction = v, "warn");
+        warnings += clampAction("noFallAction", noFallAction, v -> noFallAction = v, "kick");
+        warnings += clampAction("reachAction", reachAction, v -> reachAction = v, "kick");
+        warnings += clampAction("killAuraCheckAction", killAuraCheckAction, v -> killAuraCheckAction = v, "kick");
+        warnings += clampAction("ghostTrapAction", ghostTrapAction, v -> ghostTrapAction = v, "kick");
+        warnings += clampAction("criticalsAction", criticalsAction, v -> criticalsAction = v, "warn");
+        warnings += clampAction("scaffoldAction", scaffoldAction, v -> scaffoldAction = v, "kick");
+        warnings += clampAction("autoTotemAction", autoTotemAction, v -> autoTotemAction = v, "kick");
+        warnings += clampAction("inventoryAction", inventoryAction, v -> inventoryAction = v, "kick");
+        warnings += clampAction("autoClickerAction", autoClickerAction, v -> autoClickerAction = v, "kick");
+        warnings += clampAction("timerAction", timerAction, v -> timerAction = v, "kick");
+        warnings += clampAction("badPacketsAction", badPacketsAction, v -> badPacketsAction = v, "kick");
+        warnings += clampAction("fastBreakAction", fastBreakAction, v -> fastBreakAction = v, "kick");
+        warnings += clampAction("jesusAction", jesusAction, v -> jesusAction = v, "kick");
+        warnings += clampAction("velocityAction", velocityAction, v -> velocityAction = v, "kick");
+        warnings += clampAction("yPredictionAction", yPredictionAction, v -> yPredictionAction = v, "setback");
+        warnings += clampAction("rotationAction", rotationAction, v -> rotationAction = v, "warn");
+        warnings += clampAction("sprintAction", sprintAction, v -> sprintAction = v, "warn");
+        warnings += clampAction("boatFlyAction", boatFlyAction, v -> boatFlyAction = v, "kick");
+        warnings += clampAction("postKillSnapAction", postKillSnapAction, v -> postKillSnapAction = v, "warn");
+        warnings += clampAction("elytraFlyAction", elytraFlyAction, v -> elytraFlyAction = v, "kick");
+        warnings += clampAction("stepAction", stepAction, v -> stepAction = v, "setback");
+        warnings += clampAction("towerAction", towerAction, v -> towerAction = v, "warn");
+        warnings += clampAction("groundSpoofAction", groundSpoofAction, v -> groundSpoofAction = v, "kick");
+        warnings += clampAction("fastPlaceAction", fastPlaceAction, v -> fastPlaceAction = v, "warn");
+        warnings += clampAction("teleportAction", teleportAction, v -> teleportAction = v, "warn");
+        warnings += clampAction("aimAssistAction", aimAssistAction, v -> aimAssistAction = v, "warn");
+        warnings += clampAction("vehicleFlyAction", vehicleFlyAction, v -> vehicleFlyAction = v, "kick");
+        warnings += clampAction("fastUseAction", fastUseAction, v -> fastUseAction = v, "warn");
+        warnings += clampAction("airPlaceAction", airPlaceAction, v -> airPlaceAction = v, "warn");
+        warnings += clampAction("maceSmashAction", maceSmashAction, v -> maceSmashAction = v, "kick");
+        warnings += clampAction("windChargeAbuseAction", windChargeAbuseAction, v -> windChargeAbuseAction = v, "warn");
+        return warnings;
+    }
+
+    private int clampAction(String name, String value, Consumer<String> setter, String fallback) {
+        String normalized = normalizeAction(value);
+        if (normalized == null) {
+            Praxic.LOGGER.warn("[PRAXIC] Config: {}={} is not a valid action, using {}.", name, value, fallback);
+            setter.accept(fallback);
+            return 1;
+        }
+        setter.accept(normalized);
+        return 0;
+    }
+
+    private static String normalizeAction(String value) {
+        if (value == null) return null;
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "flag", "warn", "freeze", "setback", "kick", "ban" -> normalized;
+            default -> null;
+        };
+    }
+
+    private int validateConfidenceOrder() {
+        if (confidenceWarnThreshold <= confidenceSetbackThreshold
+                && confidenceSetbackThreshold <= confidenceKickThreshold
+                && confidenceKickThreshold <= confidenceBanThreshold) {
+            return 0;
+        }
+        Praxic.LOGGER.warn("[PRAXIC] Config: confidence thresholds are out of order, using defaults.");
+        confidenceWarnThreshold = 0.30;
+        confidenceSetbackThreshold = 0.60;
+        confidenceKickThreshold = 0.80;
+        confidenceBanThreshold = 0.95;
+        return 1;
     }
 
     public void save() {

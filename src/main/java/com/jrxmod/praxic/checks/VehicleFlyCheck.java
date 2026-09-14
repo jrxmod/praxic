@@ -22,6 +22,7 @@ import net.minecraft.world.level.GameType;
 public class VehicleFlyCheck extends AbstractCheck {
 
     private static final int HOVER_TICKS_THRESHOLD = 25;
+    private static final int PACKET_HOVER_TICKS = 25;
     private static final double FREEFALL_DY_THRESHOLD = -0.3;
 
     @Override
@@ -32,53 +33,62 @@ public class VehicleFlyCheck extends AbstractCheck {
     @Override
     public void check(ServerPlayer player, PlayerData data) {
         if (!Praxic.getConfig().vehicleFlyCheckEnabled) return;
-        if (player.isSpectator()) return;
-        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (player.getAbilities().mayfly) return;
+        if (player.isSpectator()) {
+            reset(data);
+            return;
+        }
+        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) {
+            reset(data);
+            return;
+        }
+        if (player.getAbilities().mayfly) {
+            reset(data);
+            return;
+        }
         if (data.joinGraceTicks > 0) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
         // Dismounting can place the rider over water or on a block edge for
         // a moment; that settling window is not vehicle flight.
         if (data.recentVehicleExit()) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
         if (Praxic.getImpulseEngine() != null
                 && Praxic.getImpulseEngine().isActive(player.getUUID())) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
         if (!player.isPassenger()) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
         Entity vehicle = player.getVehicle();
         if (vehicle == null || vehicle instanceof Boat) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
         if (!isTrackedVehicle(vehicle)) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
         if (vehicle instanceof AbstractMinecart && isOnRail(vehicle)) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
         if (vehicle.onGround() || vehicle.isInWater() || vehicle.isInLava()) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
         double dy = player.getY() - data.prevY;
         if (dy < FREEFALL_DY_THRESHOLD) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
@@ -112,21 +122,34 @@ public class VehicleFlyCheck extends AbstractCheck {
                                 net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket packet,
                                 PlayerData data) {
         if (!Praxic.getConfig().vehicleFlyCheckEnabled) return;
-        if (!player.isPassenger()) {
-            data.vehicleFlyTicks = 0;
+        if (player.isSpectator()
+                || player.gameMode.getGameModeForPlayer() == GameType.CREATIVE
+                || player.getAbilities().mayfly
+                || player.isDeadOrDying()) {
+            reset(data);
             return;
         }
+        if (data.joinGraceTicks > 0 || data.recentVehicleExit()) {
+            reset(data);
+            return;
+        }
+        if (Praxic.getImpulseEngine() != null
+                && Praxic.getImpulseEngine().isActive(player.getUUID())) {
+            reset(data);
+            return;
+        }
+        if (!player.isPassenger()) {
+            reset(data);
+            return;
+        }
+
         Entity vehicle = player.getVehicle();
         if (vehicle == null || vehicle instanceof Boat || !isTrackedVehicle(vehicle)) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
-        if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
-        if (data.joinGraceTicks > 0) return;
-        // Same dismount settling window as the tick path.
-        if (data.recentVehicleExit()) return;
         if (vehicle instanceof AbstractMinecart && isOnRail(vehicle)) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
 
@@ -136,18 +159,25 @@ public class VehicleFlyCheck extends AbstractCheck {
         data.lastVehicleTime = System.currentTimeMillis();
 
         if (vehicle.onGround() || vehicle.isInWater() || vehicle.isInLava()) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
         if (dy < FREEFALL_DY_THRESHOLD) {
-            data.vehicleFlyTicks = 0;
+            reset(data);
             return;
         }
-        data.vehicleFlyTicks++;
-        if (data.vehicleFlyTicks >= HOVER_TICKS_THRESHOLD && data.canFlag(getName(), 2000)) {
+
+        data.vehiclePacketHoverTicks++;
+        if (data.vehiclePacketHoverTicks >= PACKET_HOVER_TICKS && data.canFlag(getName(), 2000)) {
             ViolationManager.flag(player, data, this,
                     String.format("Vehicle packet hover %s %d at Y=%.2f dy=%.3f",
-                            vehicle.getType().toShortString(), data.vehicleFlyTicks, y, dy));
+                            vehicle.getType().toShortString(), data.vehiclePacketHoverTicks, y, dy));
+            data.vehiclePacketHoverTicks = 0;
         }
+    }
+
+    private static void reset(PlayerData data) {
+        data.vehicleFlyTicks = 0;
+        data.vehiclePacketHoverTicks = 0;
     }
 }

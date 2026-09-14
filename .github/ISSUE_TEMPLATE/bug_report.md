@@ -12,31 +12,46 @@ A clear description of the bug or false positive.
 ## Check
 Which check is triggering incorrectly?
 - [ ] FlyCheck
+- [ ] YPredictionCheck
 - [ ] SpeedCheck
+- [ ] PhaseCheck
+- [ ] NoSlowCheck
 - [ ] NoFallCheck
 - [ ] ReachCheck
 - [ ] KillAuraCheck
+- [ ] GhostTrapCheck
+- [ ] CriticalsCheck
 - [ ] ScaffoldCheck
 - [ ] AutoTotemCheck
 - [ ] InventoryCheck
 - [ ] AutoClickerCheck
 - [ ] TimerCheck
+- [ ] BadPacketsCheck
 - [ ] FastBreakCheck
-- [ ] TimerCheck
-- [ ] PhaseCheck
-- [ ] NoSlowCheck
+- [ ] JesusCheck
+- [ ] VelocityCheck
+- [ ] RotationCheck
+- [ ] SprintCheck
+- [ ] BoatFlyCheck
+- [ ] PostKillSnapCheck
 - [ ] ElytraFlyCheck
+- [ ] StepCheck
+- [ ] TowerCheck
+- [ ] GroundSpoofCheck
+- [ ] FastPlaceCheck
 - [ ] TeleportCheck
 - [ ] AimAssistCheck
 - [ ] VehicleFlyCheck
 - [ ] FastUseCheck
 - [ ] AirPlaceCheck
+- [ ] MaceSmashCheck
+- [ ] WindChargeAbuseCheck
 - [ ] Other
 
 ## Steps to Reproduce
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Expected Behavior
 What should happen instead?

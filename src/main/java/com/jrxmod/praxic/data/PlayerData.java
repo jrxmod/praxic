@@ -286,6 +286,9 @@ public class PlayerData {
      */
     public int vehicleFlyTicks = 0;
 
+    /** Consecutive vehicle-move packets with non-boat vehicle hover. */
+    public int vehiclePacketHoverTicks = 0;
+
     /** Consecutive constant-rate combat rotation ticks (AimAssistCheck). */
     public int aimAssistBuffer = 0;
 
