@@ -8,7 +8,7 @@ public final class RotationProfile {
 
     /**
      * Shannon entropy of deltaYaw values over the last 40 ticks.
-     * Human: ~3.5–4.0 bits. AimBot: ~1.0–2.0 bits.
+     * Human: ~3.5-4.0 bits. AimBot: ~1.0-2.0 bits.
      * -1.0 if not enough data yet (fewer than 40 ticks collected).
      */
     public final double entropy;

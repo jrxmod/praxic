@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.Blocks;
 public class SpeedCheck extends AbstractCheck {
 
     // Skip check if the server tick took longer than this (server lag protection).
-    // Measured via CheckManager.getCurrentMspt() — smoothed wall-clock interval.
+    // Measured via CheckManager.getCurrentMspt() - smoothed wall-clock interval.
     private static final double MAX_SERVER_MSPT = 100.0;
 
     // Skip if distance suggests teleport or severe lag

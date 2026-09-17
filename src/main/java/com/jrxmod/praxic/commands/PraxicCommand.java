@@ -192,6 +192,7 @@ public class PraxicCommand {
         send(source, row("AutoClickerCheck",  cfg.autoClickerCheckEnabled));
         send(source, row("AutoTotemCheck",    cfg.autoTotemCheckEnabled));
         send(source, row("InventoryCheck",    cfg.inventoryCheckEnabled));
+        send(source, row("AutoArmorCheck",    cfg.autoArmorCheckEnabled));
         send(source, row("TimerCheck",        cfg.timerCheckEnabled));
         send(source, row("BadPacketsCheck",   cfg.badPacketsCheckEnabled));
         send(source, row("FastUseCheck",      cfg.fastUseCheckEnabled));
@@ -233,15 +234,15 @@ public class PraxicCommand {
         send(source, HEADER);
         send(source, BULLET + "§7Session statistics:");
         send(source, LINE);
-        send(source, BULLET + "§7Total flags §8— §e" + totalFlags);
-        send(source, BULLET + "§7Evidence records §8— §e" + Praxic.getEvidenceManager().count());
+        send(source, BULLET + "§7Total flags §8- §e" + totalFlags);
+        send(source, BULLET + "§7Evidence records §8- §e" + Praxic.getEvidenceManager().count());
 
         send(source, BULLET + "§7Top checks:");
         if (topChecks.isEmpty()) {
             send(source, "   §8No data yet.");
         } else {
             topChecks.forEach((check, count) -> send(source,
-                    "   §8— §b" + check + " §8(" + count + "§8)"));
+                    "   §8- §b" + check + " §8(" + count + "§8)"));
         }
 
         send(source, BULLET + "§7Top players:");
@@ -249,7 +250,7 @@ public class PraxicCommand {
             send(source, "   §8No data yet.");
         } else {
             topPlayers.forEach((name, count) -> send(source,
-                    "   §8— §e" + name + " §8(" + count + " flags§8)"));
+                    "   §8- §e" + name + " §8(" + count + " flags§8)"));
         }
 
         send(source, LINE);
@@ -277,10 +278,10 @@ public class PraxicCommand {
         send(source, LINE);
         send(source, BULLET + "§7TPS: " + tpsColor + fmt2(tps) + " §8| §7MSPT: " + tpsColor + fmt2(mspt) + "ms");
         send(source, BULLET + "§7AntiCheat overhead:");
-        send(source, "   §8— §7Last tick: " + loadColor + String.format("%.3f", lastMs) + "ms");
-        send(source, "   §8— §7Avg tick:  " + loadColor + String.format("%.3f", avgMs) + "ms" +
+        send(source, "   §8- §7Last tick: " + loadColor + String.format("%.3f", lastMs) + "ms");
+        send(source, "   §8- §7Avg tick:  " + loadColor + String.format("%.3f", avgMs) + "ms" +
                 " §8(" + String.format("%.1f", pct) + "% of tick budget)");
-        send(source, "   §8— §7Per player: " + loadColor + String.format("%.3f", perPlayerMs) + "ms" +
+        send(source, "   §8- §7Per player: " + loadColor + String.format("%.3f", perPlayerMs) + "ms" +
                 " §8(" + playerCount + " tracked)");
         send(source, BULLET + "§7Checks: §e" + Praxic.getCheckManager().getChecks().size() +
                 " §8| §7Evidence: §e" + Praxic.getEvidenceManager().count());
@@ -323,7 +324,7 @@ public class PraxicCommand {
         } else {
             data.violations.forEach((check, count) -> {
                 String color = count >= 5 ? "§c" : count >= 3 ? "§e" : "§a";
-                send(source, BULLET + "§f" + check + " §8— " + color + count + " VL");
+                send(source, BULLET + "§f" + check + " §8- " + color + count + " VL");
             });
         }
 
@@ -365,7 +366,7 @@ public class PraxicCommand {
             if (!pData.violations.isEmpty()) {
                 ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
                 String playerName = p != null ? p.getName().getString() : uuid.toString();
-                send(source, BULLET + "§e" + playerName + " §8— §7" + pData.violations);
+                send(source, BULLET + "§e" + playerName + " §8- §7" + pData.violations);
                 any[0] = true;
             }
         });
@@ -559,7 +560,7 @@ public class PraxicCommand {
                 send(source, BULLET + "§8[§7" + e.timestamp + "§8] " +
                         "§b" + e.check + " §8VL:" + e.vl +
                         " " + actionColor + e.action +
-                        " §8— §7" + e.details);
+                        " §8- §7" + e.details);
             }
         }
         send(source, LINE);
@@ -621,7 +622,7 @@ public class PraxicCommand {
             return;
         }
         for (EvidenceManager.EvidenceEntry e : entries) {
-            String playerPart = includePlayer ? "§e" + e.playerName + " §8— " : "";
+            String playerPart = includePlayer ? "§e" + e.playerName + " §8- " : "";
             send(source, BULLET + "§8[§7" + e.timestamp + "§8] " + playerPart +
                     "§b" + e.check + " §8VL:" + e.vl +
                     " " + actionColor(e.action) + e.action +
@@ -643,7 +644,7 @@ public class PraxicCommand {
     }
 
     private static String row(String label, boolean enabled) {
-        return BULLET + "§e" + label + " §8— " + (enabled ? ON : OFF);
+        return BULLET + "§e" + label + " §8- " + (enabled ? ON : OFF);
     }
 
     private static void send(CommandSourceStack source, String message) {
@@ -656,7 +657,7 @@ public class PraxicCommand {
 
     /**
      * Renders a 10-segment confidence bar with colour coding.
-     * Green (0.0–0.29), yellow (0.30–0.59), red (0.60–1.0).
+     * Green (0.0-0.29), yellow (0.30-0.59), red (0.60-1.0).
      */
     private static String confidenceBar(double confidence) {
         int filled = (int) Math.round(Math.max(0, Math.min(1.0, confidence)) * 10);

@@ -11,7 +11,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 
 /**
- * Detects Step hacks — instant vertical climb over 0.6 blocks without jumping.
+ * Detects Step hacks - instant vertical climb over 0.6 blocks without jumping.
  * Vanilla max step is 0.6; anything higher requires jumping or ledge.
  */
 public class StepCheck extends AbstractCheck {
@@ -66,13 +66,13 @@ public class StepCheck extends AbstractCheck {
             return;
         }
 
-        // Must be from ground — if already airborne, vertical can exceed step via jump physics
+        // Must be from ground - if already airborne, vertical can exceed step via jump physics
         if (data.prevMovementState != MovementState.GROUND && data.prevMovementState != MovementState.JUMP) {
             data.stepBuffer = Math.max(0, data.stepBuffer - 1);
             return;
         }
 
-        // Skip bouncy blocks (slime/honey bounce) and piston lifts — both can
+        // Skip bouncy blocks (slime/honey bounce) and piston lifts - both can
         // raise the player by more than a vanilla step legitimately.
         BlockPos below = player.blockPosition().below();
         var stateBelow = player.level().getBlockState(below);

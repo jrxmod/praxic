@@ -16,7 +16,7 @@ public class InventoryCheck extends AbstractCheck {
         return "InventoryCheck";
     }
 
-    // Called from mixin on every container click — runs on server thread
+    // Called from mixin on every container click - runs on server thread
     public void onInventoryClick(ServerPlayer player, PlayerData data) {
 
         if (!Praxic.getConfig().inventoryCheckEnabled) return;
@@ -48,7 +48,7 @@ public class InventoryCheck extends AbstractCheck {
         }
     }
 
-    // Not used — detection is fully event-driven via onInventoryClick
+    // Not used - detection is fully event-driven via onInventoryClick
     @Override
     public void check(ServerPlayer player, PlayerData data) {}
 }

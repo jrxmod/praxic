@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * Analyses player movement patterns each tick and produces a MovementProfile.
  * Tracks speed history, acceleration curve, strafe ratio, and jump frequency.
- * Stateful per-player — call reset() on disconnect.
+ * Stateful per-player - call reset() on disconnect.
  */
 public class MovementAnalyzer {
 
@@ -45,10 +45,10 @@ public class MovementAnalyzer {
         /** Timestamps of GROUND→JUMP transitions for jump frequency. */
         final Deque<Long>   jumpTimestamps = new ArrayDeque<>();
 
-        /** Last recorded speed — used to compute acceleration. -1 = not seeded. */
+        /** Last recorded speed - used to compute acceleration. -1 = not seeded. */
         double lastSpeed = -1.0;
 
-        /** Movement state last tick — used to detect jump transitions. */
+        /** Movement state last tick - used to detect jump transitions. */
         MovementState lastState = MovementState.GROUND;
     }
 

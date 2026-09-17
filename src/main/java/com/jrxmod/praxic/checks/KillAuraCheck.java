@@ -17,7 +17,7 @@ public class KillAuraCheck extends AbstractCheck {
     // Time window for burst detection (ms)
     private static final long BURST_WINDOW_MS = 1000;
 
-    // Max attacks per second — jitter clicking ~15 cps, autoclicker 20+
+    // Max attacks per second - jitter clicking ~15 cps, autoclicker 20+
     private static final int MAX_ATTACKS_PER_SECOND = 18;
 
     @Override
@@ -27,7 +27,7 @@ public class KillAuraCheck extends AbstractCheck {
 
     @Override
     public void check(ServerPlayer player, PlayerData data) {
-        // Event-driven check — called from ServerGamePacketListenerMixin
+        // Event-driven check - called from ServerGamePacketListenerMixin
     }
 
     public void checkAttack(ServerPlayer attacker, Entity target, PlayerData data) {
@@ -61,7 +61,7 @@ public class KillAuraCheck extends AbstractCheck {
         }
     }
 
-    // Detects abnormal attack burst — autoclicker/killaura typically 20+ cps
+    // Detects abnormal attack burst - autoclicker/killaura typically 20+ cps
     private void checkBurst(ServerPlayer attacker, PlayerData data) {
 
         long now = System.currentTimeMillis();

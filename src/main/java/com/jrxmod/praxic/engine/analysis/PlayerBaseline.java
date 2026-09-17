@@ -28,7 +28,7 @@ public final class PlayerBaseline {
      * Weighted average of all valid per-metric deviations from baseline.
      * 0.0 = behaviour matches baseline exactly.
      * ~1.0 = one standard-deviation shift (normal variation).
-     * 3.0+ = suspicious — possible toggling or cheat activation.
+     * 3.0+ = suspicious - possible toggling or cheat activation.
      * -1.0 if baseline not ready.
      */
     public final double deviationScore;

@@ -105,7 +105,7 @@ public class RotationAnalyzer {
     }
 
     // -------------------------------------------------------------------------
-    // Internal — window helpers
+    // Internal - window helpers
     // -------------------------------------------------------------------------
 
     private static <T> void addToWindow(Map<UUID, Deque<T>> map, UUID uuid, T value, int maxSize) {
@@ -115,20 +115,23 @@ public class RotationAnalyzer {
     }
 
     // -------------------------------------------------------------------------
-    // Internal — metric computation
+    // Internal - metric computation
     // -------------------------------------------------------------------------
 
     /**
-     * Shannon entropy on a window of float values.
-     * Values are bucketed into 36 bins of 10° each (0–360° range).
+     * Shannon entropy on a window of absolute yaw delta values.
+     * Snapshot deltaYaw is already normalized to [-180,180], so abs is [0,180].
+     * Bucketed into 18 bins of 10 degrees each to match the actual range.
      * Returns -1.0 if window has fewer than ENTROPY_WINDOW samples.
+     * Previous implementation used 36 bins for 0-360, half remained empty,
+     * artificially lowering entropy and causing false suspicious readings.
      */
     private double computeEntropy(Deque<Float> window) {
         if (window == null || window.size() < ENTROPY_WINDOW) return -1.0;
 
-        int[] bins = new int[36];
+        int[] bins = new int[18];
         for (float v : window) {
-            int bin = Math.min((int)(v / 10f), 35);
+            int bin = Math.min((int)(v / 10f), 17);
             bins[bin]++;
         }
 
@@ -180,12 +183,19 @@ public class RotationAnalyzer {
         return Math.sqrt(variance) / mean;
     }
 
-    /** Counts ticks whose absolute yaw delta exceeds 320deg (snap-around artifact). */
+    /**
+     * Counts ticks with unusually large yaw snap.
+     * Snapshot deltaYaw is already normalized to [-180,180], so a 320 deg
+     * check can never trigger. The artifact this was meant to catch is
+     * handled by maxSnapAngle instead. Keep a threshold that can actually
+     * occur (150+ deg in one tick has no legitimate equivalent, except
+     * post-kill flicks which are handled separately).
+     */
     private static int countLargeSnaps(Deque<Float> window) {
         if (window == null) return 0;
         int count = 0;
         for (float v : window) {
-            if (v > 320f) count++;
+            if (v > 150f) count++;
         }
         return count;
     }

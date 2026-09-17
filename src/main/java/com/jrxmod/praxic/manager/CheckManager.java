@@ -41,7 +41,7 @@ public class CheckManager {
     private final PlayerProfiler   playerProfiler   = new PlayerProfiler();
 
     // -------------------------------------------------------------------------
-    // Direct references to event-driven checks — avoids stream filtering in mixins
+    // Direct references to event-driven checks - avoids stream filtering in mixins
     // -------------------------------------------------------------------------
 
     private final FlyCheck              flyCheck              = new FlyCheck();
@@ -71,6 +71,8 @@ public class CheckManager {
     private final FastUseCheck          fastUseCheck          = new FastUseCheck();
     private final StepCheck             stepCheck             = new StepCheck();
     private final NoSlowCheck           noSlowCheck           = new NoSlowCheck();
+    private final AutoArmorCheck        autoArmorCheck        = new AutoArmorCheck();
+    private final FastLadderCheck       fastLadderCheck       = new FastLadderCheck();
 
     // -------------------------------------------------------------------------
     // Performance monitoring
@@ -145,8 +147,11 @@ public class CheckManager {
         // New in 0.16.0
         checks.add(maceSmashCheck);
         checks.add(windChargeAbuseCheck);
+        // New in 0.17.0
+        checks.add(autoArmorCheck);
+        checks.add(fastLadderCheck);
 
-        // Kill event — notify RotationAnalyzer to open post-kill snap window
+        // Kill event - notify RotationAnalyzer to open post-kill snap window
         ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed) -> {
             if (killer instanceof ServerPlayer player) {
                 rotationAnalyzer.onKill(player.getUUID());
@@ -164,7 +169,7 @@ public class CheckManager {
         });
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            // Performance monitoring — measure tick interval and own overhead
+            // Performance monitoring - measure tick interval and own overhead
             long nowWallMs = System.currentTimeMillis();
             if (lastTickWallMs > 0) {
                 currentMspt = (currentMspt * 0.8) + ((nowWallMs - lastTickWallMs) * 0.2);
@@ -204,7 +209,7 @@ public class CheckManager {
                     recordImpulses(player, data, impulse);
                 }
 
-                // Enforce freeze punishment — hold the player at the frozen
+                // Enforce freeze punishment - hold the player at the frozen
                 // position for the remaining freeze ticks.
                 if (data.freezeTicksRemaining > 0) {
                     player.connection.teleport(data.freezeX, data.freezeY, data.freezeZ,
@@ -220,7 +225,7 @@ public class CheckManager {
                 if (doDecay) data.decayViolations(DECAY_INTERVAL_MS);
                 Praxic.getConfidenceEngine().tickDecay(uuid, nowMs);
 
-                // 2. Skip dead players — death screen causes false positives.
+                // 2. Skip dead players - death screen causes false positives.
                 if (player.getHealth() <= 0) {
                     data.airTicks = 0;
                     data.boatAirTicks = 0;
@@ -250,6 +255,8 @@ public class CheckManager {
                     data.airPlaceBuffer = 0;
                     data.mitigateMoveBuffer = 0;
                     data.maceSmashBuffer = 0;
+                    data.fastLadderBuffer = 0;
+                    data.ladderTicks = 0;
                     data.timerFastStreak = 0;
                     data.timerRateStreak = 0;
                     data.movePacketTimestamps.clear();
@@ -286,7 +293,7 @@ public class CheckManager {
                     continue;
                 }
 
-                // 3. Compute movement state — single source of truth for all checks
+                // 3. Compute movement state - single source of truth for all checks
                 updateMovementState(player, data);
 
                 // 4. Sync derived legacy fields from the state machine
@@ -316,7 +323,7 @@ public class CheckManager {
                 PlayerAnalytics analyticsObj = new PlayerAnalytics(rotProfile, timProfile, movProfile, baseline);
                 analytics.put(uuid, analyticsObj);
 
-                // 12. Feed anomaly engine — accumulates sub-threshold baseline deviations
+                // 12. Feed anomaly engine - accumulates sub-threshold baseline deviations
                 if (baseline.baselineReady && baseline.deviationScore >= 0.0) {
                     AnomalyScoreEngine anomaly = Praxic.getAnomalyScoreEngine();
                     anomaly.feed(uuid, baseline.deviationScore);
@@ -331,7 +338,7 @@ public class CheckManager {
                     runChecks(player, data);
                 }
 
-                // 13b. Debug recorder — capture tick data if recording is active
+                // 13b. Debug recorder - capture tick data if recording is active
                 DebugRecorder.tick(player);
 
                 // 14. Update safe position
@@ -365,7 +372,7 @@ public class CheckManager {
             UUID uuid = player.getUUID();
             PlayerData data = playerDataMap.get(uuid);
 
-            // Session summary — one-line log entry for retro-analysis
+            // Session summary - one-line log entry for retro-analysis
             if (data != null) {
                 double confidence = Praxic.getConfidenceEngine().getScore(uuid);
                 double anomaly = Praxic.getAnomalyScoreEngine().getScore(uuid);
@@ -551,9 +558,11 @@ public class CheckManager {
     public Map<UUID, PlayerData>     getAllData()  { return playerDataMap; }
 
     // -------------------------------------------------------------------------
-    // Event-driven check accessors — used by mixins instead of stream filtering
+    // Event-driven check accessors - used by mixins instead of stream filtering
     // -------------------------------------------------------------------------
 
+    public AutoArmorCheck    getAutoArmorCheck()    { return autoArmorCheck; }
+    public FastLadderCheck   getFastLadderCheck()   { return fastLadderCheck; }
     public BadPacketsCheck   getBadPacketsCheck()   { return badPacketsCheck; }
     public TimerCheck        getTimerCheck()        { return timerCheck; }
     public TeleportCheck     getTeleportCheck()     { return teleportCheck; }

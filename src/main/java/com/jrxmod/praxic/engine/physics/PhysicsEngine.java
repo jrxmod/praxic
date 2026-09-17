@@ -37,7 +37,7 @@ public class PhysicsEngine {
     private static final int TRANSITION_GRACE_TICKS = 10;
 
     /**
-     * Grace ticks after hurtTime — vertical knockback trajectory is unpredictable
+     * Grace ticks after hurtTime - vertical knockback trajectory is unpredictable
      * and lasts longer than a regular state transition.
      */
     private static final int HURT_GRACE_TICKS = 20;
@@ -108,7 +108,7 @@ public class PhysicsEngine {
         int     grace  = graceTicks.getOrDefault(uuid, 0);
         double  vy     = predictedVY.getOrDefault(uuid, 0.0);
 
-        // Guards — skip entirely, reset predictor
+        // Guards - skip entirely, reset predictor
         boolean shouldSkip = snapshot.fallFlying
                           || snapshot.passenger
                           || snapshot.health <= 0
@@ -119,15 +119,15 @@ public class PhysicsEngine {
             return inactiveResult(actualY, actualY, 0.0, 0.0);
         }
 
-        // hurtTime > 0 — any damage disrupts vertical trajectory unpredictably.
-        // Use longer grace than a regular transition — knockback lasts longer.
+        // hurtTime > 0 - any damage disrupts vertical trajectory unpredictably.
+        // Use longer grace than a regular transition - knockback lasts longer.
         if (snapshot.hurtTime > 0) {
             reseed(uuid, actualDY);
             graceTicks.put(uuid, HURT_GRACE_TICKS);
             return inactiveResult(prevY + vy, actualY, vy, toleranceFor(ping));
         }
 
-        // Ground / water / climb — reset predictor, nothing to predict
+        // Ground / water / climb - reset predictor, nothing to predict
         if (curr == MovementState.GROUND
          || curr == MovementState.WATER
          || curr == MovementState.CLIMB) {
@@ -162,14 +162,14 @@ public class PhysicsEngine {
             return inactiveResult(prevY + actualDY, actualY, actualDY, toleranceFor(ping));
         }
 
-        // Decrement grace — reseed each grace tick, no comparison
+        // Decrement grace - reseed each grace tick, no comparison
         if (grace > 0) {
             graceTicks.put(uuid, grace - 1);
             reseed(uuid, actualDY);
             return inactiveResult(prevY + actualDY, actualY, actualDY, toleranceFor(ping));
         }
 
-        // Active prediction — simulate one step of MC gravity
+        // Active prediction - simulate one step of MC gravity
         // nextVY = (vy - 0.08) * 0.98
         double nextVY     = (vy - 0.08) * 0.98;
         double predictedY = prevY + nextVY;

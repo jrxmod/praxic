@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRAXIC Console</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="app">
+  <div class="panels" id="panels">
+    <div class="panel" id="panel-players" style="flex:0 0 20%">
+      <div class="panel-header">
+        <h2 data-i18n="players.title">Players</h2>
+        <span class="tag mono" id="players-total">-</span>
+      </div>
+      <div style="padding:8px; display:flex; flex-direction:column; gap:6px; border-bottom:1px solid var(--border);">
+        <input type="search" id="search" placeholder="Search player... (Ctrl+K)" data-i18n-placeholder="players.search">
+        <div class="tabs">
+          <button class="tab active" data-filter="all" data-i18n="players.all">All</button>
+          <button class="tab" data-filter="online" data-i18n="players.online">Online</button>
+          <button class="tab" data-filter="offline" data-i18n="players.offline">Offline</button>
+        </div>
+      </div>
+      <div class="panel-body" id="players-list">
+        <div class="empty"><p>Loading players...</p></div>
+      </div>
+      <div class="panel-footer">
+        <span>Live 2s · <button id="open-whitelist" class="btn" style="height:26px; padding:3px 8px; font-size:11px;">☰ Whitelist</button></span><span class="mono">PRAXIC</span>
+      </div>
+    </div>
+    <div class="resizer" data-resizer="0"></div>
+    <div class="panel" id="panel-detail" style="flex:1 1 44%">
+      <div class="panel-header">
+        <h2 data-i18n="detail.title">Player Details</h2>
+        <div class="panel-actions">
+          <span class="tag mono" id="detail-live">LIVE</span>
+        </div>
+      </div>
+      <div class="panel-body" id="detail-body">
+        <div class="empty">
+          <p style="font-size:24px; opacity:0.1;">-</p>
+          <p data-i18n="detail.empty">Select a player from the list</p>
+          <p style="font-size:11px; color:var(--muted2); margin-top:8px;">Data refreshes automatically every 2 seconds</p>
+        </div>
+      </div>
+    </div>
+    <div class="resizer" data-resizer="1"></div>
+    <div class="panel" id="panel-history" style="flex:1 1 36%">
+      <div class="panel-header">
+        <h2 data-i18n="history.title">Journal</h2>
+        <span class="tag mono" id="history-count">-</span>
+      </div>
+      <div class="panel-body" id="history-body">
+        <div class="empty"><p data-i18n="history.empty">No incidents yet</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-left" id="bottom-left"><span class="dot"></span> Connecting...</div>
+  <nav class="pill-nav">
+    <a href="/" class="pill-active"><span data-i18n="nav.main">Main</span></a>
+    <a href="/checks"><span data-i18n="nav.checks">Checks</span></a>
+    <a href="/overview"><span data-i18n="nav.overview">Overview</span></a>
+    <a href="/settings"><span data-i18n="nav.settings">Settings</span></a>
+  </nav>
+  <div class="bottom-right mono" id="bottom-right">-</div>
+</div>
+
+<script>window.PRAXIC_TOKEN = '{{TOKEN}}';</script>
+<script src="/js/i18n.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/panels.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

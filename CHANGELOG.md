@@ -2,6 +2,36 @@
 
 All notable changes to PRAXIC will be documented in this file.
 
+## 0.17.0 - Console
+
+### Added
+- **Web Console redesign**: completely rebuilt admin UI - no CDN, no external dependencies, works offline. Each tab is a separate file (easier to moderate).
+  - Main screen split into 3 resizable panels (players list 22% / player details 42% / journal 36%) that admin can drag to resize, sizes saved locally.
+  - Player list now shows online and offline players (offline from evidence/history), searchable, filterable, sorted by risk. Banned players are marked as banned, not clean.
+  - Player details rewritten in human language - no scary formulas. Instead of entropy/strafe ratio, shows "Aim looks natural / too steady / bot-like", "Clicks 22 per second - impossible manually", etc.
+  - Journal shows human sentences like "Flight attempt: hover without support" instead of raw check names, with location, VL and action badges.
+  - Bottom-center pill navigation (not touching borders) - Main / Checks / Overview / Settings.
+  - New pages: Checks (human names + descriptions), Overview (TPS/MSPT/flags live threat feed), Settings (version, server health, language selector).
+  - Language support: English default, Russian available, saved in localStorage.
+  - Offline player support: view history and evidence for offline players via /api/players/all and /api/player/{uuidOrName}.
+- **API improvements**: /api/players/all includes offline and banned, /api/player supports offline lookup, reset and whitelist work for offline UUIDs. Banned flag included in player list.
+
+### Changed
+- **TimerCheck**: threshold raised from 6.6 to 8.0 blocks per 20 ticks. Vanilla sprint is 5.6 m/s, sprint-jump average 7.1 m/s, so 6.6 flagged legitimate sprint-jumping.
+- **RotationAnalyzer**: entropy buckets fixed from 36 bins (0-360) to 18 bins (0-180) since deltaYaw is normalized to [-180,180]. Previously half bins stayed empty, artificially lowering entropy.
+- **RotationAnalyzer**: large snap counting fixed - previous >320 deg check could never trigger after normalization, now uses >150 deg which can actually occur.
+- **PraxicWebServer**: token injection now uses JSON encoding to prevent XSS via </script> in token, serves static assets from /css/ and /js/, caches templates, supports multi-file console.
+- **TowerCheck**: now requires sustained vertical building with minimal horizontal drift and clear upward movement, so normal bridging and nearby block placement no longer flag. Config schema v11 migrates low tower limit to safe value.
+- **Dashboard**: old single-file dashboard.html now serves new console for backwards compatibility. Settings page no longer shows duplicate version - only Mod Version remains.
+- **AutoArmorCheck**: manual armor equipping no longer triggers flags. Only very fast multiple equips or instant equips right after taking damage are considered suspicious.
+
+### Fixed
+- **FastBreakCheck**: now catches fast break modules that send early stop packets to bypass vanilla breaking progress. The check runs at the moment the stop action is received, so the first impossible break is flagged. Legitimate breaking is not affected.
+- **WebServer XSS**: player names are now escaped in HTML, token injection safe.
+- **Offline support**: incidents and history for offline players now viewable.
+- **Web Console banned display**: banned players are no longer shown as clean in the player list and detail view. They appear with banned status and full risk, requiring pardon to return.
+- Dashboard template version refreshed and banned styles added.
+
 ## 0.16.1 - Honey
 
 ### Added
@@ -110,24 +140,24 @@ All notable changes to PRAXIC will be documented in this file.
 ## 0.14.0 - Polish
 
 ### Added
-- **Clickable staff alerts** — player names in flag notifications are now clickable to open a full inspection and show a tooltip with context on hover. One click replaces manual `/praxic check` lookups.
-- **Performance monitor** (`/praxic perf`) — shows server TPS, MSPT and how much processing time the anticheat itself consumes per tick and per player. Instantly see whether the server or the anticheat is the bottleneck.
-- **Debug recording** (`/praxic debug <player>`) — captures 30 seconds of tick-by-tick data for a player and saves it to a JSON file. Designed for reviewing suspected false positives with full context.
-- **Teleport to flag** (`/praxic tp <player>`) — teleports the moderator to the coordinates of the player's most recent violation for quick scene inspection.
-- **Confidence bar** — `/praxic check` now includes a colour-coded visual bar alongside the confidence score for faster at-a-glance assessment.
-- **Config validation** — out-of-range values in `praxic.json` are automatically clamped with a log warning instead of causing silent misbehaviour.
-- **Config auto-backup** — every save creates `praxic.json.bak` from the previous version, protecting against accidental configuration loss.
-- **Session summary on disconnect** — a one-line log entry is recorded when a player leaves, capturing session duration, total violations and overall suspicion for retro-analysis.
-- **Lag-adaptive detection** — when server performance degrades, detection thresholds automatically relax to prevent lag-induced false positives.
-- **Richer Discord alerts** — webhook embeds now include session context and server performance alongside the violation details.
+- **Clickable staff alerts** - player names in flag notifications are now clickable to open a full inspection and show a tooltip with context on hover. One click replaces manual `/praxic check` lookups.
+- **Performance monitor** (`/praxic perf`) - shows server TPS, MSPT and how much processing time the anticheat itself consumes per tick and per player. Instantly see whether the server or the anticheat is the bottleneck.
+- **Debug recording** (`/praxic debug <player>`) - captures 30 seconds of tick-by-tick data for a player and saves it to a JSON file. Designed for reviewing suspected false positives with full context.
+- **Teleport to flag** (`/praxic tp <player>`) - teleports the moderator to the coordinates of the player's most recent violation for quick scene inspection.
+- **Confidence bar** - `/praxic check` now includes a colour-coded visual bar alongside the confidence score for faster at-a-glance assessment.
+- **Config validation** - out-of-range values in `praxic.json` are automatically clamped with a log warning instead of causing silent misbehaviour.
+- **Config auto-backup** - every save creates `praxic.json.bak` from the previous version, protecting against accidental configuration loss.
+- **Session summary on disconnect** - a one-line log entry is recorded when a player leaves, capturing session duration, total violations and overall suspicion for retro-analysis.
+- **Lag-adaptive detection** - when server performance degrades, detection thresholds automatically relax to prevent lag-induced false positives.
+- **Richer Discord alerts** - webhook embeds now include session context and server performance alongside the violation details.
 
 ### Fixed
-- `ConfidenceEngine.java` — one combat detection module was missing from the evidence weight configuration, causing it to contribute less than intended.
-- `PraxicWebServer.java` — the dashboard reset endpoint could not resolve valid player names due to a URL parsing error.
-- `PraxicCommand.java` — the freeze punishment was displayed without colour in command output.
-- `SpeedCheck.java`, `CheckManager.java` — speed detection relied on a timing value that was refreshed every tick, preventing the server-lag guard from ever activating.
-- `WhitelistManager.java` — saving the whitelist could fail when the config directory did not yet exist.
-- `ServerGamePacketListenerMixin.java`, `CheckManager.java` — replaced per-packet stream searches with direct references, reducing unnecessary processing overhead in the packet pipeline.
+- `ConfidenceEngine.java` - one combat detection module was missing from the evidence weight configuration, causing it to contribute less than intended.
+- `PraxicWebServer.java` - the dashboard reset endpoint could not resolve valid player names due to a URL parsing error.
+- `PraxicCommand.java` - the freeze punishment was displayed without colour in command output.
+- `SpeedCheck.java`, `CheckManager.java` - speed detection relied on a timing value that was refreshed every tick, preventing the server-lag guard from ever activating.
+- `WhitelistManager.java` - saving the whitelist could fail when the config directory did not yet exist.
+- `ServerGamePacketListenerMixin.java`, `CheckManager.java` - replaced per-packet stream searches with direct references, reducing unnecessary processing overhead in the packet pipeline.
 
 ### Changed
 - `/praxic status` now lists all 29 checks across 4 groups.
@@ -143,7 +173,7 @@ All notable changes to PRAXIC will be documented in this file.
 - **Unit tests**: 21 JUnit tests covering the physics engine, confidence and anomaly engines, lag compensation and the profiler's pure logic.
 
 ### Changed
-- **ReachCheck**: distance is now measured to the closest point of the target's bounding box (vanilla semantics) instead of its centre. Survival threshold lowered from 5.0 to 3.5, creative from 6.0 to 5.5, catching reach in the 3.2–4.5 range that was previously missed.
+- **ReachCheck**: distance is now measured to the closest point of the target's bounding box (vanilla semantics) instead of its centre. Survival threshold lowered from 5.0 to 3.5, creative from 6.0 to 5.5, catching reach in the 3.2-4.5 range that was previously missed.
 - **TeleportCheck** replaces the earlier tick-level draft; detection now runs at packet level for accuracy.
 - CI now builds on JDK 21, matching the project's `release = 21` target.
 
@@ -156,15 +186,15 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 - **FastBreakCheck**: mining time calculation now matches vanilla 1.21.1 (tool speeds, Efficiency, Haste / Conduit Power, Mining Fatigue, water and mid-air penalties, 30/100 divisor). Blocks that break instantly in vanilla (shears on leaves, Efficiency V + Haste) are no longer flagged.
 - **FastPlaceCheck**: only successful block placements are counted; non-block items such as fireworks are ignored. Default limit raised to the vanilla ceiling of 20 blocks/sec.
 - **NoFallCheck**: respects the `fallDamage` gamerule and accounts for armor, Protection / Feather Falling, Resistance and sweet berry bushes. A flag requires less than half of the expected damage to have been dealt.
-- **NoSlowCheck**: default limit raised to 0.30 blocks/tick — vanilla sprinting while eating (0.286) is no longer flagged.
-- **FastBreakCheck**: correct-tool detection now mirrors vanilla `Player#hasCorrectToolForDrops` — blocks that do not require a tool for drops (leaves, dirt, grass, logs) use the 30 divisor even with bare hands, matching real server-side breaking speed.
+- **NoSlowCheck**: default limit raised to 0.30 blocks/tick - vanilla sprinting while eating (0.286) is no longer flagged.
+- **FastBreakCheck**: correct-tool detection now mirrors vanilla `Player#hasCorrectToolForDrops` - blocks that do not require a tool for drops (leaves, dirt, grass, logs) use the 30 divisor even with bare hands, matching real server-side breaking speed.
 - **ScaffoldCheck / TowerCheck**: only successful block placements are counted; scaffold default limit raised to 12 blocks/sec.
 - **ElytraFlyCheck**: firework rocket use grants a 3-second grace period.
 - **AutoClickerCheck**: added a flag cooldown to prevent flag spam.
 - **KillAuraCheck**: burst counter resets after a flag.
 - **VelocityCheck**: knockback into a wall no longer flags.
 - **AutoTotemCheck**: item swaps without recent damage are not treated as totem consumption.
-- **SprintCheck**: removed the blindness branch — vanilla does not cancel an ongoing sprint.
+- **SprintCheck**: removed the blindness branch - vanilla does not cancel an ongoing sprint.
 - **StepCheck**: piston lifts are exempt.
 - **FlyCheck**: Jump Boost is exempt; natural falls no longer flag.
 
@@ -191,7 +221,7 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 - **NoFallCheck**: safe landing detection rewritten to use exact block checks and tags (BEDS, WOOL_CARPETS) instead of substring matching
 - **VelocityCheck**: slime/honey bounce now preserves pending knockback check instead of cancelling
 - **FastBreakCheck**: added correct-tool penalty (0.2x speed) for incorrect tool usage
-- **TimerCheck**: added TPS guard — skips evaluation when server TPS < 17.0 to avoid false positives during lag
+- **TimerCheck**: added TPS guard - skips evaluation when server TPS < 17.0 to avoid false positives during lag
 - **PlayerProfiler**: baseline now requires entropy and CPS samples in addition to speed, improving toggling detection reliability
 - **GhostEntity**: armor stand now small, no baseplate, silent, not invulnerable (invulnerable could block attack packets)
 - **DiscordWebhook**: payload now built with Gson to safely escape JSON, truncated details to 1024 chars
@@ -237,8 +267,8 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 - **GhostEntityManager**: new honeypot trap system that spawns invisible ArmorStand entities to detect KillAura/AimAssist
 - **GhostEntity**: invisible ArmorStand-based entities (completely rewritten from previous mob-based version)
 - **New cross-correlations** in ConfidenceEngine:
-  - Rotation + Timing → ×1.4 multiplier
-  - Movement + Anomaly → ×1.3 multiplier
+  - Rotation + Timing -> x1.4 multiplier
+  - Movement + Anomaly -> x1.3 multiplier
 - **Enhanced `/praxic check <player>`**:
   - Now shows Confidence + Anomaly scores
   - Analytics snapshot (Entropy, Max Snap, CPS, Speed)
@@ -251,52 +281,52 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 ### Changed
 - `Praxic.java`: added `GhostEntityManager` singleton
 - `ServerGamePacketListenerMixin`: ghost honeypot check runs before normal KillAura/Reach checks
-- `gradle.properties`: version bumped to 0.10.0
+- `gradle.properties`: version set to 0.10.0
 - Dashboard API now exposes `ghostTraps` field
 
 ### Fixed
-- GhostEntity completely rewritten — replaced visible aggressive mobs with invisible ArmorStands
+- GhostEntity completely rewritten - replaced visible aggressive mobs with invisible ArmorStands
 - Commands registration fixed (moved back to `onInitialize`)
 
 ## 0.9.0 - Watchtower
 ### Added
-- **Decision Engine — ConfidenceEngine**: per-player evidence score built from weighted check flags and cross-check correlation
-- **Decision Engine — AnomalyScoreEngine**: accumulates sub-threshold baseline deviations to detect closet cheaters over time
-- **Decision Engine — ActionResolver**: unified punishment gate based on confidence score, replaces per-check flat VL thresholds
-- **PostKillSnapCheck**: new combat check — detects Kill Aura via yaw snap in the first ticks after a kill
-- **Web Dashboard**: embedded admin panel at http://127.0.0.1:8765/ — live player list, per-player analytics, violation history, check status, player search, optional token auth
+- **Decision Engine - ConfidenceEngine**: per-player evidence score built from weighted check flags and cross-check correlation
+- **Decision Engine - AnomalyScoreEngine**: accumulates sub-threshold baseline deviations to detect closet cheaters over time
+- **Decision Engine - ActionResolver**: unified punishment gate based on confidence score, replaces per-check flat VL thresholds
+- **PostKillSnapCheck**: new combat check - detects Kill Aura via yaw snap in the first ticks after a kill
+- **Web Dashboard**: embedded admin panel at http://127.0.0.1:8765/ - live player list, per-player analytics, violation history, check status, player search, optional token auth
 
 ### Changed
 - **ViolationManager**: punishments now routed through ActionResolver; staff alerts include confidence score
-- **CheckManager**: tick pipeline extended to 15 steps — anomaly feed and confidence nudge after analytics
+- **CheckManager**: tick pipeline extended to 15 steps - anomaly feed and confidence nudge after analytics
 - **/praxic check**: now displays confidence and anomaly scores alongside VL
 - **/praxic status**: shows WebDashboard row with URL when enabled
-- **PraxicConfig**: new fields — postKillSnapCheckEnabled, postKillSnapMaxAngle, webDashboardPort, webDashboardToken
+- **PraxicConfig**: new fields - postKillSnapCheckEnabled, postKillSnapMaxAngle, webDashboardPort, webDashboardToken
 
 ### Fixed
-- **CheckManager**: death guard no longer resets behavioural analysers — baseline was destroyed on every death, blinding toggling detection for the rest of the session
-- **TimingAnalyzer**: interval derivation logic fixed — single attack per tick was never recorded, leaving clickIntervalStdDev at -1.0 indefinitely
+- **CheckManager**: death guard no longer resets behavioural analysers - baseline was destroyed on every death, blinding toggling detection for the rest of the session
+- **TimingAnalyzer**: interval derivation logic fixed - single attack per tick was never recorded, leaving clickIntervalStdDev at -1.0 indefinitely
 
 ## 0.8.0 - Analysis Layer
 ### Added
-- **Engine v2 — MovementAnalyzer**: tracks speed history, acceleration curve, strafe ratio and jump frequency per player
-- **Engine v2 — PlayerProfiler**: builds a behavioural baseline over the first 5 minutes using Welford's online algorithm, then produces a deviation score for toggling detection
-- **Engine v2 — PlayerAnalytics**: unified analytics bundle — all four profiles (rotation, timing, movement, baseline) in one object per tick
+- **Engine v2 - MovementAnalyzer**: tracks speed history, acceleration curve, strafe ratio and jump frequency per player
+- **Engine v2 - PlayerProfiler**: builds a behavioural baseline over the first 5 minutes using Welford's online algorithm, then produces a deviation score for toggling detection
+- **Engine v2 - PlayerAnalytics**: unified analytics bundle - all four profiles (rotation, timing, movement, baseline) in one object per tick
 
 ### Changed
 - **CheckManager**: analysis pipeline consolidated into a single PlayerAnalytics object instead of separate maps per profile
-- **PlayerData**: removed legacy Y-prediction fields (predictedVY, yPredictionActive, yPredictionGraceTicks) — fully replaced by PhysicsEngine
+- **PlayerData**: removed legacy Y-prediction fields (predictedVY, yPredictionActive, yPredictionGraceTicks) - fully replaced by PhysicsEngine
 
 ## 0.7.0 - Engine Foundation
 ### Added
-- **Engine v2 Data Layer**: immutable per-tick player snapshot — all engine layers read from it
+- **Engine v2 Data Layer**: immutable per-tick player snapshot - all engine layers read from it
 - **Engine v2 Physics Layer**: Y-prediction simulation as a standalone engine component
 - **Engine v2 Analysis Layer**: rotation analyzer with Shannon entropy and post-kill snap detection
 - **Engine v2 Analysis Layer**: timing analyzer with click and packet interval deviation
 
 ### Changed
 - YPredictionCheck now reads from the physics engine instead of running its own simulation
-- CheckManager tick pipeline extended: snapshot → physics → analysis → checks
+- CheckManager tick pipeline extended: snapshot -> physics -> analysis -> checks
 
 ## 0.6.0 - New Checks
 ### Added
@@ -306,17 +336,17 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 
 ### Changed
 - FlyCheck: removed deprecated state mutation code (now fully managed by CheckManager)
-- PlayerData: added joinGraceTicks — all checks skip the first 2 seconds after join
+- PlayerData: added joinGraceTicks - all checks skip the first 2 seconds after join
 - PraxicViolationEvent: now cancellable (listeners return boolean)
   true = listener handles punishment, PRAXIC skips its own action
 
 ## 0.5.0 - Engine Update II
 ### Added
-- **Movement State Machine** — centralized movement state (GROUND / JUMP / AIR / FALLING / WATER / CLIMB)
+- **Movement State Machine** - centralized movement state (GROUND / JUMP / AIR / FALLING / WATER / CLIMB)
   All checks now read a single shared state instead of maintaining their own booleans
-- **Y-Prediction Engine** — physics-based vertical movement check (`YPredictionCheck`)
+- **Y-Prediction Engine** - physics-based vertical movement check (`YPredictionCheck`)
   Simulates vanilla gravity (`vy = (vy - 0.08) * 0.98`) and compares predicted Y to actual Y
-  Flags only when player is *above* prediction — catches fly and hover cheats
+  Flags only when player is *above* prediction - catches fly and hover cheats
   Lag-compensated tolerance, resync on flag to prevent VL cascades
   Default action: `setback`
 - `lastYaw` / `lastPitch` fields added to `PlayerData` (groundwork for RotationCheck in next release)
@@ -327,38 +357,38 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 - Kick / ban / warn messages now show human-readable reasons instead of internal check names
   (e.g. "Flying is not allowed on this server." instead of "FlyCheck")
 - `waterExitTicks` and `jesusWaterGraceTicks` are now managed centrally by `CheckManager`
-  instead of being updated inside individual checks — order of execution no longer matters
+  instead of being updated inside individual checks - order of execution no longer matters
 
 ### Fixed
-- `airTicks` could increment while in water or on a climbable in edge cases — now strictly tied to airborne states
+- `airTicks` could increment while in water or on a climbable in edge cases - now strictly tied to airborne states
 
-## 0.4.1 — Patch
+## 0.4.1 - Patch
 ### Fixed
 - JesusCheck: false positives when falling into water or exiting water.
   Added independent grace timer (15 ticks), wasInWater transition guard,
   and downward movement check (dy < -0.01).
 
-## 0.4.0 — Engine Update
+## 0.4.0 - Engine Update
 ### Added
 - VL Decay: violation levels decrease by 1 every 5 seconds without new flags.
-- Setback: new action type — teleports player back to last safe ground position instead of kicking.
+- Setback: new action type - teleports player back to last safe ground position instead of kicking.
 - Lag Compensation: dynamic check thresholds based on player ping, capped at 500ms to prevent spoofing.
 - JesusCheck: detects walking on water surface. Accounts for Frost Walker, lily pads, water exit grace period and knockback.
 - VelocityCheck: detects knockback cancellation by measuring horizontal displacement after taking damage.
-- /praxic whitelist add/remove/list — exclude players from all checks. Persistent across restarts.
-- /praxic history <player> — view last 10 violation entries per player. Persistent, works for offline players.
+- /praxic whitelist add/remove/list - exclude players from all checks. Persistent across restarts.
+- /praxic history <player> - view last 10 violation entries per player. Persistent, works for offline players.
 
 ### Fixed
-- player.latency replaced with player.connection.latency() — correct Fabric API method.
+- player.latency replaced with player.connection.latency() - correct Fabric API method.
 
-## 0.3.0 — Integrations & API
+## 0.3.0 - Integrations & API
 ### Added
 - Update Checker: notifies OP2+ players on join if a newer version is available on Modrinth.
 - Discord Webhook: sends violation alerts to a Discord channel (configurable, disabled by default).
 - OnViolation API: Fabric event for other mods to listen to PRAXIC violation events.
 - Stats: /praxic stats command showing total flags, top checks and top players this session.
 
-## 0.2.0 — New Detection Modules
+## 0.2.0 - New Detection Modules
 ### Added
 - AutoClickerCheck: detects abnormal CPS (>20) during combat using a 1-second sliding window.
 - TimerCheck: detects client-side game speed manipulation using a 5-second sliding window.
@@ -366,7 +396,7 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
   Accounts for block hardness, tool speed, Haste and Mining Fatigue effects.
 - GitHub Issue templates: Bug Report and Feature Request.
 
-## 0.1.2 — Stability & Staff Alerts
+## 0.1.2 - Stability & Staff Alerts
 ### Added
 - Staff Alerts: notify online operators (OP level 2+) when a player is flagged.
 - Advanced FlyCheck: added detection for illegal vertical ascent (flying up).
@@ -379,12 +409,12 @@ This release fixes multiple false positives introduced in 0.12.0: vanilla-accura
 - NoFallCheck: added support for Absorption hearts (Golden Apples).
 - ReachCheck: increased survival threshold to 4.5 to accommodate mob hitboxes.
 
-## 0.1.1 — Hotfix update
+## 0.1.1 - Hotfix update
 ### Changed
 - ReachCheck threshold adjusted to reduce false positives on mobs.
 - /praxic status now shows all modules.
 
-## 0.1.0 — Initial release
+## 0.1.0 - Initial release
 ### Added
 - FlyCheck, SpeedCheck, NoFallCheck, ReachCheck, KillAuraCheck.
 - ScaffoldCheck, AutoTotemCheck, InventoryCheck.

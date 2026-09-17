@@ -74,7 +74,7 @@ public class DebugRecorder {
         return active.containsKey(uuid);
     }
 
-    /** Called every tick from CheckManager — captures data for active recordings. */
+    /** Called every tick from CheckManager - captures data for active recordings. */
     public static void tick(net.minecraft.server.level.ServerPlayer player) {
         Recording rec = active.get(player.getUUID());
         if (rec == null) return;

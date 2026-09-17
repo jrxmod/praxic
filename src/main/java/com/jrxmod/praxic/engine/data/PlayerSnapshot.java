@@ -5,7 +5,7 @@ import com.jrxmod.praxic.data.MovementState;
 /**
  * Immutable snapshot of all relevant player state for a single server tick.
  * Built by SnapshotBuilder after syncDerivedFields(), before checks run.
- * All engine layers operate on this object — never on ServerPlayer directly.
+ * All engine layers operate on this object - never on ServerPlayer directly.
  */
 public final class PlayerSnapshot {
 
@@ -17,7 +17,7 @@ public final class PlayerSnapshot {
     public final long timestamp;
 
     // -------------------------------------------------------------------------
-    // Position — current tick
+    // Position - current tick
     // -------------------------------------------------------------------------
 
     public final double x;
@@ -25,7 +25,7 @@ public final class PlayerSnapshot {
     public final double z;
 
     // -------------------------------------------------------------------------
-    // Position — previous tick
+    // Position - previous tick
     // -------------------------------------------------------------------------
 
     public final double prevX;
@@ -48,18 +48,18 @@ public final class PlayerSnapshot {
     /** Horizontal speed (XZ magnitude). */
     public final double speed;
 
-    /** Vertical speed — alias for dy, for clarity in physics code. */
+    /** Vertical speed - alias for dy, for clarity in physics code. */
     public final double verticalSpeed;
 
     // -------------------------------------------------------------------------
-    // Rotation — current tick
+    // Rotation - current tick
     // -------------------------------------------------------------------------
 
     public final float yaw;
     public final float pitch;
 
     // -------------------------------------------------------------------------
-    // Rotation — previous tick
+    // Rotation - previous tick
     // -------------------------------------------------------------------------
 
     public final float prevYaw;
@@ -92,7 +92,7 @@ public final class PlayerSnapshot {
     public final boolean inWater;
     public final boolean onClimbable;
 
-    /** True while gliding with elytra — trajectory is not gravitational. */
+    /** True while gliding with elytra - trajectory is not gravitational. */
     public final boolean fallFlying;
 
     /** True while riding any vehicle. */

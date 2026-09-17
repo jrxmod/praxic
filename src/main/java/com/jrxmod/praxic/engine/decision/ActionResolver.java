@@ -37,7 +37,7 @@ public class ActionResolver {
      * Resolves a confidence score and caps the result by the check's configured
      * maximum action.
      *
-     * @param confidence current score from ConfidenceEngine (0.0–1.0)
+     * @param confidence current score from ConfidenceEngine (0.0-1.0)
      * @param maxAction  configured cap: flag, warn, setback, kick or ban
      */
     public static String resolve(double confidence, String maxAction) {

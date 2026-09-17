@@ -19,7 +19,7 @@ public class PraxicConfig {
      * Current configuration schema version. Incremented when a release adds,
      * removes, or renames fields, and matched by stepwise blocks in migrate().
      */
-    public static final int CURRENT_CONFIG_VERSION = 9;
+    public static final int CURRENT_CONFIG_VERSION = 11;
 
     public int configVersion = CURRENT_CONFIG_VERSION;
 
@@ -150,7 +150,7 @@ public class PraxicConfig {
 
     // TowerCheck settings
     public boolean towerCheckEnabled = true;
-    public int towerMaxBlocksPerSecond = 6;
+    public int towerMaxBlocksPerSecond = 10;
     public String towerAction = "warn";
 
     // GroundSpoofCheck settings
@@ -158,10 +158,15 @@ public class PraxicConfig {
     public String groundSpoofAction = "kick";
 
     // FastPlaceCheck settings
-    // Vanilla ceiling is 1 placement per game tick (20 blocks/sec).
+    // Vanilla has 4 tick (200ms) rightClickDelay, so max 5 blocks/sec.
+    // Removing that delay allows 20/s. 8 is lenient for lag, 12 catches cheat.
     public boolean fastPlaceCheckEnabled = true;
-    public int fastPlaceMaxBlocksPerSecond = 20;
+    public int fastPlaceMaxBlocksPerSecond = 12;
     public String fastPlaceAction = "warn";
+
+    // FastLadderCheck settings - vanilla 0.1176 b/t vs modified 0.2872 b/t
+    public boolean fastLadderCheckEnabled = true;
+    public String fastLadderAction = "warn";
 
     // TeleportCheck settings
     // A single move-packet jump above this distance (blocks) with no recent
@@ -195,6 +200,10 @@ public class PraxicConfig {
     public boolean windChargeAbuseCheckEnabled = true;
     public String windChargeAbuseAction = "warn";
 
+    // AutoArmorCheck settings - automatic armor equipping
+    public boolean autoArmorCheckEnabled = true;
+    public String autoArmorAction = "kick";
+
     /**
      * When true, illegal move / attack / air-place / wind-charge packets are
      * cancelled before vanilla applies them. Timer, AutoClicker, Inventory and
@@ -224,7 +233,7 @@ public class PraxicConfig {
     public double confidenceBanThreshold = 0.95;
     public boolean confidenceAutoBan = true;
 
-    // Freeze punishment — duration in ticks the player is held in place.
+    // Freeze punishment - duration in ticks the player is held in place.
     public int freezeDurationTicks = 60;
 
     // Web Dashboard settings
@@ -290,6 +299,17 @@ public class PraxicConfig {
         // unflagged; 0.24 sits above the vanilla walk speed still.
         if (configVersion < 9 && noSlowMaxBlocksPerTick >= 0.29) {
             noSlowMaxBlocksPerTick = 0.24;
+        }
+        // v9 -> v10: fastPlaceMaxBlocksPerSecond was 20 (one per tick) but
+        // vanilla placement has 4 tick (200ms) cooldown, so max 5/s. 20 allowed
+        // modified clients with removed cooldown to bypass. Lower stale default.
+        if (configVersion < 10 && fastPlaceMaxBlocksPerSecond >= 20) {
+            fastPlaceMaxBlocksPerSecond = 12;
+        }
+        // v10 -> v11: towerMaxBlocksPerSecond was 6, too low and caused false
+        // positives for legit players holding RMB while jumping. Raise to 10.
+        if (configVersion < 11 && towerMaxBlocksPerSecond < 10) {
+            towerMaxBlocksPerSecond = 10;
         }
         configVersion = CURRENT_CONFIG_VERSION;
     }
@@ -404,6 +424,8 @@ public class PraxicConfig {
         warnings += clampAction("airPlaceAction", airPlaceAction, v -> airPlaceAction = v, "warn");
         warnings += clampAction("maceSmashAction", maceSmashAction, v -> maceSmashAction = v, "kick");
         warnings += clampAction("windChargeAbuseAction", windChargeAbuseAction, v -> windChargeAbuseAction = v, "warn");
+        warnings += clampAction("autoArmorAction", autoArmorAction, v -> autoArmorAction = v, "kick");
+        warnings += clampAction("fastLadderAction", fastLadderAction, v -> fastLadderAction = v, "warn");
         return warnings;
     }
 
@@ -444,7 +466,7 @@ public class PraxicConfig {
     public void save() {
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
-            // Auto backup — preserve the previous config before overwriting
+            // Auto backup - preserve the previous config before overwriting
             Path backupPath = CONFIG_PATH.resolveSibling("praxic.json.bak");
             if (Files.exists(CONFIG_PATH) && Files.size(CONFIG_PATH) > 0) {
                 Files.copy(CONFIG_PATH, backupPath, StandardCopyOption.REPLACE_EXISTING);

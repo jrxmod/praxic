@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRAXIC - Checks</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="app" style="overflow-y:auto;">
+  <div style="max-width:1280px; margin:0 auto; width:100%;">
+    <div style="padding:16px 12px 8px 12px; display:flex; justify-content:space-between; align-items:flex-end; gap:12px;">
+      <div>
+        <h1 style="font-size:18px; font-weight:800; letter-spacing:-0.02em;" data-i18n="checks.title">Protection Checks</h1>
+        <p style="font-size:12px; color:var(--muted); margin-top:4px;" data-i18n="checks.desc">What PRAXIC is watching for. Green = active protection.</p>
+      </div>
+      <div class="tag mono" id="checks-summary">-</div>
+    </div>
+    <div class="checks-grid" id="checks-grid">
+      <div class="empty"><p>Loading checks...</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-left" id="bottom-left"><span class="dot"></span> Loading...</div>
+  <nav class="pill-nav">
+    <a href="/"><span data-i18n="nav.main">Main</span></a>
+    <a href="/checks" class="pill-active"><span data-i18n="nav.checks">Checks</span></a>
+    <a href="/overview"><span data-i18n="nav.overview">Overview</span></a>
+    <a href="/settings"><span data-i18n="nav.settings">Settings</span></a>
+  </nav>
+  <div class="bottom-right mono" id="bottom-right">-</div>
+</div>
+
+<script>window.PRAXIC_TOKEN = '{{TOKEN}}';</script>
+<script src="/js/i18n.js"></script>
+<script src="/js/api.js"></script>
+<script>
+  applyI18n();
+  let tpsHist = [];
+  async function loadChecks() {
+    try {
+      const status = await getStatus();
+      const grid = document.getElementById('checks-grid');
+      const checks = status.checks || {};
+      const keys = Object.keys(checks).sort();
+      const on = Object.values(checks).filter(Boolean).length;
+      document.getElementById('checks-summary').textContent = `${on} / ${keys.length} active`;
+      grid.innerHTML = keys.map(k => {
+        const enabled = checks[k];
+        const name = t('check.'+k);
+        const desc = t('check.'+k+'.desc');
+        const displayName = name === 'check.'+k ? k.replace('Check','') : name;
+        return `
+          <div class="check-card">
+            <div class="check-info">
+              <h3>${escapeHtml(displayName)} <span class="mono" style="font-weight:400; color:var(--muted2); font-size:10px;">${escapeHtml(k)}</span></h3>
+              <p>${escapeHtml(desc)}</p>
+              <div class="check-meta">action: ${escapeHtml(status.mitigation ? 'mitigation ON' : 'log only')} · ${enabled ? 'protecting' : 'disabled'}</div>
+            </div>
+            <div><span class="badge ${enabled ? 'badge-on' : 'badge-off'}">${enabled ? t('checks.enabled') : t('checks.disabled')}</span></div>
+          </div>
+        `;
+      }).join('');
+    } catch(e) {
+      document.getElementById('checks-grid').innerHTML = `<div class="empty"><p>Failed: ${escapeHtml(e.message)}</p></div>`;
+    }
+  }
+  async function refreshBar() {
+    try {
+      const m = await getMetrics();
+      document.getElementById('bottom-left').innerHTML = `<span class="dot"></span> TPS ${m.tps ?? '-'} · ON ${m.online ?? '-'} · FLAGS ${m.totalFlags ?? '-'}`;
+      document.getElementById('bottom-right').textContent = new Date().toLocaleTimeString() + ' · ' + (m.version||'');
+    } catch(e) {}
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    loadChecks();
+    refreshBar();
+    setInterval(refreshBar, 3000);
+    window.praxicRerender = () => { applyI18n(); loadChecks(); };
+  });
+</script>
+</body>
+</html>

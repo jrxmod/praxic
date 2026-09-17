@@ -4,7 +4,7 @@ import com.jrxmod.praxic.manager.CheckManager;
 
 public class LagCompensation {
 
-    // Latency above this value is clamped — prevents ping spoofing abuse
+    // Latency above this value is clamped - prevents ping spoofing abuse
     private static final int LATENCY_CAP_MS = 500;
 
     // Extra air ticks allowed per 50ms of latency (max +10 ticks at 500ms)

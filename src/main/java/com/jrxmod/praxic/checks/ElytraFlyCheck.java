@@ -59,7 +59,7 @@ public class ElytraFlyCheck extends AbstractCheck {
             return;
         }
 
-        // Firework rockets legitimately boost elytra speed and altitude —
+        // Firework rockets legitimately boost elytra speed and altitude -
         // ElytraFlyCheck must not flag for a few seconds after rocket use.
         if (System.currentTimeMillis() - data.lastRocketUseTime < 3000L) {
             data.elytraBuffer = 0;

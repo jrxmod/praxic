@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Responsibilities (always, regardless of cancellation):
  *   1. Increment legacy VL in PlayerData (used by REVEX event payload)
- *   2. Feed ConfidenceEngine — updates player's evidence score
+ *   2. Feed ConfidenceEngine - updates player's evidence score
  *   3. Persistent history and rich evidence record
  *   4. Server log + file log
  *   5. Staff alerts (rate-limited)
@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   7. Fire PraxicViolationEvent (REVEX / addons)
  *
  * If event not cancelled:
- *   8. ActionResolver.execute() — punishment based on confidence score,
+ *   8. ActionResolver.execute() - punishment based on confidence score,
  *      capped by each check's configured maximum action.
  */
 public class ViolationManager {
@@ -42,7 +42,7 @@ public class ViolationManager {
         UUID   uuid      = player.getUUID();
         String checkName = check.getName();
 
-        // 1. Increment legacy VL — still used as the int payload in PraxicViolationEvent
+        // 1. Increment legacy VL - still used as the int payload in PraxicViolationEvent
         data.addViolation(checkName);
         int violations = data.getViolations(checkName);
 
@@ -70,7 +70,7 @@ public class ViolationManager {
             PraxicLogger.logViolation(checkName, player.getName().getString(), violations, details);
         }
 
-        // 5. Staff alerts — clickable player names with hover details
+        // 5. Staff alerts - clickable player names with hover details
         if (Praxic.getConfig().enableStaffAlerts
                 && shouldEmit(STAFF_ALERT_TIMES, uuid, checkName, Praxic.getConfig().staffAlertCooldownMs)) {
             String playerName = player.getName().getString();
@@ -106,7 +106,7 @@ public class ViolationManager {
             DiscordWebhook.send(player.getName().getString(), checkName, violations, details, resolvedAction);
         }
 
-        // 7. Fire event — REVEX or any addon can intercept the punishment
+        // 7. Fire event - REVEX or any addon can intercept the punishment
         boolean cancelled = PraxicViolationEvent.EVENT.invoker().onViolation(
                 player, checkName, violations, details, resolvedAction);
 
@@ -178,6 +178,8 @@ public class ViolationManager {
             case "AirPlaceCheck"     -> Praxic.getConfig().airPlaceAction;
             case "MaceSmashCheck"    -> Praxic.getConfig().maceSmashAction;
             case "WindChargeAbuseCheck" -> Praxic.getConfig().windChargeAbuseAction;
+            case "AutoArmorCheck"    -> Praxic.getConfig().autoArmorAction;
+            case "FastLadderCheck"   -> Praxic.getConfig().fastLadderAction;
             default                  -> "kick";
         };
     }
@@ -219,6 +221,8 @@ public class ViolationManager {
             case "TeleportCheck"     -> "Unexplained teleport is not allowed.";
             case "MaceSmashCheck"    -> "Illegal mace smash is not allowed.";
             case "WindChargeAbuseCheck" -> "Wind Charge abuse is not allowed.";
+            case "AutoArmorCheck"    -> "Automatic armor equipping is not allowed.";
+            case "FastLadderCheck"   -> "Climbing speed limit exceeded.";
             case "AimAssistCheck"    -> "Suspicious aim assistance detected.";
             case "VehicleFlyCheck"   -> "Vehicle flight is not allowed.";
             case "FastUseCheck"      -> "Item usage speed limit exceeded.";

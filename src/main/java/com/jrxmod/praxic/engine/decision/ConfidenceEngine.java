@@ -29,7 +29,7 @@ public class ConfidenceEngine {
 
     private static final Map<String, Double> WEIGHTS = new HashMap<>();
     static {
-        // Movement — strong evidence of bypass mods
+        // Movement - strong evidence of bypass mods
         WEIGHTS.put("FlyCheck",         0.25);
         WEIGHTS.put("YPredictionCheck", 0.25);
         WEIGHTS.put("SpeedCheck",       0.15);
@@ -48,26 +48,28 @@ public class ConfidenceEngine {
         WEIGHTS.put("AimAssistCheck",   0.18);
         WEIGHTS.put("MaceSmashCheck",   0.22);
         WEIGHTS.put("WindChargeAbuseCheck", 0.18);
-        // Combat — moderate to high evidence
+        // Combat - moderate to high evidence
         WEIGHTS.put("KillAuraCheck",    0.25);
         WEIGHTS.put("GhostTrapCheck",   0.85);
         WEIGHTS.put("CriticalsCheck",   0.18);
         WEIGHTS.put("ReachCheck",       0.20);
         WEIGHTS.put("RotationCheck",    0.20);
         WEIGHTS.put("PostKillSnapCheck", 0.22);
-        // World — moderate evidence (easier to false-positive)
+        // World - moderate evidence (easier to false-positive)
         WEIGHTS.put("ScaffoldCheck",    0.15);
         WEIGHTS.put("FastBreakCheck",   0.15);
         WEIGHTS.put("TowerCheck",       0.18);
         WEIGHTS.put("FastPlaceCheck",   0.12);
         WEIGHTS.put("AirPlaceCheck",    0.16);
         WEIGHTS.put("FastUseCheck",     0.15);
-        // Client automation — high precision checks
+        // Client automation - high precision checks
         WEIGHTS.put("AutoClickerCheck", 0.25);
         WEIGHTS.put("TimerCheck",       0.25);
         WEIGHTS.put("BadPacketsCheck",  0.30);
         WEIGHTS.put("AutoTotemCheck",   0.15);
         WEIGHTS.put("InventoryCheck",   0.10);
+        WEIGHTS.put("AutoArmorCheck",   0.18);
+        WEIGHTS.put("FastLadderCheck",  0.16);
     }
 
     /** Fallback weight for any check not listed above. */
@@ -119,7 +121,7 @@ public class ConfidenceEngine {
     private static final double DECAY_FACTOR = 0.95;
 
     // -------------------------------------------------------------------------
-    // Anomaly nudge — soft boost from baseline deviations (AnomalyScoreEngine)
+    // Anomaly nudge - soft boost from baseline deviations (AnomalyScoreEngine)
     // -------------------------------------------------------------------------
 
     /** Minimum anomaly score before it contributes to confidence. */
@@ -179,7 +181,7 @@ public class ConfidenceEngine {
      * Called by CheckManager when AnomalyScoreEngine reports sustained deviation.
      *
      * @param uuid         player UUID
-     * @param anomalyScore current score from AnomalyScoreEngine (0.0–1.0)
+     * @param anomalyScore current score from AnomalyScoreEngine (0.0-1.0)
      */
     public void nudgeFromAnomaly(UUID uuid, double anomalyScore) {
         if (anomalyScore < ANOMALY_NUDGE_THRESHOLD) return;

@@ -39,14 +39,14 @@ public class PlayerData {
     // Rotation (updated by CheckManager after checks run)
     // -------------------------------------------------------------------------
 
-    /** Yaw from the previous tick — used by RotationCheck. */
+    /** Yaw from the previous tick - used by RotationCheck. */
     public float lastYaw = 0f;
 
-    /** Pitch from the previous tick — used by RotationCheck. */
+    /** Pitch from the previous tick - used by RotationCheck. */
     public float lastPitch = 0f;
 
     // -------------------------------------------------------------------------
-    // Derived legacy fields — set by CheckManager from the state machine.
+    // Derived legacy fields - set by CheckManager from the state machine.
     // Kept for backward compatibility with existing checks.
     // -------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ public class PlayerData {
     public int waterExitTicks = 0;
 
     /**
-     * Independent grace ticks after leaving water — used by JesusCheck.
+     * Independent grace ticks after leaving water - used by JesusCheck.
      * Managed by CheckManager, not by individual checks.
      */
     public int jesusWaterGraceTicks = 0;
@@ -165,6 +165,21 @@ public class PlayerData {
     /** Timestamp of inventory click detection window start. */
     public long inventoryWindowStart = 0;
 
+    /** AutoArmor detection - timestamps of recent armor equips. */
+    public final Deque<Long> armorEquipTimes = new ArrayDeque<>();
+
+    /** Last time player equipped armor, for AutoArmor grace. */
+    public long lastArmorEquipTime = 0;
+
+    /** Buffer for AutoArmor violations. */
+    public int autoArmorBuffer = 0;
+
+    /** Previous armor items hash for change detection. */
+    public int prevArmorHash = 0;
+
+    /** Previous armor count for equip vs remove detection. */
+    public int prevArmorCount = 0;
+
     // -------------------------------------------------------------------------
     // Speed / AutoClicker / Timer / FastBreak
     // -------------------------------------------------------------------------
@@ -174,6 +189,9 @@ public class PlayerData {
 
     /** Sliding window of attack timestamps (ms) for AutoClickerCheck CPS calculation. */
     public final Deque<Long> attackTimestamps = new ArrayDeque<>();
+
+    /** Sliding window of all click timestamps (attack + block break + use) for UI display. */
+    public final Deque<Long> clickTimestamps = new ArrayDeque<>();
 
     /** Sliding window of movement packet timestamps (ms) for TimerCheck. */
     public final Deque<Long> movePacketTimestamps = new ArrayDeque<>();
@@ -197,11 +215,55 @@ public class PlayerData {
     /** Position of block being broken for FastBreakCheck. */
     public BlockPos breakingBlockPos = null;
 
+    /** Hardness captured at START, for accurate FastBreak calculation. */
+    public float breakingBlockHardness = -1f;
+
+    /** Expected minimum break time in ms, calculated at START. */
+    public double breakingBlockMinMs = -1;
+
+    /** Maximum block damage per tick, captured at START. */
+    public double breakingMaxDamage = 0;
+
+    /** True if current break is insta-mine and should be ignored. */
+    public boolean breakingBlockInstaMine = false;
+
+    /** Last time a block finish packet was processed, for delay check. */
+    public long lastFinishBreakTime = 0;
+
+    /** Balance for fast break speed. */
+    public double fastBreakBalance = 0;
+
+    /** Balance for break delay between blocks. */
+    public double fastBreakDelayBalance = 0;
+
+    /** Timestamps of recent breaks for rate check. */
+    public final Deque<Long> breakTimes = new ArrayDeque<>();
+
     /** Consecutive impossible-fast breaks (Nuker). */
     public int fastBreakBuffer = 0;
 
     /** Consecutive water-walk ticks (JesusCheck). */
     public int jesusBuffer = 0;
+
+    // FastPlace
+    /** Last block place time for delay check. */
+    public long lastPlaceTime = 0;
+
+    /** Balance for fast place. */
+    public double fastPlaceBalance = 0;
+
+    /** Timestamps of recent places for rate check. */
+    public final Deque<Long> placeTimes = new ArrayDeque<>();
+
+    // FastLadder
+    /** Ticks climbing ladder fast. */
+    public int fastLadderBuffer = 0;
+
+    /** Last ladder Y for speed calc. */
+    public double lastLadderY = 0;
+
+    /** Ticks in climb state. */
+    public int ladderTicks = 0;
 
     // -------------------------------------------------------------------------
     // Velocity / Knockback
@@ -231,7 +293,7 @@ public class PlayerData {
 
     /**
      * Consecutive ticks where a suspicious snap angle was detected during combat.
-     * Incremented on snap, decremented when clean — flags at threshold.
+     * Incremented on snap, decremented when clean - flags at threshold.
      */
     public int rotationSnapBuffer = 0;
 
@@ -333,6 +395,8 @@ public class PlayerData {
     public int towerBlockCount = 0;
     public long towerWindowStart = 0;
     public double towerLastY = 0;
+    public double towerStartX = 0;
+    public double towerStartZ = 0;
     public int fastPlaceCount = 0;
     public long fastPlaceWindowStart = 0;
 
@@ -395,6 +459,9 @@ public class PlayerData {
     // -------------------------------------------------------------------------
 
     public int totalTicks = 0;
+
+    /** Wall-clock time when current session started (join time). */
+    public long sessionStartMs = System.currentTimeMillis();
 
     // -------------------------------------------------------------------------
     // Violations

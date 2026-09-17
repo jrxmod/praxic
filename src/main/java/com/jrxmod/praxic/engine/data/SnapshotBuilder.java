@@ -37,7 +37,7 @@ public final class SnapshotBuilder {
                 player.isFallFlying(),
                 player.isPassenger(),
 
-                // State machine — already updated by CheckManager this tick
+                // State machine - already updated by CheckManager this tick
                 data.movementState,
                 data.prevMovementState,
 

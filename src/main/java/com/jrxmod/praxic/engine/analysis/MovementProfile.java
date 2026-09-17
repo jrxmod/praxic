@@ -3,7 +3,7 @@ package com.jrxmod.praxic.engine.analysis;
 /**
  * Immutable result of movement analysis for a single tick.
  * All fields are averages/stats over their respective windows.
- * -1.0 means insufficient samples — checks must guard before using.
+ * -1.0 means insufficient samples - checks must guard before using.
  */
 public final class MovementProfile {
 
@@ -47,7 +47,7 @@ public final class MovementProfile {
      */
     public final double jumpFrequency;
 
-    /** Number of speed samples used — informational. */
+    /** Number of speed samples used - informational. */
     public final int sampleCount;
 
     public MovementProfile(

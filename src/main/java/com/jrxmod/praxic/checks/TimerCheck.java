@@ -24,8 +24,14 @@ public class TimerCheck extends AbstractCheck {
     private static final int SPEED_SAMPLES = 20;
     private static final long RATE_WINDOW_MS = 1000L;
     private static final int RATE_STREAK = 3;
-    /** Vanilla grounded sprint is ~5.6 m/s. Timer x2 walk is ~8.6, x2 sprint ~11. */
-    private static final double MAX_VANILLA_METERS = 6.6;
+    /**
+     * Vanilla grounded sprint is ~5.6 m/s, sprint-jump average ~7.1 m/s.
+     * Previous 6.6 threshold flagged legitimate sprint-jumping.
+     * 8.0 allows vanilla sprint-jump plus margin for diagonal movement
+     * and minor lag, while timer x2.0 (11+ blocks/s) still exceeds it.
+     * Based on vanilla travel physics.
+     */
+    private static final double MAX_VANILLA_METERS = 8.0;
 
     @Override
     public String getName() {

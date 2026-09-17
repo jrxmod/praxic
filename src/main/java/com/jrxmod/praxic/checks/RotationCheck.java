@@ -13,7 +13,7 @@ public class RotationCheck extends AbstractCheck {
     private static final float MAX_SNAP_ANGLE = 150f;
 
     // Player must have attacked within this window to trigger snap evaluation.
-    // Snap without combat context is not flagged — too many false positives.
+    // Snap without combat context is not flagged - too many false positives.
     private static final long COMBAT_WINDOW_MS = 3000L;
 
     // Snap buffer threshold: this many consecutive suspicious ticks = flag
@@ -50,7 +50,7 @@ public class RotationCheck extends AbstractCheck {
         if (deltaYaw > MAX_SNAP_ANGLE) {
             data.rotationSnapBuffer++;
         } else {
-            // Clean tick — decay buffer
+            // Clean tick - decay buffer
             if (data.rotationSnapBuffer > 0) data.rotationSnapBuffer--;
         }
 

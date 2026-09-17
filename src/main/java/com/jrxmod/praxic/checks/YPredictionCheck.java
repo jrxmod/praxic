@@ -9,7 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Detects fly / hover by comparing actual Y to PhysicsEngine prediction.
- * Thin rule — all physics simulation lives in PhysicsEngine / PhysicsResult.
+ * Thin rule - all physics simulation lives in PhysicsEngine / PhysicsResult.
  */
 public class YPredictionCheck extends AbstractCheck {
 
@@ -60,7 +60,7 @@ public class YPredictionCheck extends AbstractCheck {
         // Not ready yet (first tick, grace, transition)
         if (physics == null || !physics.predictionActive) return;
 
-        // Flag only when player is ABOVE prediction — fly / hover
+        // Flag only when player is ABOVE prediction - fly / hover
         // Being below is legitimate (collisions, steps, slabs, etc.)
         if (physics.yDelta > physics.yTolerance) {
             if (!data.canFlag(getName(), COOLDOWN_MS)) return;

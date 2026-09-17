@@ -8,7 +8,7 @@ import java.util.UUID;
  * Builds a behavioural baseline for each player and detects deviations.
  *
  * Phase 1 (first BASELINE_TICKS ticks): collects per-metric running stats
- * using Welford's online algorithm — no large sample buffers needed.
+ * using Welford's online algorithm - no large sample buffers needed.
  *
  * Phase 2 (after BASELINE_TICKS): baseline is frozen; each tick produces a
  * deviationScore showing how far current behaviour is from the baseline.
@@ -29,7 +29,7 @@ public class PlayerProfiler {
     private static final int MIN_CPS_SAMPLES = 10;
 
     /**
-     * Noise floors — minimum stddev used when normalising deviations.
+     * Noise floors - minimum stddev used when normalising deviations.
      * Prevents division by near-zero when the player's baseline is very stable.
      */
     private static final double NOISE_SPEED    = 0.05;

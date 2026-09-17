@@ -18,8 +18,8 @@ public final class PhysicsResult {
 
     /**
      * Vertical delta: actualY - predictedY.
-     * Positive = player is ABOVE prediction (suspicious — possible fly/hover).
-     * Negative = player is below prediction (legitimate — collisions, slabs, stairs).
+     * Positive = player is ABOVE prediction (suspicious - possible fly/hover).
+     * Negative = player is below prediction (legitimate - collisions, slabs, stairs).
      */
     public final double yDelta;
 

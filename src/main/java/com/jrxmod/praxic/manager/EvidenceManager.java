@@ -81,6 +81,8 @@ public class EvidenceManager {
         e.airTicks = data.airTicks;
         e.ghostTraps = Praxic.getGhostEntityManager() != null
                 ? Praxic.getGhostEntityManager().getActiveGhostCount(player.getUUID()) : 0;
+        e.createdAt = System.currentTimeMillis();
+        e.sessionStart = data.sessionStartMs;
 
         entries.add(e);
         trim();
@@ -216,5 +218,8 @@ public class EvidenceManager {
         public String movementState;
         public int airTicks;
         public int ghostTraps;
+        // New: wall-clock creation time and session start for live filtering
+        public long createdAt = 0;
+        public long sessionStart = 0;
     }
 }

@@ -25,7 +25,7 @@ public final class PraxicViolationEvent {
         /**
          * Called when a player is flagged by PRAXIC.
          * Return true to cancel PRAXIC's built-in action (kick/ban/setback/warn).
-         * PRAXIC will still log and send staff alerts — only the punishment is skipped.
+         * PRAXIC will still log and send staff alerts - only the punishment is skipped.
          *
          * @param player     the flagged player
          * @param checkName  name of the check that flagged (e.g. "FlyCheck")

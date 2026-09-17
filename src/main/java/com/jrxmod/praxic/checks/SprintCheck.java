@@ -26,7 +26,7 @@ public class SprintCheck extends AbstractCheck {
         if (player.getAbilities().mayfly) return;
         if (!player.isSprinting()) return;
 
-        // Sprint while starving — vanilla prevents this
+        // Sprint while starving - vanilla prevents this
         int foodLevel = player.getFoodData().getFoodLevel();
         if (foodLevel <= SPRINT_MIN_FOOD) {
             if (data.canFlag(getName(), 1500)) {

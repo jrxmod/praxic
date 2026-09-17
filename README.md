@@ -6,7 +6,7 @@
 
 Server-side anticheat for Fabric. Your players install nothing.
 
-![Version](https://img.shields.io/badge/version-0.16.1-orange)
+![Version](https://img.shields.io/badge/version-0.17.0-orange)
 ![Minecraft](https://img.shields.io/badge/minecraft-1.21.1-brightgreen)
 ![Loader](https://img.shields.io/badge/loader-fabric-blue)
 ![License](https://img.shields.io/badge/license-Apache--2.0-red)
@@ -23,10 +23,10 @@ Server-side anticheat for Fabric. Your players install nothing.
 
 ## Checks
 
-- **Movement** — Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · VehicleFly · ElytraFly · Step · GroundSpoof · Teleport (Blink) · Y-Prediction (physics-based)
-- **Combat** — Reach (incl. through-wall raycast) · KillAura · AimAssist · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap · MaceSmash · WindChargeAbuse
-- **World** — Scaffold · Tower · FastBreak · FastPlace · AirPlace · NoFall
-- **Client / Protocol** — AutoClicker · AutoTotem · Inventory · Timer · FastUse · BadPackets
+- **Movement** - Fly · Speed · Phase · NoSlow · Jesus (water walk) · Sprint · BoatFly · VehicleFly · ElytraFly · Step · GroundSpoof · Teleport (Blink) · Y-Prediction (physics-based)
+- **Combat** - Reach (incl. through-wall raycast) · KillAura · AimAssist · GhostTrap honeypots · Criticals · Velocity (anti-knockback) · Rotation · PostKillSnap · MaceSmash · WindChargeAbuse
+- **World** - Scaffold · Tower · FastBreak · FastPlace · AirPlace · NoFall
+- **Client / Protocol** - AutoClicker · AutoTotem · Inventory · Timer · FastUse · BadPackets
 
 ## Actions
 
@@ -36,30 +36,30 @@ Configured per check in `config/praxic.json`. Confidence scoring chooses the act
 ## Commands
 
 ```
-/praxic status                  — module overview
-/praxic check <player>          — player violations with confidence bar
-/praxic violations              — all players
-/praxic stats                   — session statistics
-/praxic perf                    — server & anticheat performance monitor
-/praxic debug <player>          — record 30s of tick data for investigation
-/praxic tp <player>             — teleport to last flag location
-/praxic reset <player>          — clear violations
-/praxic reload                  — hot-reload config
-/praxic whitelist add|remove|list — bypass checks
-/praxic history <player>        — persistent log (works offline)
-/praxic evidence [player]       — rich evidence packets for review
-/praxic evidence clear <player> — clear stored evidence
+/praxic status                  - module overview
+/praxic check <player>          - player violations with confidence bar
+/praxic violations              - all players
+/praxic stats                   - session statistics
+/praxic perf                    - server & anticheat performance monitor
+/praxic debug <player>          - record 30s of tick data for investigation
+/praxic tp <player>             - teleport to last flag location
+/praxic reset <player>          - clear violations
+/praxic reload                  - hot-reload config
+/praxic whitelist add|remove|list - bypass checks
+/praxic history <player>        - persistent log (works offline)
+/praxic evidence [player]       - rich evidence packets for review
+/praxic evidence clear <player> - clear stored evidence
 ```
 
 All commands require **OP level 2**.
 
 ## Integrations
 
-- **Staff Alerts** — OP2+ notified in chat on every flag, with cooldown protection
-- **Discord Webhook** — rich embeds to your channel
-- **Evidence Store** — compact review packets in `config/praxic-evidence.json`
-- **Web Dashboard** — local admin UI at `http://127.0.0.1:8765/`
-- **API** — `PraxicViolationEvent` for other mods (see [REVEX](https://github.com/jrxmod/revex))
+- **Staff Alerts** - OP2+ notified in chat on every flag, with cooldown protection
+- **Discord Webhook** - rich embeds to your channel
+- **Evidence Store** - compact review packets in `config/praxic-evidence.json`
+- **Web Console** - local admin UI at `http://127.0.0.1:8765/` with 3 resizable panels, human-readable risk levels, offline player support and no external dependencies
+- **API** - `PraxicViolationEvent` for other mods (see [REVEX](https://github.com/jrxmod/revex))
 
 ## Install
 
@@ -69,4 +69,4 @@ All commands require **OP level 2**.
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE). Copyright 2026 jrxmod.
+Apache 2.0 - see [LICENSE](LICENSE). Copyright 2026 jrxmod.

@@ -13,7 +13,7 @@ import net.minecraft.world.level.GameType;
  * After killing an entity, Kill Aura immediately snaps to the next target
  * (often 90-180 degrees). Humans typically snap 10-30 degrees or less.
  *
- * Data is collected by RotationAnalyzer.onKill() — this check only reads
+ * Data is collected by RotationAnalyzer.onKill() - this check only reads
  * the result from RotationProfile.postKillSnapAngle.
  */
 public class PostKillSnapCheck extends AbstractCheck {
@@ -33,7 +33,7 @@ public class PostKillSnapCheck extends AbstractCheck {
         PlayerAnalytics analytics = Praxic.getCheckManager().getAnalytics(player.getUUID());
         if (analytics == null) return;
 
-        // -1.0 means outside post-kill window — nothing to check
+        // -1.0 means outside post-kill window - nothing to check
         double snapAngle = analytics.rotation.postKillSnapAngle;
         if (snapAngle < 0.0) return;
 

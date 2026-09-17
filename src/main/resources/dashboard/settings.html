@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRAXIC - Settings</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="app" style="overflow-y:auto;">
+  <div class="settings-wrap">
+    <div>
+      <h1 style="font-size:18px; font-weight:800; letter-spacing:-0.02em;" data-i18n="settings.title">Settings</h1>
+      <p style="font-size:12px; color:var(--muted); margin-top:6px;">Config, language and build info - server health moved to Overview</p>
+    </div>
+
+    <div class="settings-card">
+      <h3 data-i18n="settings.language">Language</h3>
+      <div class="settings-row">
+        <span>Interface language - default English</span>
+        <select id="lang-select" onchange="setLang(this.value)">
+          <option value="en">English (default)</option>
+          <option value="ru">Русский</option>
+        </select>
+      </div>
+      <div style="font-size:11px; color:var(--muted2); margin-top:8px;">Saved locally. No server restart needed.</div>
+    </div>
+
+    <div class="settings-card" id="general-card">
+      <h3 data-i18n="settings.general">General</h3>
+      <div id="general-rows"><div class="empty"><p>Loading...</p></div></div>
+    </div>
+
+    <div class="settings-card">
+      <h3>About</h3>
+      <div class="settings-row"><span>PRAXIC</span><span>Protection Runtime Analysis & eXploit Interception Core</span></div>
+      <div class="settings-row"><span>Mode</span><span>Server-side anticheat, players install nothing</span></div>
+      <div class="settings-row"><span>Docs</span><span><a href="https://github.com/jrxmod/praxic" style="color:var(--accent2);">github.com/jrxmod/praxic</a></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-left" id="bottom-left"><span class="dot"></span> Loading...</div>
+  <nav class="pill-nav">
+    <a href="/"><span data-i18n="nav.main">Main</span></a>
+    <a href="/checks"><span data-i18n="nav.checks">Checks</span></a>
+    <a href="/overview"><span data-i18n="nav.overview">Overview</span></a>
+    <a href="/settings" class="pill-active"><span data-i18n="nav.settings">Settings</span></a>
+  </nav>
+  <div class="bottom-right mono" id="bottom-right">-</div>
+</div>
+
+<script>window.PRAXIC_TOKEN = '{{TOKEN}}';</script>
+<script src="/js/i18n.js"></script>
+<script src="/js/api.js"></script>
+<script>
+  applyI18n();
+  document.getElementById('lang-select').value = currentLang;
+
+  async function loadSettings() {
+    try {
+      const [status, metrics] = await Promise.all([getStatus(), getMetrics()]);
+      document.getElementById('general-rows').innerHTML = `
+        <div class="settings-row"><span>${t('settings.version')}</span><span class="mono">${escapeHtml(status.version||metrics.version||'')}</span></div>
+        <div class="settings-row"><span>${t('settings.mitigation')}</span><span><span class="badge ${status.mitigation?'badge-on':'badge-off'}">${status.mitigation ? 'ON' : 'OFF'}</span></span></div>
+        <div class="settings-row"><span>${t('settings.port')}</span><span class="mono">${escapeHtml(String(status.port||'')) || '8765'}</span></div>
+        <div class="settings-row"><span>Checks active</span><span class="mono">${Object.values(status.checks||{}).filter(Boolean).length} / ${Object.keys(status.checks||{}).length}</span></div>
+        <div class="settings-row"><span>Online</span><span class="mono">${metrics.online ?? status.onlinePlayers ?? '-'}</span></div>
+        <div class="settings-row"><span>Flags</span><span class="mono">${metrics.totalFlags ?? status.totalFlags ?? '-'}</span></div>
+      `;
+      document.getElementById('bottom-left').innerHTML = `<span class="dot"></span> TPS ${metrics.tps ?? '-'} · ON ${metrics.online ?? '-'}`;
+      document.getElementById('bottom-right').textContent = new Date().toLocaleTimeString();
+    } catch(e) {
+      document.getElementById('general-rows').innerHTML = `<div class="empty"><p>Failed: ${escapeHtml(e.message)}</p></div>`;
+    }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
+    setInterval(loadSettings, 5000);
+    window.praxicRerender = () => { applyI18n(); loadSettings(); };
+  });
+</script>
+</body>
+</html>

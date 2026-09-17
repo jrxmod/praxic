@@ -135,6 +135,10 @@ public class ServerGamePacketListenerMixin {
         var pos = packet.getPos();
         if (action == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
             cm.getFastBreakCheck().onStartBreak(player, pos, data);
+        } else if (action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK) {
+            cm.getFastBreakCheck().onStopBreak(player, pos, data);
+        } else if (action == ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK) {
+            cm.getFastBreakCheck().onAbortBreak(player, data);
         } else if (action == ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND) {
             cm.getAutoTotemCheck().onOffhandSwap(player, data);
         }
@@ -185,6 +189,12 @@ public class ServerGamePacketListenerMixin {
         PlayerData data = cm.getPlayerData(player.getUUID());
         if (data == null) return;
 
+        long nowClick = System.currentTimeMillis();
+        data.clickTimestamps.addLast(nowClick);
+        while (!data.clickTimestamps.isEmpty() && nowClick - data.clickTimestamps.peekFirst() > 1000L) {
+            data.clickTimestamps.pollFirst();
+        }
+
         Item used = player.getItemInHand(packet.getHand()).getItem();
         data.lastItemUseTime = System.currentTimeMillis();
         if (player.getMainHandItem().getItem() instanceof FireworkRocketItem
@@ -211,6 +221,16 @@ public class ServerGamePacketListenerMixin {
         if (data == null) return;
         cm.getInventoryCheck().onInventoryClick(player, data);
         cm.getAutoTotemCheck().onContainerClick(player, data, packet);
+        try {
+            var menu = player.containerMenu;
+            int slotIndex = packet.getSlotNum();
+            var carried = packet.getCarriedItem();
+            var clicked = net.minecraft.world.item.ItemStack.EMPTY;
+            if (menu != null && slotIndex >= 0 && slotIndex < menu.slots.size()) {
+                clicked = menu.slots.get(slotIndex).getItem();
+            }
+            cm.getAutoArmorCheck().onInventoryClick(player, data, menu, slotIndex, carried, clicked);
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -226,6 +246,20 @@ public class ServerGamePacketListenerMixin {
         if (data == null) return;
         if (cm.getFlyCheck().onIllegalFlyingFlag(player, data)) {
             ci.cancel();
+        }
+    }
+
+    @Inject(method = "handleAnimate", at = @At("HEAD"))
+    private void onHandleAnimate(net.minecraft.network.protocol.game.ServerboundSwingPacket packet, CallbackInfo ci) {
+        if (!praxic$onServerThread()) return;
+        CheckManager cm = Praxic.getCheckManager();
+        if (cm == null) return;
+        PlayerData data = cm.getPlayerData(player.getUUID());
+        if (data == null) return;
+        long now = System.currentTimeMillis();
+        data.clickTimestamps.addLast(now);
+        while (!data.clickTimestamps.isEmpty() && now - data.clickTimestamps.peekFirst() > 1000L) {
+            data.clickTimestamps.pollFirst();
         }
     }
 

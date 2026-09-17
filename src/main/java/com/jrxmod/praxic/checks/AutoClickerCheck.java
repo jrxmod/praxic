@@ -14,7 +14,7 @@ public class AutoClickerCheck extends AbstractCheck {
         return "AutoClickerCheck";
     }
 
-    // Tick-based check not used — this check is fully event-driven via onAttack()
+    // Tick-based check not used - this check is fully event-driven via onAttack()
     @Override
     public void check(ServerPlayer player, PlayerData data) {}
 
@@ -26,11 +26,16 @@ public class AutoClickerCheck extends AbstractCheck {
 
         // Add current attack timestamp to sliding window
         data.attackTimestamps.addLast(now);
+        data.clickTimestamps.addLast(now);
 
         // Remove timestamps outside the 1-second window
         while (!data.attackTimestamps.isEmpty() &&
                now - data.attackTimestamps.peekFirst() > WINDOW_MS) {
             data.attackTimestamps.pollFirst();
+        }
+        while (!data.clickTimestamps.isEmpty() &&
+               now - data.clickTimestamps.peekFirst() > WINDOW_MS) {
+            data.clickTimestamps.pollFirst();
         }
 
         int cps = data.attackTimestamps.size();

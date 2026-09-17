@@ -56,7 +56,7 @@ public class DiscordWebhook {
         fields.add(field("Details", safeDetails, false));
         fields.add(field("Action", actionLabel, true));
 
-        // Context footer — session flag count and server TPS
+        // Context footer - session flag count and server TPS
         int sessionFlags = com.jrxmod.praxic.api.PraxicStats.getTotalFlags();
         double tps = com.jrxmod.praxic.manager.CheckManager.getCurrentTps();
         fields.add(field("Session Flags", String.valueOf(sessionFlags), true));

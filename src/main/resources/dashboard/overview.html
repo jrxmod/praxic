@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRAXIC - Overview</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="app" style="overflow-y:auto;">
+  <div style="max-width:1280px; margin:0 auto; width:100%;">
+    <div style="padding:16px 12px 8px 12px;">
+      <h1 style="font-size:18px; font-weight:800; letter-spacing:-0.02em;" data-i18n="overview.title">Security Overview</h1>
+      <p style="font-size:12px; color:var(--muted); margin-top:4px;">Live view of server health and active threats (online only, modal scroll)</p>
+    </div>
+
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="label">TPS</div><div class="val mono" id="s-tps">-</div><div class="sub">20 = perfect, below 17 = lag</div><canvas id="tps-graph" class="graph-canvas"></canvas></div>
+      <div class="stat-card"><div class="label">MSPT</div><div class="val mono" id="s-mspt">-</div><div class="sub">milliseconds per tick</div><canvas id="mspt-graph" class="graph-canvas"></canvas></div>
+      <div class="stat-card"><div class="label">Online</div><div class="val mono" id="s-online">-</div><div class="sub">players right now</div><canvas id="online-graph" class="graph-canvas"></canvas></div>
+      <div class="stat-card"><div class="label">Total Flags</div><div class="val mono" id="s-flags">-</div><div class="sub">since server start</div></div>
+      <div class="stat-card"><div class="label">Evidence</div><div class="val mono" id="s-ev">-</div><div class="sub">stored packets</div></div>
+      <div class="stat-card"><div class="label">Version</div><div class="val mono" id="s-ver">-</div><div class="sub">PRAXIC build</div></div>
+    </div>
+
+    <div style="padding:10px; display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h2 style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:700;" data-i18n="overview.live">Live Threat Feed - Current Session Only</h2>
+          <span class="tag mono" id="feed-count">-</span>
+        </div>
+        <div class="feed-scroll">
+          <div class="timeline" id="feed"><div class="empty"><p>Loading live feed...</p></div></div>
+        </div>
+        <div style="font-size:11px; color:var(--muted2); margin-top:8px;">Only flags created after current join, scroll inside - site won't stretch. Past sessions stay in Journal/Player, not here. Leave = new session.</div>
+      </div>
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h2 style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#fca5a5; font-weight:800;">⚖ REVEX Bans - Active</h2>
+          <span class="tag mono" id="revex-count">-</span>
+        </div>
+        <div class="feed-scroll" id="revex-feed"><div class="empty"><p>Loading REVEX bans...</p></div></div>
+        <div style="font-size:11px; color:var(--muted2); margin-top:8px;">Bans from <span class="mono">config/revex-bans.json</span> - tempban 15m/1h/1d/ban ladder. Use player detail to pardon/unban.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-left" id="bottom-left"><span class="dot"></span> Connecting...</div>
+  <nav class="pill-nav">
+    <a href="/"><span data-i18n="nav.main">Main</span></a>
+    <a href="/checks"><span data-i18n="nav.checks">Checks</span></a>
+    <a href="/overview" class="pill-active"><span data-i18n="nav.overview">Overview</span></a>
+    <a href="/settings"><span data-i18n="nav.settings">Settings</span></a>
+  </nav>
+  <div class="bottom-right mono" id="bottom-right">-</div>
+</div>
+
+<script>window.PRAXIC_TOKEN = '{{TOKEN}}';</script>
+<script src="/js/i18n.js"></script>
+<script src="/js/api.js"></script>
+<script>
+  applyI18n();
+  let tpsHistory = [], msptHistory = [], onlineHistory = [];
+
+  async function refreshRevex() {
+    try {
+      const bans = await getRevexBans();
+      document.getElementById('revex-count').textContent = `${bans.length} active`;
+      const feed = document.getElementById('revex-feed');
+      if (bans.length === 0) {
+        feed.innerHTML = `<div class="empty"><p>No active REVEX bans - clean</p></div>`;
+      } else {
+        feed.innerHTML = bans.slice(0,30).map(b => `
+          <div class="event" style="border-color:rgba(239,68,68,0.22);">
+            <div class="event-top"><span class="event-check">${escapeHtml(b.playerName||b.uuid)} · ${b.permanent ? 'PERM BAN' : 'TEMP BAN'}</span><span class="event-time">${escapeHtml(b.bannedAt||'')}</span></div>
+            <div class="event-human">${escapeHtml(b.reason||'')}</div>
+            <div class="event-details">expires ${b.permanent ? 'never' : (b.expiresAt>0 ? new Date(b.expiresAt).toLocaleString() : '')} · remaining ${escapeHtml(b.remainingText||'')}</div>
+            <div class="event-actions"><span class="event-action action-ban">${b.permanent ? 'ban' : 'tempban'}</span><span class="tag mono">${escapeHtml(b.uuid.substring(0,8))}</span></div>
+          </div>
+        `).join('');
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  async function refresh() {
+    try {
+      const [status, metrics, incidents] = await Promise.all([getStatus(), getMetrics(), getIncidents()]);
+      document.getElementById('s-tps').textContent = metrics.tps ?? '-';
+      document.getElementById('s-mspt').textContent = metrics.mspt >=0 ? metrics.mspt + 'ms' : '-';
+      document.getElementById('s-online').textContent = metrics.online ?? status.onlinePlayers ?? '-';
+      document.getElementById('s-flags').textContent = metrics.totalFlags ?? status.totalFlags ?? '-';
+      document.getElementById('s-ev').textContent = metrics.evidence ?? status.evidenceCount ?? '-';
+      document.getElementById('s-ver').textContent = status.version || metrics.version || '-';
+
+      tpsHistory.push(metrics.tps >=0 ? metrics.tps : 20);
+      msptHistory.push(metrics.mspt >=0 ? metrics.mspt : 50);
+      onlineHistory.push(metrics.online || 0);
+      if (tpsHistory.length > 60) tpsHistory.shift();
+      if (msptHistory.length > 60) msptHistory.shift();
+      if (onlineHistory.length > 60) onlineHistory.shift();
+
+      drawSparkline(document.getElementById('tps-graph'), tpsHistory, '#6366f1');
+      drawSparkline(document.getElementById('mspt-graph'), msptHistory, '#f59e0b');
+      drawSparkline(document.getElementById('online-graph'), onlineHistory, '#22c55e');
+
+      document.getElementById('bottom-left').innerHTML = `<span class="dot"></span> TPS ${metrics.tps ?? '-'} · ON ${metrics.online ?? '-'} · FLAGS ${metrics.totalFlags ?? '-'}`;
+      document.getElementById('bottom-right').textContent = new Date().toLocaleTimeString() + ' · PRAXIC ' + (status.version||'');
+
+      // Strict online-only filtering - kicked/banned disappear
+      let onlineNames = [];
+      let onlineSet = new Set();
+      try {
+        const players = await getPlayers();
+        onlineNames = players.map(p => p.name.toLowerCase());
+        onlineSet = new Set(onlineNames);
+      } catch(e) {
+        onlineNames = [];
+      }
+
+      let filtered = [];
+      if (onlineSet.size > 0) {
+        filtered = incidents.filter(e => e.playerName && onlineSet.has(e.playerName.toLowerCase()));
+      } else {
+        filtered = [];
+      }
+
+      const feed = document.getElementById('feed');
+      document.getElementById('feed-count').textContent = `${filtered.length} live · ${onlineSet.size} online`;
+      if (filtered.length === 0) {
+        feed.innerHTML = `<div class="empty"><p>${onlineSet.size===0 ? 'No players online' : 'No active threats - online players look clean. Search by nick in Main for offline.'}</p></div>`;
+      } else {
+        feed.innerHTML = filtered.slice(0, 30).map(e => {
+          const checkName = t('check.'+e.check);
+          const name = checkName === 'check.'+e.check ? e.check.replace('Check','') : checkName;
+          const level = e.confidence >= 0.8 ? 'critical' : e.confidence >= 0.6 ? 'high' : e.confidence >= 0.3 ? 'suspicious' : 'clean';
+          return `
+            <div class="event">
+              <div class="event-top">
+                <span class="event-check">${escapeHtml(e.playerName||'')} · ${escapeHtml(name)}</span>
+                <span style="display:flex; gap:6px; align-items:center;">
+                  <span class="risk-badge risk-${level}">${level} ${(e.confidence*100).toFixed(0)}%</span>
+                  <span class="event-time">${escapeHtml(e.timestamp||'')}</span>
+                </span>
+              </div>
+              <div class="event-human">${escapeHtml(e.details||'')}</div>
+              <div class="event-details">${escapeHtml(e.world||'')} ${e.x!==undefined ? e.x.toFixed(0)+','+e.y.toFixed(0)+','+e.z.toFixed(0) : ''} · ping ${e.ping||0}ms · ${e.movementState||''} · air ${e.airTicks||0}</div>
+              <div class="event-actions">
+                <span class="event-action action-${(e.action||'flag').toLowerCase()}">${escapeHtml(e.action||'flag')}</span>
+                <span class="tag">VL ${e.vl||0}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+    } catch(e) { console.error(e); }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    refresh();
+    refreshRevex();
+    setInterval(refresh, 2000);
+    setInterval(refreshRevex, 5000);
+    window.praxicRerender = () => { applyI18n(); refresh(); refreshRevex(); };
+  });
+</script>
+</body>
+</html>

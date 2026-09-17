@@ -72,7 +72,7 @@ public class VelocityCheck extends AbstractCheck {
         if (player.gameMode.getGameModeForPlayer() == GameType.CREATIVE) return;
         if (player.isPassenger()) return;
 
-        // Reset pending check on death — player teleports to spawn within 5 ticks,
+        // Reset pending check on death - player teleports to spawn within 5 ticks,
         // displacement measurement would compare pre-death and post-respawn positions
         if (player.getHealth() <= 0) {
             data.knockbackPending = false;

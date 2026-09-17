@@ -19,7 +19,7 @@ import java.util.UUID;
  *
  * Data source: PlayerData.attackTimestamps / movePacketTimestamps
  * (sliding windows already maintained by AutoClickerCheck / TimerCheck).
- * TimingAnalyzer reads from these Deques — does not own them.
+ * TimingAnalyzer reads from these Deques - does not own them.
  */
 public class TimingAnalyzer {
 
@@ -40,11 +40,11 @@ public class TimingAnalyzer {
 
     /**
      * Intervals between consecutive attacks (ms), derived from attackTimestamps.
-     * Maintained internally — avoids recomputing from the full Deque each tick.
+     * Maintained internally - avoids recomputing from the full Deque each tick.
      */
     private final Map<UUID, Deque<Long>> attackIntervals = new HashMap<>();
 
-    /** Last attack timestamp seen — used as reference point for the next interval. */
+    /** Last attack timestamp seen - used as reference point for the next interval. */
     private final Map<UUID, Long> lastAttackTs = new HashMap<>();
 
     /**
@@ -64,7 +64,7 @@ public class TimingAnalyzer {
      * Call after CheckManager has processed packets for this tick.
      *
      * @param uuid player UUID
-     * @param data legacy PlayerData — source of timestamp Deques
+     * @param data legacy PlayerData - source of timestamp Deques
      * @return TimingProfile with all metrics
      */
     public TimingProfile analyse(UUID uuid, PlayerData data) {
@@ -77,11 +77,13 @@ public class TimingAnalyzer {
         double clickStdDev  = stdDev(aIntervals, MIN_ATTACK_SAMPLES);
         double packetStdDev = stdDev(pIntervals, MIN_PACKET_SAMPLES);
         double avgCps       = computeAvgCps(data.attackTimestamps);
+        double totalCps     = computeAvgCps(data.clickTimestamps);
 
         return new TimingProfile(
                 clickStdDev,
                 packetStdDev,
                 avgCps,
+                totalCps,
                 aIntervals.size(),
                 pIntervals.size()
         );
@@ -96,7 +98,7 @@ public class TimingAnalyzer {
     }
 
     // -------------------------------------------------------------------------
-    // Internal — interval derivation
+    // Internal - interval derivation
     // -------------------------------------------------------------------------
 
     /**
@@ -164,7 +166,7 @@ public class TimingAnalyzer {
     }
 
     // -------------------------------------------------------------------------
-    // Internal — statistics
+    // Internal - statistics
     // -------------------------------------------------------------------------
 
     /**

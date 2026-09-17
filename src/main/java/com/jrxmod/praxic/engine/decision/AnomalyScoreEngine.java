@@ -9,7 +9,7 @@ import java.util.UUID;
  *
  * Where ConfidenceEngine reacts to explicit check flags (hard evidence),
  * AnomalyScoreEngine reacts to subtle but sustained deviation from a player's
- * own baseline — the signature of closet-cheaters who keep values just below
+ * own baseline - the signature of closet-cheaters who keep values just below
  * per-check detection thresholds.
  *
  * When anomaly score exceeds NUDGE_THRESHOLD, CheckManager calls
@@ -33,13 +33,13 @@ public class AnomalyScoreEngine {
      * Score added per tick when deviationScore exceeds SUSPICION_THRESHOLD.
      * At 20 TPS, a sustained deviation reaching 3.0 takes ~33 seconds to
      * push anomaly from 0.0 to 0.66 (below ConfidenceEngine nudge threshold).
-     * This is intentionally slow — we want sustained deviation, not spikes.
+     * This is intentionally slow - we want sustained deviation, not spikes.
      */
     private static final double ACCUMULATION_RATE = 0.001;
 
     /**
      * Multiplicative decay applied every tick regardless of flags.
-     * Anomaly decays much faster than confidence — it reflects current behaviour,
+     * Anomaly decays much faster than confidence - it reflects current behaviour,
      * not historical evidence. A player who stops deviating should clear quickly.
      * At 20 TPS: score × 0.999 per tick = score × ~0.82 per second.
      */
@@ -70,12 +70,12 @@ public class AnomalyScoreEngine {
      *
      * @param uuid           player UUID
      * @param deviationScore PlayerBaseline.deviationScore for this tick.
-     *                       -1.0 means baseline not ready — no accumulation, still decay.
+     *                       -1.0 means baseline not ready - no accumulation, still decay.
      */
     public void feed(UUID uuid, double deviationScore) {
         double current = scores.getOrDefault(uuid, 0.0);
 
-        // Always decay — anomaly reflects current state, not history
+        // Always decay - anomaly reflects current state, not history
         current *= DECAY_FACTOR;
 
         // Accumulate only when baseline is ready and deviation is suspicious

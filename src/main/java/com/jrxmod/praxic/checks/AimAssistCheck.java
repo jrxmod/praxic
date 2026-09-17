@@ -14,9 +14,9 @@ import net.minecraft.world.level.GameType;
  * so the per-tick rotation speed stays nearly constant and the coefficient
  * of variation is very low. Hand mouse input is bursty: speed varies a lot
  * even while smoothly following a target, which is why the previous entropy
- * heuristic flagged legit players who trace an entity. A >320deg yaw delta in
- * one tick (a modulo-360 wrap artifact) is flagged independently because it
- * has no legit equivalent.
+ * heuristic flagged legit players who trace an entity. Large snap detection
+ * uses 150 deg threshold on normalized yaw delta, since raw 320 deg wrap
+ * never occurs after snapshot normalization.
  */
 public class AimAssistCheck extends AbstractCheck {
 

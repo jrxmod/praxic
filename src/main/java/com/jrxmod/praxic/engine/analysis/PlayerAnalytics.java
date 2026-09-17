@@ -4,7 +4,7 @@ package com.jrxmod.praxic.engine.analysis;
  * Aggregates all per-tick analysis results for one player into a single object.
  * Produced by CheckManager after all four analysis steps complete.
  * Checks that need multiple profiles read from here instead of four separate maps.
- * All fields are non-null — if an analyser has no data yet its profile carries -1.0 values.
+ * All fields are non-null - if an analyser has no data yet its profile carries -1.0 values.
  */
 public final class PlayerAnalytics {
 
